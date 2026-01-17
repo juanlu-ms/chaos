@@ -1,0 +1,51 @@
+{
+    "name": "Kaos Dev Environment",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/github-cli:1": {},
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cmake-tools",
+                "llvm-vs-code-extensions.vscode-clangd",
+                "ms-azuretools.vscode-containers",
+                "eamodio.gitlens",
+                "matepek.vscode-catch2-test-adapter"
+            ],
+            "settings": {
+                "C_Cpp.intelliSenseEngine": "disabled",
+                "clangd.path": "/usr/bin/clangd",
+                "clangd.arguments": [
+                    "--compile-commands-dir=${workspaceFolder}/build",
+                    "--background-index",
+                    "--clang-tidy",
+                    "--completion-style=detailed",
+                    "--header-insertion=iwyu"
+                ],
+                "cmake.exportCompileCommands": true,
+                "cmake.configureOnOpen": true,
+                "cmake.buildDirectory": "${workspaceFolder}/build"
+            }
+        }
+    },
+    "remoteEnv": {
+        "VCPKG_ROOT": "/vcpkg",
+        "PATH": "/vcpkg:${containerEnv:PATH}"
+    },
+    "runArgs": [
+        "--privileged",
+        "--cap-add=SYS_PTRACE",
+        "--security-opt",
+        "seccomp=unconfined"
+    ],
+    "mounts": [
+        "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+    ],
+    "postCreateCommand": "sudo chmod 666 /var/run/docker.sock",
+    "remoteUser": "vscode"
+}

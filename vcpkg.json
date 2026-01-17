@@ -1,0 +1,10 @@
+{
+  "name": "kaos-core",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "nlohmann-json",
+    "spdlog",
+    "cpp-httplib",
+    "gtest"
+  ]
+}

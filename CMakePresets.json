@@ -84,7 +84,7 @@
   "testPresets": [
     {
       "name": "test",
-      "configurePreset": "dev-linux-clang",
+      "configurePreset": "dev-linux-gcc",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true

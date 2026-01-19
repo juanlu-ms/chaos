@@ -16,6 +16,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(httplib CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
+find_package(CURL REQUIRED)
 
 file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 list(FILTER CORE_SOURCES EXCLUDE REGEX "src/main.cpp$")
@@ -31,6 +32,7 @@ target_link_libraries(kaos_core PUBLIC
     nlohmann_json::nlohmann_json
     httplib::httplib
     spdlog::spdlog
+    CURL::libcurl
 )
 
 if(UNIX)
@@ -47,12 +49,17 @@ add_subdirectory(src/wrapper)
 
 enable_testing()
 
-add_executable(kaos_tests tests/test_main.cpp)
+add_executable(kaos_tests 
+    tests/adapters/infra/docker/DockerClientAdapterTest.cpp
+    src/adapters/infra/docker/DockerClientAdapter.cpp
+)
 
 target_link_libraries(kaos_tests PRIVATE 
     kaos_core
     GTest::gtest_main
     spdlog::spdlog
+    nlohmann_json::nlohmann_json
+    httplib::httplib
 )
 
 include(GoogleTest)

@@ -12,4 +12,4 @@ Unlike distributed chaos orchestrators, CHAOS specializes in unit validation of 
 - Stress Monitoring: Provide real-time metrics on the behavior of the “victim” under controlled stress scenarios.
 
 ## Architecture Overview
-![Diagram of the system architecture](docs/architectural-design.png)
+![Diagram of the system architecture](docs/images/architectural-design.png)

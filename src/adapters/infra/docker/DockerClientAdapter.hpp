@@ -1,29 +1,29 @@
 #pragma once
 
-#include <curl/curl.h>
-
 #include <domain/entities/Container.hpp>
 #include <domain/ports/IContainerEngine.hpp>
 #include <expected>
+#include <nlohmann/json_fwd.hpp>
+#include <string>
 #include <vector>
 
 namespace kaos::adapters::infra::docker {
 
 class DockerClientAdapter : public kaos::domain::ports::IContainerEngine {
 private:
-    CURL* curl_handle_;
+    std::string socket_path_;
 
-    explicit DockerClientAdapter(CURL* curl_handle);
+    explicit DockerClientAdapter(std::string socket_path);
 
-    static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp);
+    nlohmann::json request(std::string method, const std::string& endpoint);
 
 public:
-    ~DockerClientAdapter();
+    ~DockerClientAdapter() = default;
 
     DockerClientAdapter(const DockerClientAdapter&) = delete;
     DockerClientAdapter& operator=(const DockerClientAdapter&) = delete;
 
-    DockerClientAdapter(DockerClientAdapter&& other) noexcept;
+    DockerClientAdapter(DockerClientAdapter&& other) noexcept = default;
 
     static std::expected<DockerClientAdapter, std::string> create();
 

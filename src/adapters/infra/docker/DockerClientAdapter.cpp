@@ -1,4 +1,5 @@
-#include <curl/curl.h>
+#include <httplib.h>
+#include <sys/socket.h>
 
 #include <adapters/infra/docker/DockerClientAdapter.hpp>
 #include <nlohmann/json.hpp>
@@ -7,48 +8,37 @@
 
 namespace kaos::adapters::infra::docker {
 
-DockerClientAdapter::DockerClientAdapter(CURL* curl_handle) : curl_handle_(curl_handle) {}
+DockerClientAdapter::DockerClientAdapter(std::string socket_path) : socket_path_(std::move(socket_path)) {}
 
-DockerClientAdapter::~DockerClientAdapter() {
-    if (curl_handle_) {
-        curl_easy_cleanup(curl_handle_);
+nlohmann::json DockerClientAdapter::request(std::string method, const std::string& endpoint) {
+    httplib::Client client(socket_path_);
+    client.set_address_family(AF_UNIX);
+
+    httplib::Result response;
+    if (method == "GET") {
+        response = client.Get(endpoint.c_str());
+        if (!response) {
+            throw std::runtime_error("Failed to connect to Docker socket");
+        }
+    } else if (method == "POST") {
+        response = client.Post(endpoint.c_str());
+        if (!response) {
+            throw std::runtime_error("Failed to connect to Docker socket");
+        }
+    } else {
+        throw std::runtime_error("Unsupported HTTP method");
     }
-}
-
-DockerClientAdapter::DockerClientAdapter(DockerClientAdapter&& other) noexcept : curl_handle_(other.curl_handle_) {
-    other.curl_handle_ = nullptr;
-}
-
-size_t DockerClientAdapter::WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp) {
-    size_t totalSize = size * nmemb;
-    userp->append(static_cast<char*>(contents), totalSize);
-    return totalSize;
-}
-
-std::vector<kaos::domain::Container> DockerClientAdapter::listContainers() {
-    if (!curl_handle_) {
-        throw std::runtime_error("CURL handle is not initialized");
-    }
-
-    std::string response;
-    curl_easy_setopt(curl_handle_, CURLOPT_URL, "http://localhost/containers/json");
-    curl_easy_setopt(curl_handle_, CURLOPT_UNIX_SOCKET_PATH, "/var/run/docker.sock");
-    curl_easy_setopt(curl_handle_, CURLOPT_WRITEFUNCTION, &DockerClientAdapter::WriteCallback);
-    curl_easy_setopt(curl_handle_, CURLOPT_WRITEDATA, &response);
-
-    CURLcode result = curl_easy_perform(curl_handle_);
-    if (result != CURLE_OK) {
-        throw std::runtime_error(curl_easy_strerror(result));
-    }
-
-    long status_code = 0;
-    curl_easy_getinfo(curl_handle_, CURLINFO_RESPONSE_CODE, &status_code);
-    if (status_code != 200) {
+    if (response->status != 200) {
         throw std::runtime_error("Docker API returned non-OK status");
     }
 
+    return nlohmann::json::parse(response->body, nullptr, false);
+}
+
+std::vector<kaos::domain::Container> DockerClientAdapter::listContainers() {
     std::vector<kaos::domain::Container> containers;
-    auto json_response = nlohmann::json::parse(response, nullptr, false);
+
+    auto json_response = request("GET", "/containers/json");
     if (!json_response.is_array()) {
         throw std::runtime_error("Unexpected Docker API response format");
     }
@@ -60,6 +50,9 @@ std::vector<kaos::domain::Container> DockerClientAdapter::listContainers() {
         }
         if (item.contains("Names") && item["Names"].is_array() && !item["Names"].empty()) {
             container.name = item["Names"][0].get<std::string>();
+            if (!container.name.empty() && container.name.front() == '/') {
+                container.name.erase(0, 1);
+            }
         }
         if (item.contains("State") && item["State"].is_string()) {
             container.state = item["State"].get<std::string>();
@@ -71,11 +64,7 @@ std::vector<kaos::domain::Container> DockerClientAdapter::listContainers() {
 }
 
 std::expected<DockerClientAdapter, std::string> DockerClientAdapter::create() {
-    CURL* curl = curl_easy_init();
-    if (!curl) {
-        return std::unexpected("Failed to initialize CURL");
-    }
-    return DockerClientAdapter(curl);
+    return DockerClientAdapter("/var/run/docker.sock");
 }
 
 }  // namespace kaos::adapters::infra::docker

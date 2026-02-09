@@ -4,7 +4,7 @@
 namespace kaos::domain {
 
 struct Container {
-    int id;
+    std::string id;
     std::string name;
     std::string state;
 };

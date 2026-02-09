@@ -20,7 +20,6 @@ find_package(CURL REQUIRED)
 
 file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 list(FILTER CORE_SOURCES EXCLUDE REGEX "src/main.cpp$")
-list(FILTER CORE_SOURCES EXCLUDE REGEX "src/wrapper/.*")
 
 add_library(kaos_core STATIC ${CORE_SOURCES})
 
@@ -32,7 +31,6 @@ target_link_libraries(kaos_core PUBLIC
     nlohmann_json::nlohmann_json
     httplib::httplib
     spdlog::spdlog
-    CURL::libcurl
 )
 
 if(UNIX)
@@ -44,8 +42,6 @@ endif()
 
 add_executable(kaos src/main.cpp)
 target_link_libraries(kaos PRIVATE kaos_core)
-
-add_subdirectory(src/wrapper)
 
 enable_testing()
 

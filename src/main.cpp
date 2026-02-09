@@ -1,7 +1,22 @@
 #include <adapters/ui/web/Server.hpp>
+#include <cstdio>
+
+#include "adapters/infra/docker/DockerClientAdapter.hpp"
+#include "domain/entities/Container.hpp"
+
+using kaos::adapters::infra::docker::DockerClientAdapter;
 
 int main() {
-    kaos::adapters::ui::web::Server server;
-    server.run(8080);
+    auto clientResult = DockerClientAdapter::create();
+    if (!clientResult) {
+        return 1;
+    }
+
+    auto containers = clientResult->listContainers();
+
+    std::printf("ID\tName\tState\n");
+    for (const auto& container : containers) {
+        std::printf("%s\t%s\t%s\n", container.id.c_str(), container.name.c_str(), container.state.c_str());
+    }
     return 0;
 }

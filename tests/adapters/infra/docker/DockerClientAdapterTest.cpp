@@ -5,9 +5,7 @@
 using kaos::adapters::infra::docker::DockerClientAdapter;
 
 TEST(DockerClientAdapterTest, RetrievesRunningContainers) {
-    auto result = DockerClientAdapter::create();
-    ASSERT_TRUE(result.has_value()) << result.error();
-    auto adapter = std::move(result.value());
+    auto adapter = DockerClientAdapter::create();
 
     const auto containers = adapter.listContainers();
 

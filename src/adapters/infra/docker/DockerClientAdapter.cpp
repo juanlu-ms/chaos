@@ -63,7 +63,7 @@ std::vector<kaos::domain::Container> DockerClientAdapter::listContainers() {
     return containers;
 }
 
-std::expected<DockerClientAdapter, std::string> DockerClientAdapter::create() {
+DockerClientAdapter DockerClientAdapter::create() {
     return DockerClientAdapter("/var/run/docker.sock");
 }
 

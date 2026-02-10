@@ -7,12 +7,8 @@
 using kaos::adapters::infra::docker::DockerClientAdapter;
 
 int main() {
-    auto clientResult = DockerClientAdapter::create();
-    if (!clientResult) {
-        return 1;
-    }
-
-    auto containers = clientResult->listContainers();
+    auto client = DockerClientAdapter::create();
+    auto containers = client.listContainers();
 
     std::printf("ID\tName\tState\n");
     for (const auto& container : containers) {

@@ -1,8 +1,7 @@
 #pragma once
 
-#include <domain/entities/Container.hpp>
+#include "domain/entities/Container.hpp"
 #include <domain/ports/IContainerEngine.hpp>
-#include <expected>
 #include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <vector>
@@ -25,7 +24,7 @@ public:
 
     DockerClientAdapter(DockerClientAdapter&& other) noexcept = default;
 
-    static std::expected<DockerClientAdapter, std::string> create();
+    static DockerClientAdapter create();
 
     std::vector<kaos::domain::Container> listContainers() override;
 };

@@ -7,10 +7,29 @@
   },
   "configurePresets": [
     {
+      "name": "dev-linux-gcc",
+      "displayName": "Linux GCC (Debug + vcpkg)",
+      "description": "Dev config using GCC and vcpkg",
+      "binaryDir": "${sourceDir}/build/debug",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_CXX_COMPILER": "g++-13",
+        "CMAKE_C_COMPILER": "gcc-13",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_FEATURE_FLAGS": "manifests",
+        "VCPKG_TARGET_TRIPLET": "x64-linux"
+      },
+      "environment": {
+        "VCPKG_ROOT": "/vcpkg"
+      }
+    },
+    {
       "name": "dev-linux-clang",
       "displayName": "Linux Clang (Debug + vcpkg)",
       "description": "Dev config using Clang and vcpkg",
-      "binaryDir": "${sourceDir}/build",
+      "binaryDir": "${sourceDir}/build/debug-clang",
       "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -18,13 +37,27 @@
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "CMAKE_CXX_FLAGS": "-fcolor-diagnostics -pthread",
-        "CMAKE_EXE_LINKER_FLAGS": "-fuse-ld=lld -pthread",
-        "CMAKE_SHARED_LINKER_FLAGS": "-fuse-ld=lld -pthread",
-        "CMAKE_THREAD_LIBS_INIT": "-pthread",
-        "CMAKE_HAVE_LIBC_PTHREAD": "1",
-        "CMAKE_USE_PTHREADS_INIT": "1",
-        "Threads_FOUND": "TRUE"
+        "VCPKG_FEATURE_FLAGS": "manifests",
+        "VCPKG_TARGET_TRIPLET": "x64-linux"
+      },
+      "environment": {
+        "VCPKG_ROOT": "/vcpkg"
+      }
+    },
+    {
+      "name": "release-linux-gcc",
+      "displayName": "Linux GCC (Release + vcpkg)",
+      "description": "Release config using GCC and vcpkg",
+      "binaryDir": "${sourceDir}/build/release",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_CXX_COMPILER": "g++-13",
+        "CMAKE_C_COMPILER": "gcc-13",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_FEATURE_FLAGS": "manifests",
+        "VCPKG_TARGET_TRIPLET": "x64-linux"
       },
       "environment": {
         "VCPKG_ROOT": "/vcpkg"
@@ -34,8 +67,18 @@
   "buildPresets": [
     {
       "name": "debug",
+      "configurePreset": "dev-linux-gcc",
+      "configuration": "Debug"
+    },
+    {
+      "name": "debug-clang",
       "configurePreset": "dev-linux-clang",
-      "configuration": "Debug" 
+      "configuration": "Debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release-linux-gcc",
+      "configuration": "Release"
     }
   ],
   "testPresets": [
@@ -43,6 +86,18 @@
       "name": "test",
       "configurePreset": "dev-linux-clang",
       "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "stopOnFailure": false
+      }
+    },
+    {
+      "name": "test-release",
+      "configurePreset": "release-linux-gcc",
+      "configuration": "Release",
       "output": {
         "outputOnFailure": true
       },

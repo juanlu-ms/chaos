@@ -16,7 +16,6 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(httplib CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
-find_package(CURL REQUIRED)
 
 file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 list(FILTER CORE_SOURCES EXCLUDE REGEX "src/main.cpp$")

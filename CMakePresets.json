@@ -11,7 +11,7 @@
       "displayName": "Local Environment Overrides",
       "description": "Local-only environment settings",
       "environment": {
-        "VCPKG_ROOT": "/vcpkg"
+        "VCPKG_ROOT": "$penv{VCPKG_ROOT}"
       }
     },
     {

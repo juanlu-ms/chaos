@@ -13,3 +13,21 @@ Unlike distributed chaos orchestrators, CHAOS specializes in unit validation of 
 
 ## Architecture Overview
 ![Diagram of the system architecture](docs/images/architectural-design.png)
+
+## Local build (portable)
+
+To avoid exporting `VCPKG_ROOT` manually, use:
+
+`bash scripts/cmake-local.sh all`
+
+The script auto-detects `vcpkg` in this order:
+
+1. `VCPKG_ROOT` (if already set and valid)
+2. `./vcpkg`
+3. `/vcpkg`
+
+You can run a single stage too:
+
+- `bash scripts/cmake-local.sh configure`
+- `bash scripts/cmake-local.sh build`
+- `bash scripts/cmake-local.sh test`

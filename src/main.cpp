@@ -1,25 +1,23 @@
 #include <spdlog/spdlog.h>
 
 #include "adapters/infra/docker/DockerClientAdapter.hpp"
+#include "adapters/ui/cli/CliAdapter.hpp"
+#include "domain/ports/IUserInterface.hpp"
 
 using chaos::adapters::infra::docker::DockerClientAdapter;
+using chaos::adapters::ui::cli::CliAdapter;
 
 /**
  * @brief Application entry point.
  * @return Exit code (0 on success, 1 on failure).
  */
-int main() {
-    spdlog::set_level(spdlog::level::debug);
-    try {
-        auto client = DockerClientAdapter::create();
-        auto containers = client->listContainers();
+int main(int argc, char* argv[]) {
+    spdlog::set_level(spdlog::level::warn);
 
-        for (const auto& container : containers) {
-            spdlog::info("  {} {} {}", container.id.substr(0, 12), container.name, container.state);
-        }
-    } catch (const std::exception& ex) {
-        spdlog::error("Error: {}", ex.what());
-        return 1;
-    }
-    return 0;
+    auto engine = DockerClientAdapter::create();
+    std::shared_ptr<chaos::domain::ports::IContainerEngine> sharedEngine(std::move(engine));
+
+    std::unique_ptr<chaos::domain::ports::IUserInterface> ui =
+        std::make_unique<CliAdapter>(sharedEngine);
+    return ui->run(argc, argv);
 }

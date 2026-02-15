@@ -14,10 +14,32 @@ Server::Server(std::shared_ptr<chaos::domain::ports::IContainerEngine> engine) :
 }
 
 /**
- * @brief Start the HTTP server.
+ * @brief Start the server from argc/argv, parsing --port.
+ * @param argc Argument count.
+ * @param argv Argument values.
+ * @return Exit code (0 on success, non-zero on error).
+ */
+int Server::run(int argc, char* argv[]) {
+    int port = 8080;
+    for (int i = 1; i < argc - 1; ++i) {
+        if (std::string(argv[i]) == "--port") {
+            try {
+                port = std::stoi(argv[i + 1]);
+            } catch (...) {
+                spdlog::error("Invalid port number: {}", argv[i + 1]);
+                return 1;
+            }
+        }
+    }
+    listen(port);
+    return 0;
+}
+
+/**
+ * @brief Start the HTTP server on a specific port.
  * @param port TCP port to bind on all interfaces.
  */
-void Server::run(int port) {
+void Server::listen(int port) {
     spdlog::info("chaos listening to http://0.0.0.0:{}", port);
     m_server.listen("0.0.0.0", port);
 }

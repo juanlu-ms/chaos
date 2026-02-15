@@ -16,9 +16,11 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(httplib CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
 
 set(CORE_SOURCES
     src/adapters/infra/docker/DockerClientAdapter.cpp
+    src/adapters/ui/cli/CliAdapter.cpp
     src/adapters/ui/web/Server.cpp
 )
 
@@ -27,10 +29,12 @@ target_include_directories(chaos_core PUBLIC
     ${CMAKE_SOURCE_DIR}/src
 )
 
+
 target_link_libraries(chaos_core PUBLIC 
     nlohmann_json::nlohmann_json
     httplib::httplib
     spdlog::spdlog
+    fmt::fmt
 )
 
 if(UNIX)

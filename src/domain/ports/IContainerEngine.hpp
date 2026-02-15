@@ -21,6 +21,14 @@ public:
      * @throws std::exception On transport or parsing failures.
      */
     virtual std::vector<Container> listContainers() = 0;
+
+    /**
+     * @brief Stop a container by ID.
+     * @param containerId Container ID to stop.
+     * @throws std::exception On transport errors or non-OK responses.
+     */
+    virtual void stopContainer(const std::string& containerId) = 0;
+
     /**
      * @brief Kill a container by ID.
      * @param containerId Docker container ID.

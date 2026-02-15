@@ -1,7 +1,9 @@
+#include <fmt/format.h>
 #include <gtest/gtest.h>
 
 #include <adapters/infra/docker/DockerClientAdapter.hpp>
 #include <nlohmann/json.hpp>
+#include <string_view>
 
 using chaos::adapters::infra::docker::DockerClientAdapter;
 using chaos::adapters::infra::docker::HttpMethod;
@@ -11,7 +13,7 @@ namespace {
 
 // Helper to create an adapter that returns a predefined JSON response.
 DockerClientAdapter makeAdapterWithResponse(const nlohmann::json& response) {
-    return DockerClientAdapter([response](HttpMethod method, const std::string& endpoint) {
+    return DockerClientAdapter([response](HttpMethod method, std::string_view endpoint) {
         // We can still add default checks if we want.
         EXPECT_EQ(method, HttpMethod::GET);
         EXPECT_EQ(endpoint, "/containers/json");
@@ -22,7 +24,7 @@ DockerClientAdapter makeAdapterWithResponse(const nlohmann::json& response) {
 // Helper to create an adapter that throws a specific error.
 DockerClientAdapter makeAdapterWithError(const std::string& error_message) {
     return DockerClientAdapter(
-        [error_message](HttpMethod, const std::string&) -> HttpResponse { throw std::runtime_error(error_message); });
+        [error_message](HttpMethod, std::string_view) -> HttpResponse { throw std::runtime_error(error_message); });
 }
 
 }  // namespace
@@ -99,16 +101,60 @@ TEST(DockerClientAdapterUnitTest, PropagatesTransportErrors) {
     EXPECT_THROW(adapter.listContainers(), std::runtime_error);
 }
 
+TEST(DockerClientAdapterUnitTest, StopContainerCallsCorrectEndpoint) {
+    bool was_called = false;
+    const std::string container_id = "test-container-456";
+
+    auto adapter =
+        DockerClientAdapter([&was_called, &container_id](HttpMethod method, std::string_view endpoint) {
+            was_called = true;
+            EXPECT_EQ(method, HttpMethod::POST);
+            EXPECT_EQ(endpoint, fmt::format("/containers/{}/stop", container_id));
+            return HttpResponse{204, ""};
+        });
+
+    adapter.stopContainer(container_id);
+    EXPECT_TRUE(was_called);
+}
+
+TEST(DockerClientAdapterUnitTest, StopContainerWithCustomTimeout) {
+    const std::string container_id = "test-container-789";
+    bool endpoint_correct = false;
+
+    auto adapter =
+        DockerClientAdapter([&endpoint_correct, &container_id](HttpMethod method, std::string_view endpoint) {
+            EXPECT_EQ(method, HttpMethod::POST);
+            endpoint_correct = endpoint == fmt::format("/containers/{}/stop", container_id);
+            return HttpResponse{204, ""};
+        });
+
+    adapter.stopContainer(container_id);
+    EXPECT_TRUE(endpoint_correct);
+}
+
+TEST(DockerClientAdapterUnitTest, StopContainerPropagatesApiError) {
+    auto adapter = makeAdapterWithError("Docker daemon unreachable");
+
+    EXPECT_THROW(adapter.stopContainer("any-id"), std::runtime_error);
+}
+
+TEST(DockerClientAdapterUnitTest, StopContainerWithEmptyIdThrows) {
+    auto adapter = makeAdapterWithResponse(nlohmann::json::array());
+
+    EXPECT_THROW(adapter.stopContainer(""), std::runtime_error);
+}
+
 TEST(DockerClientAdapterUnitTest, KillContainerCallsCorrectEndpoint) {
     bool was_called = false;
     const std::string container_id = "test-container-123";
 
-    auto adapter = DockerClientAdapter([&was_called, &container_id](HttpMethod method, const std::string& endpoint) {
-        was_called = true;
-        EXPECT_EQ(method, HttpMethod::POST);
-        EXPECT_EQ(endpoint, "/containers/" + container_id + "/kill");
-        return HttpResponse{204, ""};
-    });
+    auto adapter =
+        DockerClientAdapter([&was_called, &container_id](HttpMethod method, std::string_view endpoint) {
+            was_called = true;
+            EXPECT_EQ(method, HttpMethod::POST);
+            EXPECT_EQ(endpoint, fmt::format("/containers/{}/kill", container_id));
+            return HttpResponse{204, ""};
+        });
 
     adapter.killContainer(container_id);
     EXPECT_TRUE(was_called);

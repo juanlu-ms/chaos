@@ -5,6 +5,7 @@
 #include <memory>
 #include <nlohmann/json_fwd.hpp>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "domain/entities/Container.hpp"
@@ -36,7 +37,7 @@ public:
      * @return HTTP response with status code and body.
      * @throws std::exception On transport errors.
      */
-    using RequestFn = std::function<HttpResponse(HttpMethod, const std::string&)>;
+    using RequestFn = std::function<HttpResponse(HttpMethod, std::string_view)>;
 
     /**
      * @brief Construct an adapter using an injected request function.
@@ -64,6 +65,14 @@ public:
      * @throws std::exception On unexpected response formats.
      */
     std::vector<chaos::domain::Container> listContainers() override;
+
+    /**
+     * @brief Stop a container by ID.
+     * @param containerId Docker container ID.
+     * @throws std::exception On transport errors or non-OK responses.
+     */
+    void stopContainer(const std::string& containerId) override;
+
     /**
      * @brief Kill a container by ID.
      * @param containerId Docker container ID.
@@ -74,7 +83,7 @@ public:
 private:
     RequestFn request_;
 
-    nlohmann::json validateResponse(const HttpResponse& response);
+    nlohmann::json validateResponse(const HttpResponse& response) const;
 };
 
 }  // namespace chaos::adapters::infra::docker

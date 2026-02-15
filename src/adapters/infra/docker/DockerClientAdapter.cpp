@@ -9,8 +9,17 @@
 
 namespace chaos::adapters::infra::docker {
 
+/**
+ * @brief Construct the adapter with an injected request function.
+ * @param requestFn Function that performs API requests.
+ */
 DockerClientAdapter::DockerClientAdapter(RequestFn requestFn) : request_(std::move(requestFn)) {}
 
+/**
+ * @brief List containers from the Docker Engine API.
+ * @return Vector of container summaries.
+ * @throws std::runtime_error On unexpected response formats.
+ */
 std::vector<chaos::domain::Container> DockerClientAdapter::listContainers() {
     spdlog::debug("DockerClientAdapter: listing containers");
     auto json_response = request_(HttpMethod::GET, "/containers/json");
@@ -43,6 +52,12 @@ std::vector<chaos::domain::Container> DockerClientAdapter::listContainers() {
     return containers;
 }
 
+/**
+ * @brief Create an adapter backed by a Unix socket client.
+ * @param socket_path Path to the Docker Engine socket.
+ * @return A container engine instance.
+ * @throws std::runtime_error On connection or parsing errors.
+ */
 std::unique_ptr<chaos::domain::ports::IContainerEngine> DockerClientAdapter::create(const std::string& socket_path) {
     spdlog::info("DockerClientAdapter: using socket {}", socket_path);
     auto client = std::make_shared<httplib::Client>(socket_path);

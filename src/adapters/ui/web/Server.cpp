@@ -5,19 +5,30 @@ using json = nlohmann::json;
 
 namespace chaos::adapters::ui::web {
 
+/**
+ * @brief Construct the server and register routes.
+ * @param engine Engine used to retrieve container data.
+ */
 Server::Server(std::shared_ptr<chaos::domain::ports::IContainerEngine> engine) : m_engine(std::move(engine)) {
     setupRoutes();
 }
 
+/**
+ * @brief Start the HTTP server.
+ * @param port TCP port to bind on all interfaces.
+ */
 void Server::run(int port) {
     spdlog::info("chaos listening to http://0.0.0.0:{}", port);
     m_server.listen("0.0.0.0", port);
 }
 
+/**
+ * @brief Register HTTP routes for the web adapter.
+ */
 void Server::setupRoutes() {
     m_server.Get("/status", [](const httplib::Request&, httplib::Response& res) {
         json j;
-        j["project"] = "chaos Engine";
+        j["project"] = "Chaos Engine";
         j["status"] = "Online (Web Adapter)";
 
         res.set_content(j.dump(4), "application/json");

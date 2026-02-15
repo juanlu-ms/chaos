@@ -4,6 +4,10 @@
 
 using chaos::adapters::infra::docker::DockerClientAdapter;
 
+/**
+ * @brief Application entry point.
+ * @return Exit code (0 on success, 1 on failure).
+ */
 int main() {
     spdlog::set_level(spdlog::level::debug);
     try {

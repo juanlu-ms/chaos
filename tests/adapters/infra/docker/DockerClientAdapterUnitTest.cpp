@@ -5,24 +5,24 @@
 
 using chaos::adapters::infra::docker::DockerClientAdapter;
 using chaos::adapters::infra::docker::HttpMethod;
+using chaos::adapters::infra::docker::HttpResponse;
 
 namespace {
 
 // Helper to create an adapter that returns a predefined JSON response.
 DockerClientAdapter makeAdapterWithResponse(const nlohmann::json& response) {
-    return DockerClientAdapter([response](HttpMethod method, const std::string& endpoint) -> nlohmann::json {
+    return DockerClientAdapter([response](HttpMethod method, const std::string& endpoint) {
         // We can still add default checks if we want.
         EXPECT_EQ(method, HttpMethod::GET);
         EXPECT_EQ(endpoint, "/containers/json");
-        return response;
+        return HttpResponse{200, response.dump()};
     });
 }
 
 // Helper to create an adapter that throws a specific error.
 DockerClientAdapter makeAdapterWithError(const std::string& error_message) {
-    return DockerClientAdapter([error_message](HttpMethod, const std::string&) -> nlohmann::json {
-        throw std::runtime_error(error_message);
-    });
+    return DockerClientAdapter(
+        [error_message](HttpMethod, const std::string&) -> HttpResponse { throw std::runtime_error(error_message); });
 }
 
 }  // namespace
@@ -103,14 +103,11 @@ TEST(DockerClientAdapterUnitTest, KillContainerCallsCorrectEndpoint) {
     bool was_called = false;
     const std::string container_id = "test-container-123";
 
-    auto adapter = DockerClientAdapter([&](HttpMethod method, const std::string& endpoint) -> nlohmann::json {
+    auto adapter = DockerClientAdapter([&was_called, &container_id](HttpMethod method, const std::string& endpoint) {
         was_called = true;
         EXPECT_EQ(method, HttpMethod::POST);
         EXPECT_EQ(endpoint, "/containers/" + container_id + "/kill");
-        // The Docker API for 'kill' can return an empty body with a 204 status,
-        // which is not valid JSON. We return an empty object to satisfy the
-        // function signature, as the return value is ignored by killContainer.
-        return nlohmann::json::object();
+        return HttpResponse{204, ""};
     });
 
     adapter.killContainer(container_id);

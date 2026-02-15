@@ -17,6 +17,14 @@ namespace chaos::adapters::infra::docker {
 enum class HttpMethod { GET, POST };
 
 /**
+ * @brief Raw HTTP response from Docker Engine API.
+ */
+struct HttpResponse {
+    int status = 0;
+    std::string body;
+};
+
+/**
  * @brief Docker Engine adapter implementing the container engine port.
  */
 class DockerClientAdapter : public chaos::domain::ports::IContainerEngine {
@@ -25,10 +33,10 @@ public:
      * @brief Function used to execute API requests.
      * @param method HTTP method (GET or POST).
      * @param endpoint API endpoint (e.g., /containers/json).
-     * @return Parsed JSON response.
-     * @throws std::exception On transport errors or invalid JSON.
+     * @return HTTP response with status code and body.
+     * @throws std::exception On transport errors.
      */
-    using RequestFn = std::function<nlohmann::json(HttpMethod, const std::string&)>;
+    using RequestFn = std::function<HttpResponse(HttpMethod, const std::string&)>;
 
     /**
      * @brief Construct an adapter using an injected request function.
@@ -65,6 +73,8 @@ public:
 
 private:
     RequestFn request_;
+
+    nlohmann::json validateResponse(const HttpResponse& response);
 };
 
 }  // namespace chaos::adapters::infra::docker

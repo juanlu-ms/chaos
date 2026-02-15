@@ -22,11 +22,13 @@ DockerClientAdapter::DockerClientAdapter(RequestFn requestFn) : request_(std::mo
  */
 std::vector<chaos::domain::Container> DockerClientAdapter::listContainers() {
     spdlog::debug("DockerClientAdapter: listing containers");
-    auto json_response = request_(HttpMethod::GET, "/containers/json");
-    if (!json_response.is_array()) {
-        spdlog::error("Docker API response is not an array");
-        throw std::runtime_error("Unexpected Docker API response format");
+    const auto response = request_(HttpMethod::GET, "/containers/json");
+    if (response.status != 200) {
+        spdlog::warn("Docker API returned status {}", response.status);
+        throw std::runtime_error("Docker API returned status " + std::to_string(response.status));
     }
+
+    auto json_response = validateResponse(response);
 
     std::vector<chaos::domain::Container> containers;
     containers.reserve(json_response.size());
@@ -53,27 +55,22 @@ std::vector<chaos::domain::Container> DockerClientAdapter::listContainers() {
 }
 
 /**
- * @brief Kill a container by ID (not implemented).
+ * @brief Kill a container by ID.
  * @param containerId Docker container ID.
- * @throws std::runtime_error Always, since this method is not implemented.
+ * @throws std::runtime_error On API errors.
  */
 void DockerClientAdapter::killContainer(const std::string& containerId) {
     spdlog::debug("DockerClientAdapter: killing container {}", containerId);
 
-    auto json_response = request_(HttpMethod::POST, "/containers/" + containerId + "/kill");
-
-    for (const auto& [key, value] : json_response.items()) {
-        spdlog::error("  {}: {}", key, value.dump());
-    }
-    if (json_response.is_object() && json_response.contains("error")) {
-        spdlog::error("Docker API error: {}", json_response["error"].get<std::string>());
-        for (const auto& [key, value] : json_response.items()) {
-            spdlog::error("  {}: {}", key, value.dump());
-        }
-        throw std::runtime_error("Docker API error: " + json_response["error"].get<std::string>());
+    const auto response = request_(HttpMethod::POST, "/containers/" + containerId + "/kill");
+    if (response.status != 204) {
+        spdlog::warn("Docker API returned status {}", response.status);
+        throw std::runtime_error("Docker API returned status " + std::to_string(response.status));
     }
 
-    spdlog::debug("DockerClientAdapter: kill response {}", json_response.dump());
+    if (!response.body.empty()) {
+        auto json_response = validateResponse(response);
+    }
 
     spdlog::info("DockerClientAdapter: container {} killed successfully", containerId);
 }
@@ -91,7 +88,7 @@ std::unique_ptr<chaos::domain::ports::IContainerEngine> DockerClientAdapter::cre
     client->set_connection_timeout(5);
     client->set_read_timeout(10);
 
-    auto requestFn = [client](HttpMethod method, const std::string& endpoint) -> nlohmann::json {
+    auto requestFn = [client](HttpMethod method, const std::string& endpoint) -> HttpResponse {
         spdlog::debug("DockerClientAdapter: request {} {}", method == HttpMethod::GET ? "GET" : "POST", endpoint);
         httplib::Result response;
         switch (method) {
@@ -107,24 +104,35 @@ std::unique_ptr<chaos::domain::ports::IContainerEngine> DockerClientAdapter::cre
             spdlog::error("DockerClientAdapter: connection to Docker socket failed");
             throw std::runtime_error("Failed to connect to Docker socket");
         }
-        if (response->status < 200 || response->status >= 300) {
-            spdlog::warn("Docker API returned status {}", response->status);
-            throw std::runtime_error("Docker API returned status " + std::to_string(response->status));
-        }
-
-        if (response->body.empty()) {
-            return nlohmann::json::object();
-        }
-
-        auto json = nlohmann::json::parse(response->body, nullptr, false);
-        if (json.is_discarded()) {
-            spdlog::error("Docker API response could not be parsed as JSON");
-            throw std::runtime_error("Failed to parse Docker API response");
-        }
-        return json;
+        return HttpResponse{response->status, response->body};
     };
 
     return std::make_unique<DockerClientAdapter>(std::move(requestFn));
+}
+
+/**
+ * @brief Validate the HTTP response from Docker API.
+ * @param response The HTTP response to validate.
+ * @throws std::runtime_error If the response indicates an error or is malformed.
+ */
+nlohmann::json DockerClientAdapter::validateResponse(const HttpResponse& response) {
+    if (response.body.empty()) {
+        spdlog::error("Docker API response body is empty");
+        throw std::runtime_error("Docker API response body is empty");
+    }
+    auto json_response = nlohmann::json::parse(response.body, nullptr, false);
+    if (json_response.is_discarded()) {
+        spdlog::error("Docker API response could not be parsed as JSON");
+        throw std::runtime_error("Failed to parse Docker API response");
+    }
+    if (json_response.is_object() && json_response.contains("error")) {
+        spdlog::error("Docker API error: {}", json_response["error"].get<std::string>());
+        for (const auto& [key, value] : json_response.items()) {
+            spdlog::error("  {}: {}", key, value.dump());
+        }
+        throw std::runtime_error("Docker API error: " + json_response["error"].get<std::string>());
+    }
+    return json_response;
 }
 
 }  // namespace chaos::adapters::infra::docker

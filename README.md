@@ -1,8 +1,8 @@
-# Kaos: Resilience Validation Platform
+# CHAOS: Resilience Validation Platform
 
-Kaos is a software engineering tool developed in C++23, designed for deterministic robustness verification in containerized applications.
+CHAOS is a software engineering tool developed in C++23, designed for deterministic robustness verification in containerized applications.
 
-Unlike distributed chaos orchestrators, Kaos specializes in unit validation of components. The system interacts directly with the Linux kernel (using Cgroups v2 and Network Namespaces) to subject a specific container to degraded execution conditions.
+Unlike distributed chaos orchestrators, CHAOS specializes in unit validation of components. The system interacts directly with the Linux kernel (using Cgroups v2 and Network Namespaces) to subject a specific container to degraded execution conditions.
 
 
 ## Technical Objectives

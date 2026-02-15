@@ -1,8 +1,8 @@
-# Kaos: Plataforma de Validación de Resiliencia para Contenedores (TFG 2026)
+# CHAOS: Plataforma de Validación de Resiliencia para Contenedores (TFG 2026)
 
-**Kaos** es un framework de ingeniería del caos diseñado para la etapa de desarrollo de software (*Shift-Left Testing*). A diferencia de las herramientas que operan sobre clústeres en producción, Kaos permite a los desarrolladores validar la resiliencia de sus contenedores Docker localmente, sometiéndolos a condiciones adversas como límites de CPU, inestabilidad de red o fugas de memoria durante la fase de programación.
+**CHAOS** es un framework de ingeniería del caos diseñado para la etapa de desarrollo de software (*Shift-Left Testing*). A diferencia de las herramientas que operan sobre clústeres en producción, CHAOS permite a los desarrolladores validar la resiliencia de sus contenedores Docker localmente, sometiéndolos a condiciones adversas como límites de CPU, inestabilidad de red o fugas de memoria durante la fase de programación.
 
-La principal innovación del proyecto es su **arquitectura de "Caja Gris"**. Mediante un agente ligero (`kaos_wrapper`), el sistema no solo interrumpe contenedores desde el exterior, sino que se ejecuta dentro del entorno de la aplicación para interceptar señales y diagnósticos que el runtime de Docker generalmente no expone.
+La principal innovación del proyecto es su **arquitectura de "Caja Gris"**. Mediante un agente ligero (`CHAOS_wrapper`), el sistema no solo interrumpe contenedores desde el exterior, sino que se ejecuta dentro del entorno de la aplicación para interceptar señales y diagnósticos que el runtime de Docker generalmente no expone.
 
 ---
 
@@ -10,7 +10,7 @@ La principal innovación del proyecto es su **arquitectura de "Caja Gris"**. Med
 
 En sistemas críticos (como aquellos utilizados en telemedicina, finanzas o procesamiento en tiempo real), un fallo silencioso suele ser más peligroso que una parada total. Un contenedor puede aparecer como "Running" según el orquestador, mientras su proceso interno se encuentra en estado de *deadlock* o con la comunicación de red bloqueada. Las herramientas de monitorización convencionales a menudo tardan en detectar estas anomalías.
 
-Kaos busca identificar estos estados y verificar la capacidad de recuperación automática del software antes de que el código se despliegue.
+CHAOS busca identificar estos estados y verificar la capacidad de recuperación automática del software antes de que el código se despliegue.
 
 ---
 
@@ -18,10 +18,10 @@ Kaos busca identificar estos estados y verificar la capacidad de recuperación a
 
 El sistema está implementado en C++23 moderno siguiendo una **Arquitectura Hexagonal Estricta**. Se compone de dos elementos principales:
 
-### 1. El Orquestador (`kaos`)
+### 1. El Orquestador (`CHAOS`)
 Ejecutado en el host del desarrollador, gestiona los escenarios de prueba definidos en JSON. Se comunica con la API de Docker para controlar el ciclo de vida de los contenedores y manipula directamente los subsistemas del Kernel de Linux (`cgroups` y `traffic control`) para inyectar fallos de recursos y red.
 
-### 2. El Agente (`kaos_wrapper`)
+### 2. El Agente (`CHAOS_wrapper`)
 Un binario estático que se inyecta en el contenedor y actúa como proceso padre (`PID 1`). Su función es ejecutar la aplicación del usuario como subproceso, interceptar señales de terminación (`SIGSEGV`, `SIGKILL`) y medir tiempos de ejecución precisos, reportando la telemetría al orquestador vía UDP.
 
 ### Stack Tecnológico
@@ -34,7 +34,7 @@ Un binario estático que se inyecta en el contenedor y actúa como proceso padre
 
 ## Flujo de Trabajo
 
-Una prueba típica en Kaos sigue estos pasos:
+Una prueba típica en CHAOS sigue estos pasos:
 
 1.  **Definición:** Se describe el escenario (ej. limitar la memoria a 200MB o la CPU al 30%) y el resultado esperado.
 2.  **Instrumentación:** El sistema arranca el contenedor inyectando el agente y reescribiendo el punto de entrada.
@@ -45,7 +45,7 @@ Una prueba típica en Kaos sigue estos pasos:
 
 ## Casos de Uso
 
-Kaos valida patrones de resiliencia ante fallos comunes:
+CHAOS valida patrones de resiliencia ante fallos comunes:
 
 | Riesgo | Ataque Simulado | Validación |
 | :--- | :--- | :--- |
@@ -62,7 +62,7 @@ Kaos valida patrones de resiliencia ante fallos comunes:
 El código sigue una estructura de monorepo organizada según la arquitectura hexagonal:
 
 ```plaintext
-kaos/
+CHAOS/
 ├── src/
 │   ├── domain/       # Lógica pura y reglas de negocio. Independiente de frameworks.
 │   ├── application/  # Casos de uso que orquestan el dominio.

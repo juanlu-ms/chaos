@@ -13,7 +13,7 @@ El objetivo inicial es establecer la comunicación con el Docker Engine y valida
 | **RF-1.1** | Conexión Docker | **MUST** | El sistema debe conectarse al socket de Docker (`/var/run/docker.sock`) y listar contenedores activos. |
 | **RF-1.2** | Gestión de Ciclo de Vida | **MUST** | Capacidad de detener (`stop`) y forzar la terminación (`kill`) de un contenedor específico por su ID. |
 | **RF-1.3** | Arquitectura Hexagonal | **MUST** | El dominio debe estar desacoplado de los adaptadores de infraestructura mediante abstracciones claras (Puertos y Adaptadores). |
-| **RF-1.4** | CLI de Control | **SHOULD** | Interfaz de línea de comandos para facilitar la ejecución en scripts (ej: `kaos attack --target <id>`). |
+| **RF-1.4** | CLI de Control | **SHOULD** | Interfaz de línea de comandos para facilitar la ejecución en scripts (ej: `CHAOS attack --target <id>`). |
 | **RF-1.5** | Panel Web Básico | **SHOULD** | Interfaz visual ligera para seleccionar contenedores y visualizar métricas básicas en tiempo real. |
 
 ### Fase 2: Observabilidad y Reportes
@@ -33,7 +33,7 @@ Desarrollo del agente interno para obtener métricas desde el interior del conte
 
 | ID | Requisito | Prioridad | Descripción |
 | :--- | :--- | :--- | :--- |
-| **RF-3.1** | Inyección de Agente | **COULD** | Modificación dinámica del `EntryPoint` del contenedor para inyectar el binario `kaos_wrapper` en tiempo de ejecución. |
+| **RF-3.1** | Inyección de Agente | **COULD** | Modificación dinámica del `EntryPoint` del contenedor para inyectar el binario `CHAOS_wrapper` en tiempo de ejecución. |
 | **RF-3.2** | Captura de Señales | **SHOULD** | El agente debe interceptar señales del kernel (`SIGTERM`, `SIGSEGV`) antes de que finalicen el proceso hijo. |
 | **RF-3.3** | Telemetría Interna | **COULD** | Medición precisa del tiempo de vida del proceso hijo y transmisión de datos al orquestador. |
 
@@ -49,7 +49,7 @@ Mecanismos para degradar el entorno de ejecución.
 
 ## Requisitos No Funcionales
 
-*   **RNF-1 Rendimiento:** El agente `kaos_wrapper` debe introducir una latencia de arranque inferior a **10ms**.
+*   **RNF-1 Rendimiento:** El agente `CHAOS_wrapper` debe introducir una latencia de arranque inferior a **10ms**.
 *   **RNF-2 Seguridad:** La operación estándar no debe requerir privilegios de `root` en el host, asumiendo que el usuario pertenece al grupo `docker`.
 *   **RNF-3 Portabilidad:** El código fuente debe ser compatible con cualquier distribución Linux moderna que soporte C++23.
 *   **RNF-4 Calidad de Código:** Adherencia a principios SOLID y mantenimiento de una cobertura de pruebas razonable para el núcleo del dominio.

@@ -1,6 +1,6 @@
 # Diseño Arquitectónico
 
-La arquitectura de `kaos` sigue el patrón de **Arquitectura Hexagonal**, favoreciendo el desacoplamiento entre las reglas de negocio y los detalles de implementación tecnológica. El sistema se desarrolla en C++23.
+La arquitectura de `CHAOS` sigue el patrón de **Arquitectura Hexagonal**, favoreciendo el desacoplamiento entre las reglas de negocio y los detalles de implementación tecnológica. El sistema se desarrolla en C++23.
 
 La solución se divide en dos componentes autónomos que colaboran entre sí: el **Orquestador** (Host) y el **Agente de Instrumentación** (Guest).
 
@@ -8,7 +8,7 @@ La solución se divide en dos componentes autónomos que colaboran entre sí: el
 
 ## 1. Componentes del Sistema
 
-### 1.1. Orquestador (`kaos`)
+### 1.1. Orquestador (`CHAOS`)
 
 Es el componente que reside en el host del desarrollador y coordina la ejecución de las pruebas.
 
@@ -19,7 +19,7 @@ Es el componente que reside en el host del desarrollador y coordina la ejecució
     *   Recolección y procesamiento de telemetría.
 *   **Implementación:** Encapsula la lógica de dominio (Entidades `Scenario`, `Experiment`) y utiliza adaptadores para interactuar con entradas (CLI, Web) y salidas (Docker, Sistema de Ficheros).
 
-### 1.2. Agente de Instrumentación (`kaos_wrapper`)
+### 1.2. Agente de Instrumentación (`CHAOS_wrapper`)
 
 Es un componente ligero diseñado para ejecutarse dentro del contenedor objetivo.
 
@@ -40,7 +40,7 @@ El siguiente diagrama ilustra la relación entre los componentes:
 |         Máquina Anfitriona      |
 |                                 |
 |  +---------------------------+  |
-|  |   Orquestador (`kaos`)    |  |
+|  |   Orquestador (`CHAOS`)    |  |
 |  |---------------------------|  |
 |  | 🔹 Lógica de Dominio      |  |
 |  | 🔹 Adaptador API Docker   |------> Docker Engine
@@ -73,7 +73,7 @@ El siguiente diagrama ilustra la relación entre los componentes:
 El repositorio sigue una estructura de monorepo alineada con los principios de la arquitectura definida:
 
 ```plaintext
-kaos/
+CHAOS/
 ├── src/
 │   ├── domain/       # Núcleo del negocio: Entidades y Puertos (Interfaces).
 │   │                 # Sin dependencias externas.

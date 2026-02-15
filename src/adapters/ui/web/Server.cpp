@@ -25,17 +25,20 @@ void Server::setupRoutes() {
 
     m_server.Get("/containers", [this](const httplib::Request&, httplib::Response& res) {
         try {
+            spdlog::debug("/containers requested");
             auto containers = m_engine->listContainers();
             json j = json::array();
             for (const auto& c : containers) {
                 j.push_back({{"id", c.id}, {"name", c.name}, {"state", c.state}});
             }
             res.set_content(j.dump(4), "application/json");
+            spdlog::info("/containers served: {} items", containers.size());
         } catch (const std::exception& ex) {
             json err;
             err["error"] = ex.what();
             res.status = 500;
             res.set_content(err.dump(4), "application/json");
+            spdlog::error("/containers failed: {}", ex.what());
         }
     });
 }

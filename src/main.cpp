@@ -5,11 +5,11 @@
 using chaos::adapters::infra::docker::DockerClientAdapter;
 
 int main() {
+    spdlog::set_level(spdlog::level::debug);
     try {
         auto client = DockerClientAdapter::create();
         auto containers = client->listContainers();
 
-        spdlog::info("Containers found: {}", containers.size());
         for (const auto& container : containers) {
             spdlog::info("  {} {} {}", container.id.substr(0, 12), container.name, container.state);
         }

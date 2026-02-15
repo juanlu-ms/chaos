@@ -1,4 +1,5 @@
 #include <httplib.h>
+#include <spdlog/spdlog.h>
 #include <sys/socket.h>
 
 #include <adapters/infra/docker/DockerClientAdapter.hpp>
@@ -11,8 +12,10 @@ namespace chaos::adapters::infra::docker {
 DockerClientAdapter::DockerClientAdapter(RequestFn requestFn) : request_(std::move(requestFn)) {}
 
 std::vector<chaos::domain::Container> DockerClientAdapter::listContainers() {
+    spdlog::debug("DockerClientAdapter: listing containers");
     auto json_response = request_(HttpMethod::GET, "/containers/json");
     if (!json_response.is_array()) {
+        spdlog::error("Docker API response is not an array");
         throw std::runtime_error("Unexpected Docker API response format");
     }
 
@@ -36,16 +39,19 @@ std::vector<chaos::domain::Container> DockerClientAdapter::listContainers() {
         containers.push_back(std::move(container));
     }
 
+    spdlog::info("DockerClientAdapter: {} containers found", containers.size());
     return containers;
 }
 
 std::unique_ptr<chaos::domain::ports::IContainerEngine> DockerClientAdapter::create(const std::string& socket_path) {
+    spdlog::info("DockerClientAdapter: using socket {}", socket_path);
     auto client = std::make_shared<httplib::Client>(socket_path);
     client->set_address_family(AF_UNIX);
     client->set_connection_timeout(5);
     client->set_read_timeout(10);
 
     auto requestFn = [client](HttpMethod method, const std::string& endpoint) -> nlohmann::json {
+        spdlog::debug("DockerClientAdapter: request {} {}", method == HttpMethod::GET ? "GET" : "POST", endpoint);
         httplib::Result response;
         switch (method) {
             case HttpMethod::GET:
@@ -57,14 +63,17 @@ std::unique_ptr<chaos::domain::ports::IContainerEngine> DockerClientAdapter::cre
         }
 
         if (!response) {
+            spdlog::error("DockerClientAdapter: connection to Docker socket failed");
             throw std::runtime_error("Failed to connect to Docker socket");
         }
         if (response->status != 200) {
+            spdlog::warn("Docker API returned status {}", response->status);
             throw std::runtime_error("Docker API returned status " + std::to_string(response->status));
         }
 
         auto json = nlohmann::json::parse(response->body, nullptr, false);
         if (json.is_discarded()) {
+            spdlog::error("Docker API response could not be parsed as JSON");
             throw std::runtime_error("Failed to parse Docker API response");
         }
         return json;

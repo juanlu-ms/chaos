@@ -98,3 +98,27 @@ TEST(DockerClientAdapterUnitTest, PropagatesTransportErrors) {
 
     EXPECT_THROW(adapter.listContainers(), std::runtime_error);
 }
+
+TEST(DockerClientAdapterUnitTest, KillContainerCallsCorrectEndpoint) {
+    bool was_called = false;
+    const std::string container_id = "test-container-123";
+
+    auto adapter = DockerClientAdapter([&](HttpMethod method, const std::string& endpoint) -> nlohmann::json {
+        was_called = true;
+        EXPECT_EQ(method, HttpMethod::POST);
+        EXPECT_EQ(endpoint, "/containers/" + container_id + "/kill");
+        // The Docker API for 'kill' can return an empty body with a 204 status,
+        // which is not valid JSON. We return an empty object to satisfy the
+        // function signature, as the return value is ignored by killContainer.
+        return nlohmann::json::object();
+    });
+
+    adapter.killContainer(container_id);
+    EXPECT_TRUE(was_called);
+}
+
+TEST(DockerClientAdapterUnitTest, KillContainerPropagatesApiError) {
+    auto adapter = makeAdapterWithError("Docker daemon is on fire");
+
+    EXPECT_THROW(adapter.killContainer("any-id"), std::runtime_error);
+}

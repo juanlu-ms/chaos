@@ -53,6 +53,32 @@ std::vector<chaos::domain::Container> DockerClientAdapter::listContainers() {
 }
 
 /**
+ * @brief Kill a container by ID (not implemented).
+ * @param containerId Docker container ID.
+ * @throws std::runtime_error Always, since this method is not implemented.
+ */
+void DockerClientAdapter::killContainer(const std::string& containerId) {
+    spdlog::debug("DockerClientAdapter: killing container {}", containerId);
+
+    auto json_response = request_(HttpMethod::POST, "/containers/" + containerId + "/kill");
+
+    for (const auto& [key, value] : json_response.items()) {
+        spdlog::error("  {}: {}", key, value.dump());
+    }
+    if (json_response.is_object() && json_response.contains("error")) {
+        spdlog::error("Docker API error: {}", json_response["error"].get<std::string>());
+        for (const auto& [key, value] : json_response.items()) {
+            spdlog::error("  {}: {}", key, value.dump());
+        }
+        throw std::runtime_error("Docker API error: " + json_response["error"].get<std::string>());
+    }
+
+    spdlog::debug("DockerClientAdapter: kill response {}", json_response.dump());
+
+    spdlog::info("DockerClientAdapter: container {} killed successfully", containerId);
+}
+
+/**
  * @brief Create an adapter backed by a Unix socket client.
  * @param socket_path Path to the Docker Engine socket.
  * @return A container engine instance.
@@ -81,9 +107,13 @@ std::unique_ptr<chaos::domain::ports::IContainerEngine> DockerClientAdapter::cre
             spdlog::error("DockerClientAdapter: connection to Docker socket failed");
             throw std::runtime_error("Failed to connect to Docker socket");
         }
-        if (response->status != 200) {
+        if (response->status < 200 || response->status >= 300) {
             spdlog::warn("Docker API returned status {}", response->status);
             throw std::runtime_error("Docker API returned status " + std::to_string(response->status));
+        }
+
+        if (response->body.empty()) {
+            return nlohmann::json::object();
         }
 
         auto json = nlohmann::json::parse(response->body, nullptr, false);

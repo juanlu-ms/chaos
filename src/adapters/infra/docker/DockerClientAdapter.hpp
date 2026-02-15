@@ -1,14 +1,15 @@
 #pragma once
 
-#include "domain/entities/Container.hpp"
 #include <domain/ports/IContainerEngine.hpp>
 #include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <vector>
 
-namespace kaos::adapters::infra::docker {
+#include "domain/entities/Container.hpp"
 
-class DockerClientAdapter : public kaos::domain::ports::IContainerEngine {
+namespace chaos::adapters::infra::docker {
+
+class DockerClientAdapter : public chaos::domain::ports::IContainerEngine {
 private:
     std::string socket_path_;
 
@@ -26,7 +27,7 @@ public:
 
     static DockerClientAdapter create();
 
-    std::vector<kaos::domain::Container> listContainers() override;
+    std::vector<chaos::domain::Container> listContainers() override;
 };
 
-}  // namespace kaos::adapters::infra::docker
+}  // namespace chaos::adapters::infra::docker

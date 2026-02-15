@@ -5,7 +5,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace kaos::adapters::ui::web {
+namespace chaos::adapters::ui::web {
 
 class Server {
 public:
@@ -20,4 +20,4 @@ private:
     void setupRoutes();
 };
 
-}  // namespace kaos::adapters::ui::web
+}  // namespace chaos::adapters::ui::web

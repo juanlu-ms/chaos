@@ -40,4 +40,4 @@ WORKDIR /tmp
 RUN vcpkg install --triplet x64-linux --clean-after-build
 RUN chown -R vscode:vscode /vcpkg
 
-WORKDIR /workspaces/kaos
+WORKDIR /workspaces/chaos

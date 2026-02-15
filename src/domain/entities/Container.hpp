@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-namespace kaos::domain {
+namespace chaos::domain {
 
 struct Container {
     std::string id;
@@ -9,4 +9,4 @@ struct Container {
     std::string state;
 };
 
-}  // namespace kaos::domain
+}  // namespace chaos::domain

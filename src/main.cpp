@@ -4,7 +4,7 @@
 #include "adapters/infra/docker/DockerClientAdapter.hpp"
 #include "domain/entities/Container.hpp"
 
-using kaos::adapters::infra::docker::DockerClientAdapter;
+using chaos::adapters::infra::docker::DockerClientAdapter;
 
 int main() {
     auto client = DockerClientAdapter::create();

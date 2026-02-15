@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace kaos::adapters::infra::docker {
+namespace chaos::adapters::infra::docker {
 
 DockerClientAdapter::DockerClientAdapter(std::string socket_path) : socket_path_(std::move(socket_path)) {}
 
@@ -35,8 +35,8 @@ nlohmann::json DockerClientAdapter::request(std::string method, const std::strin
     return nlohmann::json::parse(response->body, nullptr, false);
 }
 
-std::vector<kaos::domain::Container> DockerClientAdapter::listContainers() {
-    std::vector<kaos::domain::Container> containers;
+std::vector<chaos::domain::Container> DockerClientAdapter::listContainers() {
+    std::vector<chaos::domain::Container> containers;
 
     auto json_response = request("GET", "/containers/json");
     if (!json_response.is_array()) {
@@ -44,7 +44,7 @@ std::vector<kaos::domain::Container> DockerClientAdapter::listContainers() {
     }
 
     for (const auto& item : json_response) {
-        kaos::domain::Container container;
+        chaos::domain::Container container;
         if (item.contains("Id") && item["Id"].is_string()) {
             container.id = item["Id"].get<std::string>();
         }
@@ -63,8 +63,6 @@ std::vector<kaos::domain::Container> DockerClientAdapter::listContainers() {
     return containers;
 }
 
-DockerClientAdapter DockerClientAdapter::create() {
-    return DockerClientAdapter("/var/run/docker.sock");
-}
+DockerClientAdapter DockerClientAdapter::create() { return DockerClientAdapter("/var/run/docker.sock"); }
 
-}  // namespace kaos::adapters::infra::docker
+}  // namespace chaos::adapters::infra::docker

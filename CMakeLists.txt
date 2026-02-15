@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(kaos
+project(chaos
     VERSION 0.1.0 
     LANGUAGES CXX
     DESCRIPTION "Resilience Tool for Docker Containers"
@@ -20,42 +20,39 @@ find_package(GTest CONFIG REQUIRED)
 file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 list(FILTER CORE_SOURCES EXCLUDE REGEX "src/main.cpp$")
 
-add_library(kaos_core STATIC ${CORE_SOURCES})
-
-target_include_directories(kaos_core PUBLIC 
+add_library(chaos_core STATIC ${CORE_SOURCES})
+target_include_directories(chaos_core PUBLIC 
     ${CMAKE_SOURCE_DIR}/src
 )
 
-target_link_libraries(kaos_core PUBLIC 
+target_link_libraries(chaos_core PUBLIC 
     nlohmann_json::nlohmann_json
     httplib::httplib
     spdlog::spdlog
 )
 
 if(UNIX)
-    target_compile_options(kaos_core PRIVATE 
-        -Wall -Wextra -Wpedantic 
+    target_compile_options(chaos_core PRIVATE 
+        -Wall -Wextra -Wpedantic
         -Wconversion -Wshadow
     )
 endif()
 
-add_executable(kaos src/main.cpp)
-target_link_libraries(kaos PRIVATE kaos_core)
-
+add_executable(chaos src/main.cpp)
+target_link_libraries(chaos PRIVATE chaos_core)
 enable_testing()
 
-add_executable(kaos_tests 
+add_executable(chaos_tests 
     tests/adapters/infra/docker/DockerClientAdapterTest.cpp
     src/adapters/infra/docker/DockerClientAdapter.cpp
 )
 
-target_link_libraries(kaos_tests PRIVATE 
-    kaos_core
+target_link_libraries(chaos_tests PRIVATE 
+    chaos_core
     GTest::gtest_main
     spdlog::spdlog
     nlohmann_json::nlohmann_json
     httplib::httplib
 )
-
 include(GoogleTest)
-gtest_discover_tests(kaos_tests)
+gtest_discover_tests(chaos_tests)

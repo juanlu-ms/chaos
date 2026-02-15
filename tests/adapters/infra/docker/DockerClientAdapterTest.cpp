@@ -2,7 +2,7 @@
 
 #include <adapters/infra/docker/DockerClientAdapter.hpp>
 
-using kaos::adapters::infra::docker::DockerClientAdapter;
+using chaos::adapters::infra::docker::DockerClientAdapter;
 
 TEST(DockerClientAdapterTest, RetrievesRunningContainers) {
     auto adapter = DockerClientAdapter::create();

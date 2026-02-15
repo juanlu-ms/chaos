@@ -37,7 +37,7 @@ RUN curl -OL https://github.com/Kitware/CMake/releases/download/v${CMAKE_VER}/cm
 # Install vcpkg dependencies
 COPY vcpkg.json /tmp/vcpkg.json
 WORKDIR /tmp
-RUN vcpkg install --triplet x64-linux --clean-after-build
-RUN chown -R vscode:vscode /vcpkg
+RUN vcpkg install --triplet x64-linux --clean-after-build \
+    && chown -R vscode:vscode /vcpkg
 
 WORKDIR /workspaces/chaos

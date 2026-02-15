@@ -1,6 +1,8 @@
 #pragma once
 
 #include <domain/ports/IContainerEngine.hpp>
+#include <functional>
+#include <memory>
 #include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <vector>
@@ -9,25 +11,27 @@
 
 namespace chaos::adapters::infra::docker {
 
+enum class HttpMethod { GET, POST };
+
 class DockerClientAdapter : public chaos::domain::ports::IContainerEngine {
-private:
-    std::string socket_path_;
-
-    explicit DockerClientAdapter(std::string socket_path);
-
-    nlohmann::json request(std::string method, const std::string& endpoint);
-
 public:
-    ~DockerClientAdapter() = default;
+    using RequestFn = std::function<nlohmann::json(HttpMethod, const std::string&)>;
+
+    explicit DockerClientAdapter(RequestFn requestFn);
+    ~DockerClientAdapter() override = default;
 
     DockerClientAdapter(const DockerClientAdapter&) = delete;
     DockerClientAdapter& operator=(const DockerClientAdapter&) = delete;
+    DockerClientAdapter(DockerClientAdapter&&) noexcept = default;
+    DockerClientAdapter& operator=(DockerClientAdapter&&) noexcept = default;
 
-    DockerClientAdapter(DockerClientAdapter&& other) noexcept = default;
-
-    static DockerClientAdapter create();
+    static std::unique_ptr<chaos::domain::ports::IContainerEngine> create(
+        const std::string& socket_path = "/var/run/docker.sock");
 
     std::vector<chaos::domain::Container> listContainers() override;
+
+private:
+    RequestFn request_;
 };
 
 }  // namespace chaos::adapters::infra::docker

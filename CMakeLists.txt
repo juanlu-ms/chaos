@@ -17,8 +17,10 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(httplib CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
 
-file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS "src/*.cpp")
-list(FILTER CORE_SOURCES EXCLUDE REGEX "src/main.cpp$")
+set(CORE_SOURCES
+    src/adapters/infra/docker/DockerClientAdapter.cpp
+    src/adapters/ui/web/Server.cpp
+)
 
 add_library(chaos_core STATIC ${CORE_SOURCES})
 target_include_directories(chaos_core PUBLIC 
@@ -43,16 +45,13 @@ target_link_libraries(chaos PRIVATE chaos_core)
 enable_testing()
 
 add_executable(chaos_tests 
+    tests/adapters/infra/docker/DockerClientAdapterUnitTest.cpp
     tests/adapters/infra/docker/DockerClientAdapterTest.cpp
-    src/adapters/infra/docker/DockerClientAdapter.cpp
 )
 
 target_link_libraries(chaos_tests PRIVATE 
     chaos_core
     GTest::gtest_main
-    spdlog::spdlog
-    nlohmann_json::nlohmann_json
-    httplib::httplib
 )
 include(GoogleTest)
 gtest_discover_tests(chaos_tests)

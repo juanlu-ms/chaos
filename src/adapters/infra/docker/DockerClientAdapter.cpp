@@ -8,40 +8,16 @@
 
 namespace chaos::adapters::infra::docker {
 
-DockerClientAdapter::DockerClientAdapter(std::string socket_path) : socket_path_(std::move(socket_path)) {}
-
-nlohmann::json DockerClientAdapter::request(std::string method, const std::string& endpoint) {
-    httplib::Client client(socket_path_);
-    client.set_address_family(AF_UNIX);
-
-    httplib::Result response;
-    if (method == "GET") {
-        response = client.Get(endpoint.c_str());
-        if (!response) {
-            throw std::runtime_error("Failed to connect to Docker socket");
-        }
-    } else if (method == "POST") {
-        response = client.Post(endpoint.c_str());
-        if (!response) {
-            throw std::runtime_error("Failed to connect to Docker socket");
-        }
-    } else {
-        throw std::runtime_error("Unsupported HTTP method");
-    }
-    if (response->status != 200) {
-        throw std::runtime_error("Docker API returned non-OK status");
-    }
-
-    return nlohmann::json::parse(response->body, nullptr, false);
-}
+DockerClientAdapter::DockerClientAdapter(RequestFn requestFn) : request_(std::move(requestFn)) {}
 
 std::vector<chaos::domain::Container> DockerClientAdapter::listContainers() {
-    std::vector<chaos::domain::Container> containers;
-
-    auto json_response = request("GET", "/containers/json");
+    auto json_response = request_(HttpMethod::GET, "/containers/json");
     if (!json_response.is_array()) {
         throw std::runtime_error("Unexpected Docker API response format");
     }
+
+    std::vector<chaos::domain::Container> containers;
+    containers.reserve(json_response.size());
 
     for (const auto& item : json_response) {
         chaos::domain::Container container;
@@ -57,12 +33,44 @@ std::vector<chaos::domain::Container> DockerClientAdapter::listContainers() {
         if (item.contains("State") && item["State"].is_string()) {
             container.state = item["State"].get<std::string>();
         }
-        containers.push_back(container);
+        containers.push_back(std::move(container));
     }
 
     return containers;
 }
 
-DockerClientAdapter DockerClientAdapter::create() { return DockerClientAdapter("/var/run/docker.sock"); }
+std::unique_ptr<chaos::domain::ports::IContainerEngine> DockerClientAdapter::create(const std::string& socket_path) {
+    auto client = std::make_shared<httplib::Client>(socket_path);
+    client->set_address_family(AF_UNIX);
+    client->set_connection_timeout(5);
+    client->set_read_timeout(10);
+
+    auto requestFn = [client](HttpMethod method, const std::string& endpoint) -> nlohmann::json {
+        httplib::Result response;
+        switch (method) {
+            case HttpMethod::GET:
+                response = client->Get(endpoint);
+                break;
+            case HttpMethod::POST:
+                response = client->Post(endpoint);
+                break;
+        }
+
+        if (!response) {
+            throw std::runtime_error("Failed to connect to Docker socket");
+        }
+        if (response->status != 200) {
+            throw std::runtime_error("Docker API returned status " + std::to_string(response->status));
+        }
+
+        auto json = nlohmann::json::parse(response->body, nullptr, false);
+        if (json.is_discarded()) {
+            throw std::runtime_error("Failed to parse Docker API response");
+        }
+        return json;
+    };
+
+    return std::make_unique<DockerClientAdapter>(std::move(requestFn));
+}
 
 }  // namespace chaos::adapters::infra::docker

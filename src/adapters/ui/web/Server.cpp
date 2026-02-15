@@ -1,10 +1,13 @@
 #include <adapters/ui/web/Server.hpp>
+#include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
 
 namespace chaos::adapters::ui::web {
 
-Server::Server() { setupRoutes(); }
+Server::Server(std::shared_ptr<chaos::domain::ports::IContainerEngine> engine) : m_engine(std::move(engine)) {
+    setupRoutes();
+}
 
 void Server::run(int port) {
     spdlog::info("chaos listening to http://0.0.0.0:{}", port);
@@ -18,6 +21,22 @@ void Server::setupRoutes() {
         j["status"] = "Online (Web Adapter)";
 
         res.set_content(j.dump(4), "application/json");
+    });
+
+    m_server.Get("/containers", [this](const httplib::Request&, httplib::Response& res) {
+        try {
+            auto containers = m_engine->listContainers();
+            json j = json::array();
+            for (const auto& c : containers) {
+                j.push_back({{"id", c.id}, {"name", c.name}, {"state", c.state}});
+            }
+            res.set_content(j.dump(4), "application/json");
+        } catch (const std::exception& ex) {
+            json err;
+            err["error"] = ex.what();
+            res.status = 500;
+            res.set_content(err.dump(4), "application/json");
+        }
     });
 }
 

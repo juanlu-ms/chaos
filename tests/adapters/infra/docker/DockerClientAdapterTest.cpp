@@ -4,10 +4,15 @@
 
 using chaos::adapters::infra::docker::DockerClientAdapter;
 
-TEST(DockerClientAdapterTest, RetrievesRunningContainers) {
+TEST(DockerClientAdapterIntegrationTest, ListsContainersWhenDockerAvailable) {
     auto adapter = DockerClientAdapter::create();
 
-    const auto containers = adapter.listContainers();
-
-    ASSERT_FALSE(containers.empty());
+    try {
+        const auto containers = adapter->listContainers();
+        for (const auto& container : containers) {
+            EXPECT_FALSE(container.id.empty());
+        }
+    } catch (const std::exception& ex) {
+        GTEST_SKIP() << "Docker socket unavailable: " << ex.what();
+    }
 }

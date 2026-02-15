@@ -1,18 +1,21 @@
-#include <adapters/ui/web/Server.hpp>
-#include <cstdio>
+#include <spdlog/spdlog.h>
 
 #include "adapters/infra/docker/DockerClientAdapter.hpp"
-#include "domain/entities/Container.hpp"
 
 using chaos::adapters::infra::docker::DockerClientAdapter;
 
 int main() {
-    auto client = DockerClientAdapter::create();
-    auto containers = client.listContainers();
+    try {
+        auto client = DockerClientAdapter::create();
+        auto containers = client->listContainers();
 
-    std::printf("ID\tName\tState\n");
-    for (const auto& container : containers) {
-        std::printf("%s\t%s\t%s\n", container.id.c_str(), container.name.c_str(), container.state.c_str());
+        spdlog::info("Containers found: {}", containers.size());
+        for (const auto& container : containers) {
+            spdlog::info("  {} {} {}", container.id.substr(0, 12), container.name, container.state);
+        }
+    } catch (const std::exception& ex) {
+        spdlog::error("Error: {}", ex.what());
+        return 1;
     }
     return 0;
 }

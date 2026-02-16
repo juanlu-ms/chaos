@@ -105,13 +105,12 @@ TEST(DockerClientAdapterUnitTest, StopContainerCallsCorrectEndpoint) {
     bool was_called = false;
     const std::string container_id = "test-container-456";
 
-    auto adapter =
-        DockerClientAdapter([&was_called, &container_id](HttpMethod method, std::string_view endpoint) {
-            was_called = true;
-            EXPECT_EQ(method, HttpMethod::POST);
-            EXPECT_EQ(endpoint, fmt::format("/containers/{}/stop", container_id));
-            return HttpResponse{204, ""};
-        });
+    auto adapter = DockerClientAdapter([&was_called, &container_id](HttpMethod method, std::string_view endpoint) {
+        was_called = true;
+        EXPECT_EQ(method, HttpMethod::POST);
+        EXPECT_EQ(endpoint, fmt::format("/containers/{}/stop?t=5", container_id));
+        return HttpResponse{204, ""};
+    });
 
     adapter.stopContainer(container_id);
     EXPECT_TRUE(was_called);
@@ -124,7 +123,7 @@ TEST(DockerClientAdapterUnitTest, StopContainerWithCustomTimeout) {
     auto adapter =
         DockerClientAdapter([&endpoint_correct, &container_id](HttpMethod method, std::string_view endpoint) {
             EXPECT_EQ(method, HttpMethod::POST);
-            endpoint_correct = endpoint == fmt::format("/containers/{}/stop", container_id);
+            endpoint_correct = endpoint == fmt::format("/containers/{}/stop?t=5", container_id);
             return HttpResponse{204, ""};
         });
 
@@ -148,13 +147,12 @@ TEST(DockerClientAdapterUnitTest, KillContainerCallsCorrectEndpoint) {
     bool was_called = false;
     const std::string container_id = "test-container-123";
 
-    auto adapter =
-        DockerClientAdapter([&was_called, &container_id](HttpMethod method, std::string_view endpoint) {
-            was_called = true;
-            EXPECT_EQ(method, HttpMethod::POST);
-            EXPECT_EQ(endpoint, fmt::format("/containers/{}/kill", container_id));
-            return HttpResponse{204, ""};
-        });
+    auto adapter = DockerClientAdapter([&was_called, &container_id](HttpMethod method, std::string_view endpoint) {
+        was_called = true;
+        EXPECT_EQ(method, HttpMethod::POST);
+        EXPECT_EQ(endpoint, fmt::format("/containers/{}/kill", container_id));
+        return HttpResponse{204, ""};
+    });
 
     adapter.killContainer(container_id);
     EXPECT_TRUE(was_called);

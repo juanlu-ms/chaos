@@ -65,14 +65,14 @@ void DockerClientAdapter::stopContainer(const std::string& containerId) {
     }
     spdlog::debug("DockerClientAdapter: stopping container {}", containerId);
 
-    const auto response = request_(HttpMethod::POST, fmt::format("/containers/{}/stop", containerId));
-    if (response.status != 204) {
+    constexpr int stop_timeout_seconds = 5;
+    const auto response =
+        request_(HttpMethod::POST, fmt::format("/containers/{}/stop?t={}", containerId, stop_timeout_seconds));
+    if (response.status == 304) {
+        spdlog::info("DockerClientAdapter: container {} is already stopped", containerId);
+    } else if (response.status != 204) {
         spdlog::warn("Docker API returned status {}", response.status);
         throw std::runtime_error(fmt::format("Docker API returned status {}", response.status));
-    }
-
-    if (!response.body.empty()) {
-        auto json_response = validateResponse(response);
     }
 
     spdlog::info("DockerClientAdapter: container {} stopped successfully", containerId);
@@ -110,7 +110,7 @@ std::unique_ptr<chaos::domain::ports::IContainerEngine> DockerClientAdapter::cre
     auto client = std::make_shared<httplib::Client>(socket_path);
     client->set_address_family(AF_UNIX);
     client->set_connection_timeout(5);
-    client->set_read_timeout(10);
+    client->set_read_timeout(30);
 
     auto requestFn = [client](HttpMethod method, std::string_view endpoint) {
         spdlog::debug("DockerClientAdapter: request {} {}", method == HttpMethod::GET ? "GET" : "POST", endpoint);

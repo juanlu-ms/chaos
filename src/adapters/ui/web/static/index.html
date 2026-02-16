@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CHAOS - Panel Web</title>
+  <link rel="stylesheet" href="/assets/app.css" />
+</head>
+<body>
+  <div class="bg-orb orb-1" aria-hidden="true"></div>
+  <div class="bg-orb orb-2" aria-hidden="true"></div>
+
+  <main class="shell">
+    <header class="hero">
+      <div class="badge">CHAOS :: Web Adapter</div>
+      <h1>Panel de resiliencia para contenedores</h1>
+      <p class="subtitle">
+        Monitoriza contenedores, valida estados y revisa el estado del orquestador sin salir del entorno local.
+      </p>
+      <div class="actions">
+        <button class="btn" id="refresh-btn">Actualizar</button>
+        <button class="btn ghost" id="toggle-auto">Auto: ON</button>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="card status">
+        <div class="card-head">
+          <h2>Estado del orquestador</h2>
+          <span class="chip" id="status-chip">--</span>
+        </div>
+        <div class="status-body">
+          <div class="metric">
+            <span class="label">Servicio</span>
+            <span class="value" id="status-project">--</span>
+          </div>
+          <div class="metric">
+            <span class="label">Mensaje</span>
+            <span class="value" id="status-message">--</span>
+          </div>
+          <div class="metric">
+            <span class="label">Ultima actualizacion</span>
+            <span class="value" id="last-updated">--</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="card containers">
+        <div class="card-head">
+          <h2>Contenedores detectados</h2>
+          <span class="count" id="container-count">0</span>
+        </div>
+        <ul class="container-list" id="container-list"></ul>
+        <div class="empty" id="container-empty">Sin contenedores disponibles.</div>
+        <div class="error" id="container-error">No se pudo cargar la lista.</div>
+      </article>
+    </section>
+
+    <section class="card footer">
+      <div>
+        <h3>Notas rapidas</h3>
+        <p>
+          Este panel esta pensado para diagnostico rapido. La CLI sigue siendo la via principal para ejecuciones en CI.
+        </p>
+      </div>
+      <div class="tags">
+        <span>Docker</span>
+        <span>Chaos Testing</span>
+        <span>Hexagonal</span>
+      </div>
+    </section>
+  </main>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>

@@ -60,11 +60,11 @@ int Server::run(int argc, char* argv[]) {
 
 /**
  * @brief Start the HTTP server on a specific port.
- * @param port TCP port to bind on all interfaces.
+ * @param port TCP port to bind on localhost (127.0.0.1).
  */
 void Server::listen(int port) {
-    spdlog::info("chaos listening to http://0.0.0.0:{}", port);
-    m_server.listen("0.0.0.0", port);
+    spdlog::info("chaos listening to http://127.0.0.1:{}", port);
+    m_server.listen("127.0.0.1", port);
 }
 
 /**

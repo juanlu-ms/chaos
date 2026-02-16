@@ -107,7 +107,11 @@ int CliAdapter::handleList() const {
         }
         fmt::print("{:<14} {:<30} {}\n", "CONTAINER ID", "NAME", "STATE");
         for (const auto& c : containers) {
-            fmt::print("{:<14} {:<30} {}\n", c.id.substr(0, 12), c.name, c.state);
+            const std::string displayId =
+                c.id.empty()
+                    ? std::string("<missing>")
+                    : (c.id.size() > 12 ? c.id.substr(0, 12) : c.id);
+            fmt::print("{:<14} {:<30} {}\n", displayId, c.name, c.state);
         }
     } catch (const std::exception& ex) {
         spdlog::error("Failed to list containers: {}", ex.what());

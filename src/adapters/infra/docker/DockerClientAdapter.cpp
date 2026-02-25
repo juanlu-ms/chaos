@@ -59,7 +59,7 @@ std::vector<chaos::domain::Container> DockerClientAdapter::listContainers() {
  * @param containerId Docker container ID.
  * @throws std::runtime_error On API errors.
  */
-void DockerClientAdapter::stopContainer(const std::string& containerId) {
+void DockerClientAdapter::stopContainer(const std::string_view containerId) {
     if (containerId.empty()) {
         throw std::runtime_error("Container ID cannot be empty");
     }
@@ -69,7 +69,7 @@ void DockerClientAdapter::stopContainer(const std::string& containerId) {
     const auto response =
         request_(HttpMethod::POST, fmt::format("/containers/{}/stop?t={}", containerId, stop_timeout_seconds));
     if (response.status == 304) {
-        spdlog::info("DockerClientAdapter: container {} is already stopped", containerId);
+        spdlog::warn("DockerClientAdapter: container {} is already stopped", containerId);
     } else if (response.status != 204) {
         spdlog::warn("Docker API returned status {}", response.status);
         throw std::runtime_error(fmt::format("Docker API returned status {}", response.status));
@@ -83,7 +83,10 @@ void DockerClientAdapter::stopContainer(const std::string& containerId) {
  * @param containerId Docker container ID.
  * @throws std::runtime_error On API errors.
  */
-void DockerClientAdapter::killContainer(const std::string& containerId) {
+void DockerClientAdapter::killContainer(const std::string_view containerId) {
+    if (containerId.empty()) {
+        throw std::runtime_error("Container ID cannot be empty");
+    }
     spdlog::debug("DockerClientAdapter: killing container {}", containerId);
 
     const auto response = request_(HttpMethod::POST, fmt::format("/containers/{}/kill", containerId));
@@ -93,7 +96,7 @@ void DockerClientAdapter::killContainer(const std::string& containerId) {
     }
 
     if (!response.body.empty()) {
-        auto json_response = validateResponse(response);
+        validateResponse(response);
     }
 
     spdlog::info("DockerClientAdapter: container {} killed successfully", containerId);

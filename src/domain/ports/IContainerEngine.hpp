@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string_view>
 #include <vector>
 
 #include "domain/entities/Container.hpp"
@@ -27,14 +28,14 @@ public:
      * @param containerId Container ID to stop.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    virtual void stopContainer(const std::string& containerId) = 0;
+    virtual void stopContainer(const std::string_view containerId) = 0;
 
     /**
      * @brief Kill a container by ID.
      * @param containerId Docker container ID.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    virtual void killContainer(const std::string& containerId) = 0;
+    virtual void killContainer(const std::string_view containerId) = 0;
 };
 
 }  // namespace chaos::domain::ports

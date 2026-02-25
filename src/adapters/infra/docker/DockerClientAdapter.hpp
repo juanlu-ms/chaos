@@ -71,14 +71,14 @@ public:
      * @param containerId Docker container ID.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    void stopContainer(const std::string& containerId) override;
+    void stopContainer(const std::string_view containerId) override;
 
     /**
      * @brief Kill a container by ID.
      * @param containerId Docker container ID.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    void killContainer(const std::string& containerId) override;
+    void killContainer(const std::string_view containerId) override;
 
 private:
     RequestFn request_;

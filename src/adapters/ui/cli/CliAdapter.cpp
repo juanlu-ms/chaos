@@ -5,6 +5,7 @@
 
 #include <adapters/ui/web/Server.hpp>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace chaos::adapters::ui::cli {
@@ -13,13 +14,13 @@ CliAdapter::CliAdapter(chaos::domain::ports::IContainerEngine& engine) : m_engin
 
 int CliAdapter::run(int argc, char* argv[]) {
     if (argc < 2) {
-        printUsage(argv[0]);
+        printUsage();
         return 1;
     }
 
     // Scan for global flags and build a filtered argument list without them
     std::vector<std::string> args;
-    args.push_back(argv[0]);
+    args.emplace_back(argv[0]);
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--verbose" || arg == "-v") {
@@ -30,14 +31,14 @@ int CliAdapter::run(int argc, char* argv[]) {
     }
 
     if (args.size() < 2) {
-        printUsage(args[0]);
+        printUsage();
         return 1;
     }
 
     const std::string& command = args[1];
 
     if (command == "help" || command == "--help" || command == "-h") {
-        printUsage(args[0]);
+        printUsage();
         return 0;
     }
 
@@ -77,13 +78,13 @@ int CliAdapter::run(int argc, char* argv[]) {
     }
 
     spdlog::error("Unknown command: '{}'", command);
-    printUsage(args[0]);
+    printUsage();
     return 1;
 }
 
-void CliAdapter::printUsage(const std::string& programName) const {
+void CliAdapter::printUsage() const {
     fmt::print(
-        "Usage: {} <command> [options]\n"
+        "Usage: chaos <command> [options]\n"
         "\n"
         "Chaos — Resilience Tool for Docker Containers\n"
         "\n"
@@ -95,8 +96,7 @@ void CliAdapter::printUsage(const std::string& programName) const {
         "  help                  Show this help message\n"
         "\n"
         "Options:\n"
-        "  -v, --verbose         Enable debug logging\n",
-        programName);
+        "  -v, --verbose         Enable debug logging\n");
 }
 
 int CliAdapter::handleList() const {
@@ -109,9 +109,7 @@ int CliAdapter::handleList() const {
         fmt::print("{:<14} {:<30} {}\n", "CONTAINER ID", "NAME", "STATE");
         for (const auto& c : containers) {
             const std::string displayId =
-                c.id.empty()
-                    ? std::string("<missing>")
-                    : (c.id.size() > 12 ? c.id.substr(0, 12) : c.id);
+                c.id.empty() ? std::string("<missing>") : (c.id.size() > 12 ? c.id.substr(0, 12) : c.id);
             fmt::print("{:<14} {:<30} {}\n", displayId, c.name, c.state);
         }
     } catch (const std::exception& ex) {

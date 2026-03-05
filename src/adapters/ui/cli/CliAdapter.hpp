@@ -42,7 +42,7 @@ public:
 private:
     chaos::domain::ports::IContainerEngine& m_engine;
 
-    void printUsage(const std::string& programName) const;
+    void printUsage() const;
     int handleList() const;
     int handleStop(const std::string& containerId) const;
     int handleKill(const std::string& containerId) const;

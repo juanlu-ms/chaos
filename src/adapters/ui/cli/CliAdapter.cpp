@@ -5,6 +5,7 @@
 
 #include <adapters/ui/web/Server.hpp>
 #include <string>
+#include <vector>
 
 namespace chaos::adapters::ui::cli {
 
@@ -16,27 +17,27 @@ int CliAdapter::run(int argc, char* argv[]) {
         return 1;
     }
 
-    // Scan for global flags before dispatching
+    // Scan for global flags and build a filtered argument list without them
+    std::vector<std::string> args;
+    args.push_back(argv[0]);
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--verbose" || arg == "-v") {
             spdlog::set_level(spdlog::level::debug);
+        } else {
+            args.push_back(arg);
         }
     }
 
-    const std::string command = argv[1];
-
-    if (command == "--verbose" || command == "-v") {
-        if (argc < 3) {
-            printUsage(argv[0]);
-            return 1;
-        }
-        // Re-run with the flag consumed (shift args)
-        return run(argc - 1, argv + 1);
+    if (args.size() < 2) {
+        printUsage(args[0]);
+        return 1;
     }
+
+    const std::string& command = args[1];
 
     if (command == "help" || command == "--help" || command == "-h") {
-        printUsage(argv[0]);
+        printUsage(args[0]);
         return 0;
     }
 
@@ -45,29 +46,29 @@ int CliAdapter::run(int argc, char* argv[]) {
     }
 
     if (command == "stop") {
-        if (argc < 3) {
+        if (args.size() < 3) {
             spdlog::error("'stop' requires a container ID");
             return 1;
         }
-        return handleStop(argv[2]);
+        return handleStop(args[2]);
     }
 
     if (command == "kill") {
-        if (argc < 3) {
+        if (args.size() < 3) {
             spdlog::error("'kill' requires a container ID");
             return 1;
         }
-        return handleKill(argv[2]);
+        return handleKill(args[2]);
     }
 
     if (command == "serve") {
         int port = 8080;
-        for (int i = 2; i < argc - 1; ++i) {
-            if (std::string(argv[i]) == "--port") {
+        for (size_t i = 2; i + 1 < args.size(); ++i) {
+            if (args[i] == "--port") {
                 try {
-                    port = std::stoi(argv[i + 1]);
+                    port = std::stoi(args[i + 1]);
                 } catch (...) {
-                    spdlog::error("Invalid port number: {}", argv[i + 1]);
+                    spdlog::error("Invalid port number: {}", args[i + 1]);
                     return 1;
                 }
             }
@@ -76,7 +77,7 @@ int CliAdapter::run(int argc, char* argv[]) {
     }
 
     spdlog::error("Unknown command: '{}'", command);
-    printUsage(argv[0]);
+    printUsage(args[0]);
     return 1;
 }
 

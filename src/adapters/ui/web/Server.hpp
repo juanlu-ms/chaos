@@ -5,7 +5,6 @@
 
 #include <domain/ports/IContainerEngine.hpp>
 #include <domain/ports/IUserInterface.hpp>
-#include <memory>
 
 namespace chaos::adapters::ui::web {
 
@@ -18,7 +17,7 @@ public:
      * @brief Construct the server with a container engine dependency.
      * @param engine Engine used to retrieve container data.
      */
-    explicit Server(std::shared_ptr<chaos::domain::ports::IContainerEngine> engine);
+    explicit Server(chaos::domain::ports::IContainerEngine& engine);
     ~Server() override = default;
 
     /**
@@ -37,7 +36,7 @@ public:
 
 private:
     httplib::Server m_server;
-    std::shared_ptr<chaos::domain::ports::IContainerEngine> m_engine;
+    chaos::domain::ports::IContainerEngine& m_engine;
 
     /**
      * @brief Register all HTTP routes.

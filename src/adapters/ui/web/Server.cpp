@@ -32,7 +32,7 @@ std::optional<std::filesystem::path> findWebRoot() {
  * @brief Construct the server and register routes.
  * @param engine Engine used to retrieve container data.
  */
-Server::Server(std::shared_ptr<chaos::domain::ports::IContainerEngine> engine) : m_engine(std::move(engine)) {
+Server::Server(chaos::domain::ports::IContainerEngine& engine) : m_engine(engine) {
     setupRoutes();
 }
 
@@ -94,7 +94,7 @@ void Server::setupRoutes() {
     m_server.Get("/containers", [this](const httplib::Request&, httplib::Response& res) {
         try {
             spdlog::debug("/containers requested");
-            auto containers = m_engine->listContainers();
+            auto containers = m_engine.listContainers();
             json j = json::array();
             for (const auto& c : containers) {
                 j.push_back({{"id", c.id}, {"name", c.name}, {"state", c.state}});
@@ -120,7 +120,7 @@ void Server::setupRoutes() {
         const std::string container_id = req.matches[1];
         try {
             spdlog::info("/containers/{}/stop requested", container_id);
-            m_engine->stopContainer(container_id);
+            m_engine.stopContainer(container_id);
             json j;
             j["status"] = "ok";
             j["action"] = "stop";
@@ -145,7 +145,7 @@ void Server::setupRoutes() {
         const std::string container_id = req.matches[1];
         try {
             spdlog::info("/containers/{}/kill requested", container_id);
-            m_engine->killContainer(container_id);
+            m_engine.killContainer(container_id);
             json j;
             j["status"] = "ok";
             j["action"] = "kill";

@@ -2,7 +2,6 @@
 
 #include <domain/ports/IContainerEngine.hpp>
 #include <domain/ports/IUserInterface.hpp>
-#include <memory>
 #include <string>
 
 namespace chaos::adapters::ui::cli {
@@ -24,9 +23,9 @@ class CliAdapter : public chaos::domain::ports::IUserInterface {
 public:
     /**
      * @brief Construct the CLI adapter with a container engine.
-     * @param engine Shared pointer to the container engine port.
+     * @param engine Non-owning reference to the container engine port.
      */
-    explicit CliAdapter(std::shared_ptr<chaos::domain::ports::IContainerEngine> engine);
+    explicit CliAdapter(chaos::domain::ports::IContainerEngine& engine);
     ~CliAdapter() override = default;
 
     CliAdapter(const CliAdapter&) = delete;
@@ -41,7 +40,7 @@ public:
     int run(int argc, char* argv[]) override;
 
 private:
-    std::shared_ptr<chaos::domain::ports::IContainerEngine> m_engine;
+    chaos::domain::ports::IContainerEngine& m_engine;
 
     void printUsage(const std::string& programName) const;
     int handleList() const;

@@ -8,7 +8,7 @@
 
 namespace chaos::adapters::ui::cli {
 
-CliAdapter::CliAdapter(std::shared_ptr<chaos::domain::ports::IContainerEngine> engine) : m_engine(std::move(engine)) {}
+CliAdapter::CliAdapter(chaos::domain::ports::IContainerEngine& engine) : m_engine(engine) {}
 
 int CliAdapter::run(int argc, char* argv[]) {
     if (argc < 2) {
@@ -100,7 +100,7 @@ void CliAdapter::printUsage(const std::string& programName) const {
 
 int CliAdapter::handleList() const {
     try {
-        auto containers = m_engine->listContainers();
+        auto containers = m_engine.listContainers();
         if (containers.empty()) {
             fmt::print("No containers found.\n");
             return 0;
@@ -122,7 +122,7 @@ int CliAdapter::handleList() const {
 
 int CliAdapter::handleStop(const std::string& containerId) const {
     try {
-        m_engine->stopContainer(containerId);
+        m_engine.stopContainer(containerId);
         fmt::print("Container {} stopped.\n", containerId);
     } catch (const std::exception& ex) {
         spdlog::error("Failed to stop container {}: {}", containerId, ex.what());
@@ -133,7 +133,7 @@ int CliAdapter::handleStop(const std::string& containerId) const {
 
 int CliAdapter::handleKill(const std::string& containerId) const {
     try {
-        m_engine->killContainer(containerId);
+        m_engine.killContainer(containerId);
         fmt::print("Container {} killed.\n", containerId);
     } catch (const std::exception& ex) {
         spdlog::error("Failed to kill container {}: {}", containerId, ex.what());

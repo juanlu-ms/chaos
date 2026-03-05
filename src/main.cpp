@@ -1,5 +1,7 @@
 #include <spdlog/spdlog.h>
 
+#include <memory>
+
 #include "adapters/infra/docker/DockerClientAdapter.hpp"
 #include "adapters/ui/cli/CliAdapter.hpp"
 #include "domain/ports/IUserInterface.hpp"
@@ -15,9 +17,7 @@ int main(int argc, char* argv[]) {
     spdlog::set_level(spdlog::level::warn);
 
     auto engine = DockerClientAdapter::create();
-    std::shared_ptr<chaos::domain::ports::IContainerEngine> sharedEngine(std::move(engine));
 
-    std::unique_ptr<chaos::domain::ports::IUserInterface> ui =
-        std::make_unique<CliAdapter>(sharedEngine);
+    std::unique_ptr<chaos::domain::ports::IUserInterface> ui = std::make_unique<CliAdapter>(*engine);
     return ui->run(argc, argv);
 }

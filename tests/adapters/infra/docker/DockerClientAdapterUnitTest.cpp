@@ -12,7 +12,7 @@ using chaos::adapters::infra::docker::HttpResponse;
 namespace {
 
 // Helper to create an adapter that returns a predefined JSON response.
-DockerClientAdapter makeAdapterWithResponse(const nlohmann::json& response) {
+DockerClientAdapter makeAdapterForListContainers(const nlohmann::json& response) {
     return DockerClientAdapter([response](HttpMethod method, std::string_view endpoint) {
         // We can still add default checks if we want.
         EXPECT_EQ(method, HttpMethod::GET);
@@ -37,7 +37,7 @@ TEST(DockerClientAdapterUnitTest, ParsesContainerList) {
             {"State", "running"},
         },
     });
-    auto adapter = makeAdapterWithResponse(mock_response);
+    auto adapter = makeAdapterForListContainers(mock_response);
 
     const auto containers = adapter.listContainers();
 
@@ -48,14 +48,14 @@ TEST(DockerClientAdapterUnitTest, ParsesContainerList) {
 }
 
 TEST(DockerClientAdapterUnitTest, ParsesEmptyContainerList) {
-    auto adapter = makeAdapterWithResponse(nlohmann::json::array());
+    auto adapter = makeAdapterForListContainers(nlohmann::json::array());
 
     const auto containers = adapter.listContainers();
     EXPECT_TRUE(containers.empty());
 }
 
 TEST(DockerClientAdapterUnitTest, ThrowsOnNonArrayResponse) {
-    auto adapter = makeAdapterWithResponse(nlohmann::json::object({{"error", "not an array"}}));
+    auto adapter = makeAdapterForListContainers(nlohmann::json::object({{"error", "not an array"}}));
 
     EXPECT_THROW(adapter.listContainers(), std::runtime_error);
 }
@@ -65,7 +65,7 @@ TEST(DockerClientAdapterUnitTest, HandlesContainersWithMissingFields) {
         {{"Id", "abc123"}},
         {{"Names", nlohmann::json::array({"/only-name"})}},
     });
-    auto adapter = makeAdapterWithResponse(mock_response);
+    auto adapter = makeAdapterForListContainers(mock_response);
 
     const auto containers = adapter.listContainers();
 
@@ -83,7 +83,7 @@ TEST(DockerClientAdapterUnitTest, ParsesMultipleContainers) {
         {{"Id", "bbb"}, {"Names", nlohmann::json::array({"/beta"})}, {"State", "exited"}},
         {{"Id", "ccc"}, {"Names", nlohmann::json::array({"/gamma"})}, {"State", "paused"}},
     });
-    auto adapter = makeAdapterWithResponse(mock_response);
+    auto adapter = makeAdapterForListContainers(mock_response);
 
     const auto containers = adapter.listContainers();
 
@@ -138,7 +138,7 @@ TEST(DockerClientAdapterUnitTest, StopContainerPropagatesApiError) {
 }
 
 TEST(DockerClientAdapterUnitTest, StopContainerWithEmptyIdThrows) {
-    auto adapter = makeAdapterWithResponse(nlohmann::json::array());
+    auto adapter = makeAdapterForListContainers(nlohmann::json::array());
 
     EXPECT_THROW(adapter.stopContainer(""), std::runtime_error);
 }

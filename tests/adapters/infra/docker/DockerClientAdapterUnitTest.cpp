@@ -163,3 +163,9 @@ TEST(DockerClientAdapterUnitTest, KillContainerPropagatesApiError) {
 
     EXPECT_THROW(adapter.killContainer("any-id"), std::runtime_error);
 }
+
+TEST(DockerClientAdapterUnitTest, KillContainerWithEmptyIdThrows) {
+    auto adapter = makeAdapterWithResponse(nlohmann::json::array());
+
+    EXPECT_THROW(adapter.killContainer(""), std::runtime_error);
+}

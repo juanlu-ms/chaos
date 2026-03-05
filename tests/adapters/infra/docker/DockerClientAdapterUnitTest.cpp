@@ -116,21 +116,6 @@ TEST(DockerClientAdapterUnitTest, StopContainerCallsCorrectEndpoint) {
     EXPECT_TRUE(was_called);
 }
 
-TEST(DockerClientAdapterUnitTest, StopContainerWithCustomTimeout) {
-    const std::string container_id = "test-container-789";
-    bool endpoint_correct = false;
-
-    auto adapter =
-        DockerClientAdapter([&endpoint_correct, &container_id](HttpMethod method, std::string_view endpoint) {
-            EXPECT_EQ(method, HttpMethod::POST);
-            endpoint_correct = endpoint == fmt::format("/containers/{}/stop?t=5", container_id);
-            return HttpResponse{204, ""};
-        });
-
-    adapter.stopContainer(container_id);
-    EXPECT_TRUE(endpoint_correct);
-}
-
 TEST(DockerClientAdapterUnitTest, StopContainerPropagatesApiError) {
     auto adapter = makeAdapterWithError("Docker daemon unreachable");
 

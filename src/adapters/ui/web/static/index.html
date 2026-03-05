@@ -1,11 +1,13 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CHAOS - Panel Web</title>
+  <title>CHAOS - Web Panel</title>
   <link rel="stylesheet" href="/assets/app.css" />
 </head>
+
 <body>
   <div class="bg-orb orb-1" aria-hidden="true"></div>
   <div class="bg-orb orb-2" aria-hidden="true"></div>
@@ -13,12 +15,12 @@
   <main class="shell">
     <header class="hero">
       <div class="badge">CHAOS :: Web Adapter</div>
-      <h1>Panel de resiliencia para contenedores</h1>
+      <h1>Container resilience dashboard</h1>
       <p class="subtitle">
-        Monitoriza contenedores, valida estados y revisa el estado del orquestador sin salir del entorno local.
+        Monitor containers, validate states, and review orchestrator health without leaving your local environment.
       </p>
       <div class="actions">
-        <button class="btn" id="refresh-btn">Actualizar</button>
+        <button class="btn" id="refresh-btn">Refresh</button>
         <button class="btn ghost" id="toggle-auto">Auto: ON</button>
       </div>
     </header>
@@ -26,20 +28,20 @@
     <section class="grid">
       <article class="card status">
         <div class="card-head">
-          <h2>Estado del orquestador</h2>
+          <h2>Orchestrator status</h2>
           <span class="chip" id="status-chip">--</span>
         </div>
         <div class="status-body">
           <div class="metric">
-            <span class="label">Servicio</span>
+            <span class="label">Service</span>
             <span class="value" id="status-project">--</span>
           </div>
           <div class="metric">
-            <span class="label">Mensaje</span>
+            <span class="label">Message</span>
             <span class="value" id="status-message">--</span>
           </div>
           <div class="metric">
-            <span class="label">Última actualización</span>
+            <span class="label">Last updated</span>
             <span class="value" id="last-updated">--</span>
           </div>
         </div>
@@ -47,20 +49,20 @@
 
       <article class="card containers">
         <div class="card-head">
-          <h2>Contenedores detectados</h2>
+          <h2>Detected containers</h2>
           <span class="count" id="container-count">0</span>
         </div>
         <ul class="container-list" id="container-list"></ul>
-        <div class="empty" id="container-empty">Sin contenedores disponibles.</div>
-        <div class="error" id="container-error">No se pudo cargar la lista.</div>
+        <div class="empty" id="container-empty">No containers available.</div>
+        <div class="error" id="container-error">Could not load the list.</div>
       </article>
     </section>
 
     <section class="card footer">
       <div>
-        <h3>Notas rápidas</h3>
+        <h3>Quick notes</h3>
         <p>
-          Este panel esta pensado para diagnóstico rápido. La CLI sigue siendo la via principal para ejecuciones en CI.
+          This panel is designed for quick diagnostics. The CLI remains the primary path for CI executions.
         </p>
       </div>
       <div class="tags">
@@ -73,4 +75,5 @@
 
   <script src="/assets/app.js"></script>
 </body>
+
 </html>

@@ -12,14 +12,14 @@ const toggleAutoBtn = document.getElementById("toggle-auto");
 let autoRefresh = true;
 let timerId = null;
 
-const formatNow = () => new Date().toLocaleTimeString("es-ES", {
+const formatNow = () => new Date().toLocaleTimeString("en-US", {
   hour: "2-digit",
   minute: "2-digit",
   second: "2-digit",
 });
 
 const setLoading = () => {
-  statusChip.textContent = "Cargando";
+  statusChip.textContent = "Loading";
   statusChip.style.color = "#f5a623";
   statusChip.style.background = "rgba(245, 166, 35, 0.2)";
 };
@@ -97,7 +97,7 @@ const renderContainers = (containers) => {
 
     const name = document.createElement("div");
     name.className = "name";
-    name.textContent = container.name || "(sin nombre)";
+    name.textContent = container.name || "(unnamed)";
 
     const meta = document.createElement("div");
     meta.className = "meta";
@@ -191,7 +191,7 @@ const refresh = async () => {
   } catch (error) {
     setOffline();
     statusProject.textContent = "CHAOS";
-    statusMessage.textContent = "Sin respuesta del adaptador web";
+    statusMessage.textContent = "No response from web adapter";
     lastUpdated.textContent = formatNow();
     containerList.innerHTML = "";
     containerEmpty.style.display = "none";

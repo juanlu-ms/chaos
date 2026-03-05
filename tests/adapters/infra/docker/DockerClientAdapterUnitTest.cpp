@@ -54,7 +54,7 @@ TEST(DockerClientAdapterUnitTest, ParsesEmptyContainerList) {
     EXPECT_TRUE(containers.empty());
 }
 
-TEST(DockerClientAdapterUnitTest, ThrowsOnNonArrayResponse) {
+TEST(DockerClientAdapterUnitTest, ThrowsOnErrorInResponse) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::object({{"error", "not an array"}}));
 
     EXPECT_THROW(adapter.listContainers(), std::runtime_error);

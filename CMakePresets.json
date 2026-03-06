@@ -1,15 +1,26 @@
 {
   "version": 10,
   "cmakeMinimumRequired": {
-    "major": 4,
-    "minor": 2,
+    "major": 3,
+    "minor": 28,
     "patch": 0
   },
   "configurePresets": [
     {
+      "name": "local-env",
+      "displayName": "Local Environment Overrides",
+      "description": "Local-only environment settings",
+      "environment": {
+        "VCPKG_ROOT": "$penv{VCPKG_ROOT}"
+      }
+    },
+    {
       "name": "dev-linux-gcc",
       "displayName": "Linux GCC (Debug + vcpkg)",
       "description": "Dev config using GCC and vcpkg",
+      "inherits": [
+        "local-env"
+      ],
       "binaryDir": "${sourceDir}/build/debug",
       "generator": "Ninja",
       "cacheVariables": {
@@ -20,15 +31,15 @@
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_FEATURE_FLAGS": "manifests",
         "VCPKG_TARGET_TRIPLET": "x64-linux"
-      },
-      "environment": {
-        "VCPKG_ROOT": "/vcpkg"
       }
     },
     {
       "name": "dev-linux-clang",
       "displayName": "Linux Clang (Debug + vcpkg)",
       "description": "Dev config using Clang and vcpkg",
+      "inherits": [
+        "local-env"
+      ],
       "binaryDir": "${sourceDir}/build/debug-clang",
       "generator": "Ninja",
       "cacheVariables": {
@@ -39,15 +50,15 @@
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_FEATURE_FLAGS": "manifests",
         "VCPKG_TARGET_TRIPLET": "x64-linux"
-      },
-      "environment": {
-        "VCPKG_ROOT": "/vcpkg"
       }
     },
     {
       "name": "release-linux-gcc",
       "displayName": "Linux GCC (Release + vcpkg)",
       "description": "Release config using GCC and vcpkg",
+      "inherits": [
+        "local-env"
+      ],
       "binaryDir": "${sourceDir}/build/release",
       "generator": "Ninja",
       "cacheVariables": {
@@ -58,9 +69,6 @@
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_FEATURE_FLAGS": "manifests",
         "VCPKG_TARGET_TRIPLET": "x64-linux"
-      },
-      "environment": {
-        "VCPKG_ROOT": "/vcpkg"
       }
     }
   ],
@@ -84,7 +92,7 @@
   "testPresets": [
     {
       "name": "test",
-      "configurePreset": "dev-linux-clang",
+      "configurePreset": "dev-linux-gcc",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true

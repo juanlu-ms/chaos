@@ -1,7 +1,7 @@
 CompileFlags:
   Add:
-    - -I/workspaces/kaos/src
+    - -I/workspaces/chaos/src
     - -isystem
-    - /workspaces/kaos/build/debug-clang/vcpkg_installed/x64-linux/include
+    - /workspaces/chaos/build/debug-clang/vcpkg_installed/x64-linux/include
     - -isystem
-    - /workspaces/kaos/vcpkg_installed/x64-linux/include
+    - /workspaces/chaos/vcpkg_installed/x64-linux/include

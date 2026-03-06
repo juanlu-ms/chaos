@@ -1,5 +1,5 @@
 {
-    "name": "Kaos Dev Environment",
+    "name": "Chaos Dev Environment",
     "build": {
         "dockerfile": "Dockerfile",
         "context": ".."

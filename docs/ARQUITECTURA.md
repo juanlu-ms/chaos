@@ -75,13 +75,13 @@ El repositorio sigue una estructura de monorepo alineada con los principios de l
 ```plaintext
 CHAOS/
 ├── src/
-│   ├── domain/       # Núcleo del negocio: Entidades y Puertos (Interfaces).
+│   ├── domain/       # Núcleo del negocio: Entidades y puertos de negocio.
 │   │                 # Sin dependencias externas.
 │   ├── application/  # Servicios de aplicación y casos de uso.
 │   │
 │   ├── adapters/     # Implementaciones de infraestructura.
 │   │   ├── infra/    # Cliente Docker, Controladores de Cgroups.
-│   │   └── ui/       # Controladores HTTP, Entrada CLI.
+│   │   └── ui/       # Adaptadores de entrada: CLI (arranque) y Web (HTTP).
 │   │
 │   ├── wrapper/      # Código fuente del agente interno (independiente).
 │   │
@@ -90,3 +90,13 @@ CHAOS/
 ├── tests/            # Suite de pruebas automatizadas (GTest).
 └── CMakeLists.txt    # Configuración de construcción (CMake).
 ```
+
+### 2.1 Arranque y Adaptadores de Entrada
+
+En el estado actual del repositorio:
+
+1. `main.cpp` compone dependencias (`DockerClientAdapter` y `CliAdapter`).
+2. `CliAdapter::run(...)` es el unico punto de arranque del proceso.
+3. El comando `serve` instancia `web::Server` y llama a `listen(port)`.
+
+Este enfoque evita duplicar el parsing de argumentos en varios adaptadores y mantiene `Server` centrado en HTTP.

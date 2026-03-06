@@ -1,10 +1,7 @@
 #include <spdlog/spdlog.h>
 
-#include <memory>
-
 #include "adapters/infra/docker/DockerClientAdapter.hpp"
 #include "adapters/ui/cli/CliAdapter.hpp"
-#include "domain/ports/IUserInterface.hpp"
 
 using chaos::adapters::infra::docker::DockerClientAdapter;
 using chaos::adapters::ui::cli::CliAdapter;
@@ -18,6 +15,6 @@ int main(int argc, char* argv[]) {
 
     auto engine = DockerClientAdapter::create();
 
-    std::unique_ptr<chaos::domain::ports::IUserInterface> ui = std::make_unique<CliAdapter>(*engine);
-    return ui->run(argc, argv);
+    CliAdapter ui(*engine);
+    return ui.run(argc, argv);
 }

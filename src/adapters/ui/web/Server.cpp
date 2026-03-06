@@ -1,3 +1,5 @@
+#include <spdlog/spdlog.h>
+
 #include <adapters/ui/web/Server.hpp>
 #include <filesystem>
 #include <nlohmann/json.hpp>
@@ -32,31 +34,7 @@ std::optional<std::filesystem::path> findWebRoot() {
  * @brief Construct the server and register routes.
  * @param engine Engine used to retrieve container data.
  */
-Server::Server(chaos::domain::ports::IContainerEngine& engine) : m_engine(engine) {
-    setupRoutes();
-}
-
-/**
- * @brief Start the server from argc/argv, parsing --port.
- * @param argc Argument count.
- * @param argv Argument values.
- * @return Exit code (0 on success, non-zero on error).
- */
-int Server::run(int argc, char* argv[]) {
-    int port = 8080;
-    for (int i = 1; i < argc - 1; ++i) {
-        if (std::string(argv[i]) == "--port") {
-            try {
-                port = std::stoi(argv[i + 1]);
-            } catch (...) {
-                spdlog::error("Invalid port number: {}", argv[i + 1]);
-                return 1;
-            }
-        }
-    }
-    listen(port);
-    return 0;
-}
+Server::Server(chaos::domain::ports::IContainerEngine& engine) : m_engine(engine) { setupRoutes(); }
 
 /**
  * @brief Start the HTTP server on a specific port.

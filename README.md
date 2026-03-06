@@ -31,3 +31,22 @@ You can run a single stage too:
 - `bash scripts/cmake-local.sh configure`
 - `bash scripts/cmake-local.sh build`
 - `bash scripts/cmake-local.sh test`
+
+## Run the CLI
+
+After building, run:
+
+- `./build/debug-clang/chaos help`
+- `./build/debug-clang/chaos list`
+- `./build/debug-clang/chaos stop <container_id>`
+- `./build/debug-clang/chaos kill <container_id>`
+
+## Run the Web UI
+
+Start the server:
+
+- `./build/debug-clang/chaos serve --port 8080`
+
+Then open:
+
+- `http://127.0.0.1:8080`

@@ -1,6 +1,6 @@
 CompileFlags:
   Add:
-    - -I/workspaces/chaos/src
+    - -I/workspaces/chaos/orchestrator/src
     - -isystem
     - /workspaces/chaos/build/debug-clang/vcpkg_installed/x64-linux/include
     - -isystem

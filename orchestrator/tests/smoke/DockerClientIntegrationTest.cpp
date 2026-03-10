@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 
-#include <adapters/infra/docker/DockerClientAdapter.hpp>
+#include <containers/internal/DockerClient.hpp>
 
-using chaos::adapters::infra::docker::DockerClientAdapter;
+using chaos::orchestrator::containers::internal::DockerClient;
 
-TEST(DockerClientAdapterIntegrationTest, ListsContainersWhenDockerAvailable) {
-    auto adapter = DockerClientAdapter::create();
+TEST(DockerClientIntegrationTest, ListsContainersWhenDockerAvailable) {
+    auto adapter = DockerClient::create();
 
     try {
         const auto containers = adapter->listContainers();

@@ -1,7 +1,8 @@
 #pragma once
+
 #include <string>
 
-namespace chaos::domain {
+namespace chaos::orchestrator::containers {
 
 /**
  * @brief Represents a Docker container summary.
@@ -15,4 +16,4 @@ struct Container {
     std::string state;
 };
 
-}  // namespace chaos::domain
+}  // namespace chaos::orchestrator::containers

@@ -1,43 +1,40 @@
 #include <fmt/format.h>
 #include <gtest/gtest.h>
 
-#include <adapters/infra/docker/DockerClientAdapter.hpp>
+#include <containers/internal/DockerClient.hpp>
 #include <nlohmann/json.hpp>
 #include <string_view>
 
-using chaos::adapters::infra::docker::DockerClientAdapter;
-using chaos::adapters::infra::docker::HttpMethod;
-using chaos::adapters::infra::docker::HttpResponse;
+using chaos::orchestrator::containers::internal::DockerClient;
+using chaos::orchestrator::containers::internal::HttpMethod;
+using chaos::orchestrator::containers::internal::HttpResponse;
 
 namespace {
 
-// Helper to create an adapter that returns a predefined JSON response.
-DockerClientAdapter makeAdapterForListContainers(const nlohmann::json& response) {
-    return DockerClientAdapter([response](HttpMethod method, std::string_view endpoint) {
-        // We can still add default checks if we want.
+DockerClient makeAdapterForListContainers(const nlohmann::json& response) {
+    return DockerClient([response](HttpMethod method, std::string_view endpoint) {
         EXPECT_EQ(method, HttpMethod::GET);
         EXPECT_EQ(endpoint, "/containers/json");
         return HttpResponse{200, response.dump()};
     });
 }
 
-// Helper to create an adapter that throws a specific error.
-DockerClientAdapter makeAdapterWithError(const std::string& error_message) {
-    return DockerClientAdapter(
-        [error_message](HttpMethod, std::string_view) -> HttpResponse { throw std::runtime_error(error_message); });
+DockerClient makeAdapterWithError(const std::string& errorMessage) {
+    return DockerClient(
+        [errorMessage](HttpMethod, std::string_view) -> HttpResponse { throw std::runtime_error(errorMessage); });
 }
 
 }  // namespace
 
-TEST(DockerClientAdapterUnitTest, ParsesContainerList) {
-    const auto mock_response = nlohmann::json::array({
+TEST(DockerClientUnitTest, ParsesContainerList) {
+    const auto mockResponse = nlohmann::json::array({
         {
             {"Id", "abc123"},
             {"Names", nlohmann::json::array({"/mock-container"})},
             {"State", "running"},
         },
     });
-    auto adapter = makeAdapterForListContainers(mock_response);
+    auto adapter = makeAdapterForListContainers(mockResponse);
 
     const auto containers = adapter.listContainers();
 
@@ -47,25 +44,25 @@ TEST(DockerClientAdapterUnitTest, ParsesContainerList) {
     EXPECT_EQ(containers[0].state, "running");
 }
 
-TEST(DockerClientAdapterUnitTest, ParsesEmptyContainerList) {
+TEST(DockerClientUnitTest, ParsesEmptyContainerList) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::array());
 
     const auto containers = adapter.listContainers();
     EXPECT_TRUE(containers.empty());
 }
 
-TEST(DockerClientAdapterUnitTest, ThrowsOnErrorInResponse) {
+TEST(DockerClientUnitTest, ThrowsOnErrorInResponse) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::object({{"error", "not an array"}}));
 
     EXPECT_THROW(adapter.listContainers(), std::runtime_error);
 }
 
-TEST(DockerClientAdapterUnitTest, HandlesContainersWithMissingFields) {
-    const auto mock_response = nlohmann::json::array({
+TEST(DockerClientUnitTest, HandlesContainersWithMissingFields) {
+    const auto mockResponse = nlohmann::json::array({
         {{"Id", "abc123"}},
         {{"Names", nlohmann::json::array({"/only-name"})}},
     });
-    auto adapter = makeAdapterForListContainers(mock_response);
+    auto adapter = makeAdapterForListContainers(mockResponse);
 
     const auto containers = adapter.listContainers();
 
@@ -77,13 +74,13 @@ TEST(DockerClientAdapterUnitTest, HandlesContainersWithMissingFields) {
     EXPECT_EQ(containers[1].name, "only-name");
 }
 
-TEST(DockerClientAdapterUnitTest, ParsesMultipleContainers) {
-    const auto mock_response = nlohmann::json::array({
+TEST(DockerClientUnitTest, ParsesMultipleContainers) {
+    const auto mockResponse = nlohmann::json::array({
         {{"Id", "aaa"}, {"Names", nlohmann::json::array({"/alpha"})}, {"State", "running"}},
         {{"Id", "bbb"}, {"Names", nlohmann::json::array({"/beta"})}, {"State", "exited"}},
         {{"Id", "ccc"}, {"Names", nlohmann::json::array({"/gamma"})}, {"State", "paused"}},
     });
-    auto adapter = makeAdapterForListContainers(mock_response);
+    auto adapter = makeAdapterForListContainers(mockResponse);
 
     const auto containers = adapter.listContainers();
 
@@ -95,61 +92,61 @@ TEST(DockerClientAdapterUnitTest, ParsesMultipleContainers) {
     EXPECT_EQ(containers[2].state, "paused");
 }
 
-TEST(DockerClientAdapterUnitTest, PropagatesTransportErrors) {
+TEST(DockerClientUnitTest, PropagatesTransportErrors) {
     auto adapter = makeAdapterWithError("Connection refused");
 
     EXPECT_THROW(adapter.listContainers(), std::runtime_error);
 }
 
-TEST(DockerClientAdapterUnitTest, StopContainerCallsCorrectEndpoint) {
-    bool was_called = false;
-    const std::string container_id = "test-container-456";
+TEST(DockerClientUnitTest, StopContainerCallsCorrectEndpoint) {
+    bool wasCalled = false;
+    const std::string containerId = "test-container-456";
 
-    auto adapter = DockerClientAdapter([&was_called, &container_id](HttpMethod method, std::string_view endpoint) {
-        was_called = true;
+    auto adapter = DockerClient([&wasCalled, &containerId](HttpMethod method, std::string_view endpoint) {
+        wasCalled = true;
         EXPECT_EQ(method, HttpMethod::POST);
-        EXPECT_EQ(endpoint, fmt::format("/containers/{}/stop?t=5", container_id));
+        EXPECT_EQ(endpoint, fmt::format("/containers/{}/stop?t=5", containerId));
         return HttpResponse{204, ""};
     });
 
-    adapter.stopContainer(container_id);
-    EXPECT_TRUE(was_called);
+    adapter.stopContainer(containerId);
+    EXPECT_TRUE(wasCalled);
 }
 
-TEST(DockerClientAdapterUnitTest, StopContainerPropagatesApiError) {
+TEST(DockerClientUnitTest, StopContainerPropagatesApiError) {
     auto adapter = makeAdapterWithError("Docker daemon unreachable");
 
     EXPECT_THROW(adapter.stopContainer("any-id"), std::runtime_error);
 }
 
-TEST(DockerClientAdapterUnitTest, StopContainerWithEmptyIdThrows) {
+TEST(DockerClientUnitTest, StopContainerWithEmptyIdThrows) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::array());
 
     EXPECT_THROW(adapter.stopContainer(""), std::runtime_error);
 }
 
-TEST(DockerClientAdapterUnitTest, KillContainerCallsCorrectEndpoint) {
-    bool was_called = false;
-    const std::string container_id = "test-container-123";
+TEST(DockerClientUnitTest, KillContainerCallsCorrectEndpoint) {
+    bool wasCalled = false;
+    const std::string containerId = "test-container-123";
 
-    auto adapter = DockerClientAdapter([&was_called, &container_id](HttpMethod method, std::string_view endpoint) {
-        was_called = true;
+    auto adapter = DockerClient([&wasCalled, &containerId](HttpMethod method, std::string_view endpoint) {
+        wasCalled = true;
         EXPECT_EQ(method, HttpMethod::POST);
-        EXPECT_EQ(endpoint, fmt::format("/containers/{}/kill", container_id));
+        EXPECT_EQ(endpoint, fmt::format("/containers/{}/kill", containerId));
         return HttpResponse{204, ""};
     });
 
-    adapter.killContainer(container_id);
-    EXPECT_TRUE(was_called);
+    adapter.killContainer(containerId);
+    EXPECT_TRUE(wasCalled);
 }
 
-TEST(DockerClientAdapterUnitTest, KillContainerPropagatesApiError) {
+TEST(DockerClientUnitTest, KillContainerPropagatesApiError) {
     auto adapter = makeAdapterWithError("Docker daemon is on fire");
 
     EXPECT_THROW(adapter.killContainer("any-id"), std::runtime_error);
 }
 
-TEST(DockerClientAdapterUnitTest, KillContainerWithEmptyIdThrows) {
+TEST(DockerClientUnitTest, KillContainerWithEmptyIdThrows) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::array());
 
     EXPECT_THROW(adapter.killContainer(""), std::runtime_error);

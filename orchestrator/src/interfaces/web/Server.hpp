@@ -2,9 +2,9 @@
 
 #include <httplib.h>
 
-#include <domain/ports/IContainerEngine.hpp>
+#include <containers/IContainerEngine.hpp>
 
-namespace chaos::adapters::ui::web {
+namespace chaos::orchestrator::interfaces::web {
 
 /**
  * @brief HTTP server exposing the web API.
@@ -15,7 +15,7 @@ public:
      * @brief Construct the server with a container engine dependency.
      * @param engine Engine used to retrieve container data.
      */
-    explicit Server(chaos::domain::ports::IContainerEngine& engine);
+    explicit Server(chaos::orchestrator::containers::IContainerEngine& engine);
     ~Server() = default;
 
     /**
@@ -26,7 +26,7 @@ public:
 
 private:
     httplib::Server m_server;
-    chaos::domain::ports::IContainerEngine& m_engine;
+    chaos::orchestrator::containers::IContainerEngine& m_engine;
 
     /**
      * @brief Register all HTTP routes.
@@ -34,4 +34,4 @@ private:
     void setupRoutes();
 };
 
-}  // namespace chaos::adapters::ui::web
+}  // namespace chaos::orchestrator::interfaces::web

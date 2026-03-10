@@ -1,13 +1,10 @@
 #pragma once
 
+#include <containers/Container.hpp>
 #include <string_view>
 #include <vector>
 
-#include "domain/entities/Container.hpp"
-
-namespace chaos::domain::ports {
-
-using chaos::domain::Container;
+namespace chaos::orchestrator::containers {
 
 /**
  * @brief Port for container engine operations.
@@ -38,4 +35,4 @@ public:
     virtual void killContainer(const std::string_view containerId) = 0;
 };
 
-}  // namespace chaos::domain::ports
+}  // namespace chaos::orchestrator::containers

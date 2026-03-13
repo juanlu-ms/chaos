@@ -17,7 +17,6 @@ CHAOS uses a hybrid architecture:
 - Top-level separation by deployable component:
 	- `orchestrator/`: host binary (CLI/Web) and orchestration logic.
 	- `wrapper/`: in-container agent (`PID 1`) for process supervision and telemetry handoff.
-	- `ebpf_src/`: kernel-side eBPF program sources.
 - Inside `orchestrator/`, code is organized by responsibility and ownership (interfaces, containers, scenarios, perturbations, observability).
 
 ## Repository Layout
@@ -50,9 +49,6 @@ chaos/
 │   ├── CMakeLists.txt
 │   ├── src/
 │   └── tests/
-├── ebpf_src/
-│   ├── CMakeLists.txt
-│   └── src/
 ├── tests/
 │   └── e2e/
 └── docs/

@@ -12,7 +12,7 @@ El objetivo inicial es establecer la comunicacion con el Docker Engine y validar
 | :--- | :--- | :--- | :--- |
 | **RF-1.1** | Conexión Docker | **MUST** | El sistema debe conectarse al socket de Docker (`/var/run/docker.sock`) y listar contenedores activos. |
 | **RF-1.2** | Gestión de Ciclo de Vida | **MUST** | Capacidad de detener (`stop`) y forzar la terminación (`kill`) de un contenedor específico por su ID. |
-| **RF-1.3** | Arquitectura Hibrida por Componentes | **MUST** | El sistema debe separar claramente `orchestrator`, `wrapper` y `ebpf_src`, con ownership explicito de codigo y pruebas por modulo. |
+| **RF-1.3** | Arquitectura Hibrida por Componentes | **MUST** | El sistema debe separar claramente `orchestrator` y `wrapper`, con ownership explicito de codigo y pruebas por modulo. |
 | **RF-1.4** | CLI de Control | **SHOULD** | Interfaz de línea de comandos para facilitar la ejecución en scripts (ej: `CHAOS attack --target <id>`). |
 | **RF-1.5** | Panel Web Básico | **SHOULD** | Interfaz visual ligera para seleccionar contenedores y visualizar métricas básicas en tiempo real. |
 

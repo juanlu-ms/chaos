@@ -6,7 +6,6 @@ El primer nivel del repositorio se organiza por unidades de despliegue y ejecuci
 
 - `orchestrator/`: proceso host principal.
 - `wrapper/`: agente dentro del contenedor objetivo.
-- `ebpf_src/`: programas eBPF de bajo nivel para kernel.
 
 Dentro de `orchestrator/`, el codigo se agrupa por ownership y responsabilidad (interfaces, contenedores, perturbaciones, observabilidad, escenarios), evitando acoplamientos innecesarios con carpetas globales de arquitectura legacy.
 
@@ -22,7 +21,7 @@ Componente host que coordina escenarios y expone control por CLI y Web.
 
 - Gestion del ciclo de vida de escenarios.
 - Interaccion con Docker Engine API para operaciones sobre contenedores.
-- Aplicacion de perturbaciones en host (CPU, memoria, red, eBPF en fases posteriores).
+- Aplicacion de perturbaciones en host (CPU, memoria, red).
 - Recoleccion de evidencias y emision de estado/veredicto.
 
 ### 1.2. Wrapper (`chaos_wrapper`)
@@ -34,15 +33,6 @@ Agente ejecutado dentro del contenedor objetivo.
 - Actuar como proceso de supervision de la app target.
 - Capturar eventos/senales de ejecucion.
 - Reportar telemetria al orchestrator.
-
-### 1.3. eBPF Programs (`ebpf_src`)
-
-Codigo fuente de programas del kernel para instrumentacion avanzada.
-
-**Responsabilidades**
-
-- Definir probes/filtros de red y observabilidad de bajo nivel.
-- Mantener separacion explicita entre codigo kernel-space y user-space.
 
 ---
 
@@ -71,8 +61,6 @@ CHAOS/
 ├── wrapper/
 │   ├── src/
 │   └── tests/
-├── ebpf_src/
-│   └── src/
 ├── tests/
 │   └── e2e/
 └── CMakeLists.txt
@@ -96,6 +84,5 @@ El build se orquesta desde `CMakeLists.txt` raiz con subproyectos:
 
 - `add_subdirectory(orchestrator)`
 - `add_subdirectory(wrapper)`
-- `add_subdirectory(ebpf_src)`
 
 Esto permite evolucionar cada componente de forma independiente sin arrastrar compatibilidad legacy de estructura previa.

@@ -26,16 +26,12 @@ Ejecutado en el host del desarrollador, gestiona los escenarios de prueba defini
 
 Un binario estático que se inyecta en el contenedor y actúa como proceso padre (`PID 1`). Su función es ejecutar la aplicación del usuario como subproceso, interceptar señales de terminación (`SIGSEGV`, `SIGKILL`) y medir tiempos de ejecución precisos, reportando la telemetría al orquestador vía UDP.
 
-### 3. eBPF (`ebpf_src`)
-
-Programas de kernel para instrumentacion avanzada de red/sistema.
-
 ### Stack tecnologico
 
 - **Lenguaje:** C++23.
 - **Build System:** CMake + vcpkg.
 - **Librerias:** `spdlog`, `nlohmann_json`, `cpp-httplib`, `GTest`, `fmt`.
-- **Infraestructura:** Docker Engine API, Linux cgroups/namespaces y eBPF (fase incremental).
+- **Infraestructura:** Docker Engine API y Linux cgroups/namespaces.
 
 ---
 
@@ -64,8 +60,6 @@ CHAOS/
 ├── wrapper/
 │   ├── src/
 │   └── tests/
-├── ebpf_src/
-│   └── src/
 ├── tests/
 │   └── e2e/
 └── CMakeLists.txt

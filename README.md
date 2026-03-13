@@ -20,8 +20,6 @@ CHAOS uses a hybrid architecture:
 	- `ebpf_src/`: kernel-side eBPF program sources.
 - Inside `orchestrator/`, code is organized by responsibility and ownership (interfaces, containers, scenarios, perturbations, observability).
 
-![Diagram of the system architecture](docs/images/architectural-design.png)
-
 ## Repository Layout
 
 ```text

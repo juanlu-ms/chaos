@@ -30,7 +30,7 @@ Un binario estático que se inyecta en el contenedor y actúa como proceso padre
 
 - **Lenguaje:** C++23.
 - **Build System:** CMake + vcpkg.
-- **Librerias:** `spdlog`, `nlohmann_json`, `cpp-httplib`, `GTest`, `fmt`.
+- **Librerías:** `spdlog`, `nlohmann_json`, `cpp-httplib`, `GTest`, `fmt`.
 - **Infraestructura:** Docker Engine API y Linux cgroups/namespaces.
 
 ---

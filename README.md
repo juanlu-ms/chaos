@@ -17,7 +17,8 @@ CHAOS uses a hybrid architecture:
 - Top-level separation by deployable component:
     - `orchestrator/`: host binary (CLI/Web) and orchestration logic.
     - `wrapper/`: in-container agent (`PID 1`) for process supervision and telemetry handoff.
-- Inside `orchestrator/`, code is organized by responsibility and ownership (interfaces, containers, scenarios, perturbations, observability).
+- Inside `orchestrator/`, public contracts live in `include/` and implementation details stay in `src/`.
+- Ownership is organized by responsibility (interfaces, containers, scenarios, perturbations, observability).
 
 ## Repository Layout
 
@@ -28,6 +29,8 @@ chaos/
 ├── vcpkg.json
 ├── orchestrator/
 │   ├── CMakeLists.txt
+│   ├── include/
+│   │   └── containers/
 │   ├── src/
 │   │   ├── main.cpp
 │   │   ├── interfaces/
@@ -40,7 +43,6 @@ chaos/
 │   │   │   └── internal/
 │   │   ├── observability/
 │   │   │   └── internal/
-│   │   └── shared/
 │   └── tests/
 │       ├── containers/
 │       │   └── internal/
@@ -94,5 +96,5 @@ Then open:
 ## Testing Strategy
 
 - `orchestrator/tests/containers/internal`: module unit tests (Docker adapter ownership).
-- `orchestrator/tests/smoke`: minimal host smoke checks.
+- `orchestrator/tests/smoke`: minimal host smoke checks through public APIs (no direct `internal` includes).
 - `tests/e2e`: cross-component integration tests.

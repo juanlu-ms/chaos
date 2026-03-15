@@ -7,7 +7,8 @@ El primer nivel del repositorio se organiza por unidades de despliegue y ejecuci
 - `orchestrator/`: proceso host principal.
 - `wrapper/`: agente dentro del contenedor objetivo.
 
-Dentro de `orchestrator/`, el codigo se agrupa por ownership y responsabilidad (interfaces, contenedores, perturbaciones, observabilidad, escenarios), evitando acoplamientos innecesarios con carpetas globales de arquitectura legacy.
+Dentro de `orchestrator/`, los contratos publicos se exponen desde `include/` y la implementacion privada queda en `src/`.
+El codigo se agrupa por ownership y responsabilidad (interfaces, contenedores, perturbaciones, observabilidad, escenarios), evitando acoplamientos innecesarios con carpetas globales de arquitectura legacy.
 
 ---
 
@@ -41,6 +42,8 @@ Agente ejecutado dentro del contenedor objetivo.
 ```plaintext
 CHAOS/
 ├── orchestrator/
+│   ├── include/
+│   │   └── containers/
 │   ├── src/
 │   │   ├── main.cpp
 │   │   ├── interfaces/
@@ -53,7 +56,6 @@ CHAOS/
 │   │   │   └── internal/
 │   │   ├── observability/
 │   │   │   └── internal/
-│   │   └── shared/
 │   └── tests/
 │       ├── containers/
 │       │   └── internal/
@@ -71,7 +73,7 @@ CHAOS/
 ## 3. Estrategia de Pruebas
 
 - `orchestrator/tests/containers/internal`: unit tests de modulo propietario.
-- `orchestrator/tests/smoke`: pruebas rapidas del binario host y conectividad minima.
+- `orchestrator/tests/smoke`: pruebas rapidas del binario host y conectividad minima usando API publica.
 - `tests/e2e`: pruebas cross-componente.
 
 Regla de ownership: una suite de tests no debe depender de internals de otro modulo salvo que sea una prueba de integracion/e2e declarada como tal.

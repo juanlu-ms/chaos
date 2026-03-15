@@ -5,6 +5,7 @@ find_package(GTest CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 
 set(ORCHESTRATOR_SOURCES
+    src/containers/ContainerEngineFactory.cpp
     src/containers/internal/DockerClient.cpp
     src/interfaces/cli/CliParser.cpp
     src/interfaces/web/Server.cpp
@@ -12,8 +13,9 @@ set(ORCHESTRATOR_SOURCES
 
 add_library(orchestrator_core STATIC ${ORCHESTRATOR_SOURCES})
 
-target_include_directories(orchestrator_core PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
+target_include_directories(orchestrator_core
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 target_link_libraries(orchestrator_core PUBLIC
@@ -31,18 +33,27 @@ if(UNIX)
 endif()
 
 add_executable(orchestrator_app src/main.cpp)
+target_include_directories(orchestrator_app PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
 target_link_libraries(orchestrator_app PRIVATE orchestrator_core)
 set_target_properties(orchestrator_app PROPERTIES OUTPUT_NAME chaos)
 
-add_executable(orchestrator_tests
-    tests/containers/internal/DockerClientUnitTest.cpp
-    tests/smoke/DockerClientIntegrationTest.cpp
+add_executable(orchestrator_unit_tests tests/containers/internal/DockerClientUnitTest.cpp)
+target_include_directories(orchestrator_unit_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(orchestrator_unit_tests PRIVATE
+    orchestrator_core
+    GTest::gtest_main
 )
 
-target_link_libraries(orchestrator_tests PRIVATE
+add_executable(orchestrator_smoke_tests tests/smoke/DockerClientIntegrationTest.cpp)
+target_link_libraries(orchestrator_smoke_tests PRIVATE
     orchestrator_core
     GTest::gtest_main
 )
 
 include(GoogleTest)
-gtest_discover_tests(orchestrator_tests)
+gtest_discover_tests(orchestrator_unit_tests)
+gtest_discover_tests(orchestrator_smoke_tests)

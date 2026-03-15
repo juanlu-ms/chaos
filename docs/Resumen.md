@@ -49,13 +49,15 @@ Un binario estático que se inyecta en el contenedor y actúa como proceso padre
 ```plaintext
 CHAOS/
 ├── orchestrator/
+│   ├── include/
+│   │   └── containers/
 │   ├── src/
 │   │   ├── interfaces/
 │   │   ├── containers/
 │   │   ├── scenarios/
 │   │   ├── perturbations/
 │   │   ├── observability/
-│   │   └── shared/
+│   │   └── main.cpp
 │   └── tests/
 ├── wrapper/
 │   ├── src/

@@ -1,9 +1,9 @@
 #include <spdlog/spdlog.h>
 
-#include <containers/internal/DockerClient.hpp>
+#include <containers/ContainerEngineFactory.hpp>
 #include <interfaces/cli/CliParser.hpp>
 
-using chaos::orchestrator::containers::internal::DockerClient;
+using chaos::orchestrator::containers::createContainerEngine;
 using chaos::orchestrator::interfaces::cli::CliParser;
 
 /**
@@ -13,7 +13,7 @@ using chaos::orchestrator::interfaces::cli::CliParser;
 int main(int argc, char* argv[]) {
     spdlog::set_level(spdlog::level::warn);
 
-    auto engine = DockerClient::create();
+    auto engine = createContainerEngine();
 
     CliParser ui(*engine);
     return ui.run(argc, argv);

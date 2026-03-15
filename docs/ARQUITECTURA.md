@@ -1,4 +1,4 @@
-# Diseño Arquitectonico
+# Diseño Arquitectónico
 
 La arquitectura de `CHAOS` es **hibrida por componentes**.
 

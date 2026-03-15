@@ -6,7 +6,7 @@ La implementación del sistema se divide en cuatro fases incrementales, prioriza
 
 ### Fase 1: Infraestructura Base y Conectividad
 
-El objetivo inicial es establecer la comunicacion con el Docker Engine y validar la arquitectura hibrida por componentes.
+El objetivo inicial es establecer la comunicación con el Docker Engine y validar la arquitectura hibrida por componentes.
 
 | ID | Requisito | Prioridad | Descripción |
 | :--- | :--- | :--- | :--- |

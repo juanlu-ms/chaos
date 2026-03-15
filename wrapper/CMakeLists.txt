@@ -1,5 +1,3 @@
-project(chaos_wrapper)
-
 add_executable(chaos-wrapper src/main.cpp)
 
 target_link_options(chaos-wrapper PRIVATE "-static")

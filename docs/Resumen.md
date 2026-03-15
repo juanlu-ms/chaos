@@ -26,7 +26,7 @@ Ejecutado en el host del desarrollador, gestiona los escenarios de prueba defini
 
 Un binario estático que se inyecta en el contenedor y actúa como proceso padre (`PID 1`). Su función es ejecutar la aplicación del usuario como subproceso, interceptar señales de terminación (`SIGSEGV`, `SIGKILL`) y medir tiempos de ejecución precisos, reportando la telemetría al orquestador vía UDP.
 
-### Stack tecnologico
+### Stack tecnológico
 
 - **Lenguaje:** C++23.
 - **Build System:** CMake + vcpkg.

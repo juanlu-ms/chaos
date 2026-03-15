@@ -40,7 +40,7 @@ Un binario estático que se inyecta en el contenedor y actúa como proceso padre
 1. Definir escenario y condiciones de fallo.
 2. Ejecutar objetivo bajo control del orchestrator.
 3. Aplicar perturbaciones y recolectar evidencias.
-4. Evaluar resultado y emitir veredicto tecnico.
+4. Evaluar resultado y emitir veredicto técnico.
 
 ---
 

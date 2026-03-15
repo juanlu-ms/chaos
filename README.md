@@ -15,8 +15,8 @@ Unlike production cluster chaos orchestrators, CHAOS focuses on development-time
 CHAOS uses a hybrid architecture:
 
 - Top-level separation by deployable component:
-	- `orchestrator/`: host binary (CLI/Web) and orchestration logic.
-	- `wrapper/`: in-container agent (`PID 1`) for process supervision and telemetry handoff.
+    - `orchestrator/`: host binary (CLI/Web) and orchestration logic.
+    - `wrapper/`: in-container agent (`PID 1`) for process supervision and telemetry handoff.
 - Inside `orchestrator/`, code is organized by responsibility and ownership (interfaces, containers, scenarios, perturbations, observability).
 
 ## Repository Layout

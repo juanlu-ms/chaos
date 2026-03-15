@@ -13,6 +13,5 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 enable_testing()
 
-add_subdirectory(shared_protocol)
 add_subdirectory(wrapper)
 add_subdirectory(orchestrator)

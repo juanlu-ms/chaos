@@ -1,24 +1,21 @@
-#include "adapters/ui/cli/CliAdapter.hpp"
-
 #include <fmt/core.h>
 #include <spdlog/spdlog.h>
 
-#include <adapters/ui/web/Server.hpp>
+#include <interfaces/cli/CliParser.hpp>
+#include <interfaces/web/Server.hpp>
 #include <string>
-#include <string_view>
 #include <vector>
 
-namespace chaos::adapters::ui::cli {
+namespace chaos::orchestrator::interfaces::cli {
 
-CliAdapter::CliAdapter(chaos::domain::ports::IContainerEngine& engine) : m_engine(engine) {}
+CliParser::CliParser(chaos::orchestrator::containers::IContainerEngine& engine) : m_engine(engine) {}
 
-int CliAdapter::run(int argc, char* argv[]) {
+int CliParser::run(int argc, char* argv[]) {
     if (argc < 2) {
         printUsage();
         return 1;
     }
 
-    // Scan for global flags and build a filtered argument list without them
     std::vector<std::string> args;
     args.emplace_back(argv[0]);
     for (int i = 1; i < argc; ++i) {
@@ -82,11 +79,11 @@ int CliAdapter::run(int argc, char* argv[]) {
     return 1;
 }
 
-void CliAdapter::printUsage() const {
+void CliParser::printUsage() const {
     fmt::print(
         "Usage: chaos <command> [options]\n"
         "\n"
-        "Chaos — Resilience Tool for Docker Containers\n"
+        "Chaos - Resilience Tool for Docker Containers\n"
         "\n"
         "Commands:\n"
         "  list                  List all containers\n"
@@ -99,13 +96,14 @@ void CliAdapter::printUsage() const {
         "  -v, --verbose         Enable debug logging\n");
 }
 
-int CliAdapter::handleList() const {
+int CliParser::handleList() const {
     try {
         auto containers = m_engine.listContainers();
         if (containers.empty()) {
             fmt::print("No containers found.\n");
             return 0;
         }
+
         fmt::print("{:<14} {:<30} {}\n", "CONTAINER ID", "NAME", "STATE");
         for (const auto& c : containers) {
             const std::string displayId =
@@ -116,10 +114,11 @@ int CliAdapter::handleList() const {
         spdlog::error("Failed to list containers: {}", ex.what());
         return 1;
     }
+
     return 0;
 }
 
-int CliAdapter::handleStop(const std::string& containerId) const {
+int CliParser::handleStop(const std::string& containerId) const {
     try {
         m_engine.stopContainer(containerId);
         fmt::print("Container {} stopped.\n", containerId);
@@ -127,10 +126,11 @@ int CliAdapter::handleStop(const std::string& containerId) const {
         spdlog::error("Failed to stop container {}: {}", containerId, ex.what());
         return 1;
     }
+
     return 0;
 }
 
-int CliAdapter::handleKill(const std::string& containerId) const {
+int CliParser::handleKill(const std::string& containerId) const {
     try {
         m_engine.killContainer(containerId);
         fmt::print("Container {} killed.\n", containerId);
@@ -138,18 +138,20 @@ int CliAdapter::handleKill(const std::string& containerId) const {
         spdlog::error("Failed to kill container {}: {}", containerId, ex.what());
         return 1;
     }
+
     return 0;
 }
 
-int CliAdapter::handleServe(int port) const {
+int CliParser::handleServe(int port) const {
     try {
-        auto server = chaos::adapters::ui::web::Server(m_engine);
+        auto server = chaos::orchestrator::interfaces::web::Server(m_engine);
         server.listen(port);
     } catch (const std::exception& ex) {
         spdlog::error("Server error: {}", ex.what());
         return 1;
     }
+
     return 0;
 }
 
-}  // namespace chaos::adapters::ui::cli
+}  // namespace chaos::orchestrator::interfaces::cli

@@ -1,0 +1,48 @@
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
+find_package(httplib CONFIG REQUIRED)
+find_package(GTest CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+
+set(ORCHESTRATOR_SOURCES
+    src/containers/internal/DockerClient.cpp
+    src/interfaces/cli/CliParser.cpp
+    src/interfaces/web/Server.cpp
+)
+
+add_library(orchestrator_core STATIC ${ORCHESTRATOR_SOURCES})
+
+target_include_directories(orchestrator_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_link_libraries(orchestrator_core PUBLIC
+    nlohmann_json::nlohmann_json
+    httplib::httplib
+    spdlog::spdlog
+    fmt::fmt
+)
+
+if(UNIX)
+    target_compile_options(orchestrator_core PRIVATE
+        -Wall -Wextra -Wpedantic
+        -Wconversion -Wshadow
+    )
+endif()
+
+add_executable(orchestrator_app src/main.cpp)
+target_link_libraries(orchestrator_app PRIVATE orchestrator_core)
+set_target_properties(orchestrator_app PROPERTIES OUTPUT_NAME chaos)
+
+add_executable(orchestrator_tests
+    tests/containers/internal/DockerClientUnitTest.cpp
+    tests/smoke/DockerClientIntegrationTest.cpp
+)
+
+target_link_libraries(orchestrator_tests PRIVATE
+    orchestrator_core
+    GTest::gtest_main
+)
+
+include(GoogleTest)
+gtest_discover_tests(orchestrator_tests)

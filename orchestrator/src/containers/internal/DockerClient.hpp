@@ -1,6 +1,6 @@
 #pragma once
 
-#include <domain/ports/IContainerEngine.hpp>
+#include <containers/IContainerEngine.hpp>
 #include <functional>
 #include <memory>
 #include <nlohmann/json_fwd.hpp>
@@ -8,9 +8,7 @@
 #include <string_view>
 #include <vector>
 
-#include "domain/entities/Container.hpp"
-
-namespace chaos::adapters::infra::docker {
+namespace chaos::orchestrator::containers::internal {
 
 /**
  * @brief Supported HTTP methods for Docker Engine API calls.
@@ -28,7 +26,7 @@ struct HttpResponse {
 /**
  * @brief Docker Engine adapter implementing the container engine port.
  */
-class DockerClientAdapter : public chaos::domain::ports::IContainerEngine {
+class DockerClient : public chaos::orchestrator::containers::IContainerEngine {
 public:
     /**
      * @brief Function used to execute API requests.
@@ -43,28 +41,28 @@ public:
      * @brief Construct an adapter using an injected request function.
      * @param requestFn Function that performs requests against Docker API.
      */
-    explicit DockerClientAdapter(RequestFn requestFn);
-    ~DockerClientAdapter() override = default;
+    explicit DockerClient(RequestFn requestFn);
+    ~DockerClient() override = default;
 
-    DockerClientAdapter(const DockerClientAdapter&) = delete;
-    DockerClientAdapter& operator=(const DockerClientAdapter&) = delete;
-    DockerClientAdapter(DockerClientAdapter&&) noexcept = default;
-    DockerClientAdapter& operator=(DockerClientAdapter&&) noexcept = default;
+    DockerClient(const DockerClient&) = delete;
+    DockerClient& operator=(const DockerClient&) = delete;
+    DockerClient(DockerClient&&) noexcept = default;
+    DockerClient& operator=(DockerClient&&) noexcept = default;
 
     /**
      * @brief Create a default adapter using a Unix socket.
-     * @param socket_path Path to Docker Engine Unix socket.
+     * @param socketPath Path to Docker Engine Unix socket.
      * @return A container engine instance.
      */
-    static std::unique_ptr<chaos::domain::ports::IContainerEngine> create(
-        const std::string& socket_path = "/var/run/docker.sock");
+    static std::unique_ptr<chaos::orchestrator::containers::IContainerEngine> create(
+        const std::string& socketPath = "/var/run/docker.sock");
 
     /**
      * @brief List containers from the Docker Engine.
      * @return Vector of container summaries.
      * @throws std::exception On unexpected response formats.
      */
-    std::vector<chaos::domain::Container> listContainers() override;
+    std::vector<chaos::orchestrator::containers::Container> listContainers() override;
 
     /**
      * @brief Stop a container by ID.
@@ -86,4 +84,4 @@ private:
     nlohmann::json validateResponse(const HttpResponse& response) const;
 };
 
-}  // namespace chaos::adapters::infra::docker
+}  // namespace chaos::orchestrator::containers::internal

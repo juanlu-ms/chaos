@@ -24,7 +24,7 @@ En esta fase se implementan los mecanismos para detectar fallos y evaluar el res
 | :--- | :--- | :--- | :--- |
 | **RF-2.1** | Monitorización de Estado | **MUST** | Detectar terminaciones inesperadas de contenedores (Exit Code != 0). |
 | **RF-2.2** | Análisis de Logs | **SHOULD** | Capacidad de analizar los logs (`stdout`/`stderr`) buscando patrones de error definidos mediante expresiones regulares. |
-| **RF-2.3** | Motor de Escenarios | **MUST** | Carga y ejecución de ficheros de configuración (JSON) que definen la víctima, el ataque y el resultado esperado. |
+| **RF-2.3** | Motor de Escenarios | **MUST** | Carga y ejecución de ficheros de configuración (manifest) que definen la víctima, el ataque y el resultado esperado. |
 | **RF-2.4** | Generación de Informes | **MUST** | Emisión de un veredicto (`PASS`/`FAIL`) en formato JSON estructurado al finalizar la prueba. |
 
 ### Fase 3: Instrumentación (Caja Gris)

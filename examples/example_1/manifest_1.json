@@ -1,0 +1,25 @@
+{
+    "test_name": "Example 1",
+    "target": {
+        "type": "container",
+        "name": "example_1_target"
+    },
+    "perturbations": [
+        {
+            "type": "kill",
+            "parameters": {}
+        }
+    ],
+    "expectations": [
+        {
+            "type": "container_not_running",
+            "parameters": {}
+        },
+        {
+            "type": "log_not_contains",
+            "parameters": {
+                "substring": "Error"
+            }
+        }
+    ]
+}

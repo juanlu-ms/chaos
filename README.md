@@ -18,7 +18,7 @@ CHAOS uses a hybrid architecture:
     - `orchestrator/`: host binary (CLI/Web) and orchestration logic.
     - `wrapper/`: in-container agent (`PID 1`) for process supervision and telemetry handoff.
 - Inside `orchestrator/`, public contracts live in `include/` and implementation details stay in `src/`.
-- Ownership is organized by responsibility (interfaces, containers, scenarios, perturbations, observability).
+- Ownership is organized by responsibility (interfaces, containers, manifests, perturbations, observability).
 
 ## Repository Layout
 
@@ -38,7 +38,7 @@ chaos/
 │   │   │   └── web/
 │   │   ├── containers/
 │   │   │   └── internal/
-│   │   ├── scenarios/
+│   │   ├── manifest/
 │   │   ├── perturbations/
 │   │   │   └── internal/
 │   │   ├── observability/

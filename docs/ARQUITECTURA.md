@@ -8,7 +8,7 @@ El primer nivel del repositorio se organiza por unidades de despliegue y ejecuci
 - `wrapper/`: agente dentro del contenedor objetivo.
 
 Dentro de `orchestrator/`, los contratos publicos se exponen desde `include/` y la implementacion privada queda en `src/`.
-El codigo se agrupa por ownership y responsabilidad (interfaces, contenedores, perturbaciones, observabilidad, escenarios), evitando acoplamientos innecesarios con carpetas globales de arquitectura legacy.
+El codigo se agrupa por ownership y responsabilidad (interfaces, contenedores, perturbaciones, observabilidad, manifests), evitando acoplamientos innecesarios con carpetas globales de arquitectura legacy.
 
 ---
 
@@ -51,7 +51,7 @@ CHAOS/
 │   │   │   └── web/
 │   │   ├── containers/
 │   │   │   └── internal/
-│   │   ├── scenarios/
+│   │   ├── manifests/
 │   │   ├── perturbations/
 │   │   │   └── internal/
 │   │   ├── observability/

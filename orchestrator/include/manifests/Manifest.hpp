@@ -9,6 +9,7 @@ namespace chaos::orchestrator::manifests {
 using Parameters = std::unordered_map<std::string, std::string>;
 
 struct Target {
+    std::string type;
     std::string name;
 };
 

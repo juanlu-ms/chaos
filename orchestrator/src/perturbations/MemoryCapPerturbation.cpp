@@ -1,15 +1,14 @@
 #include "perturbations/MemoryCapPerturbation.hpp"
 
-#include <system_error>
 #include <cstdlib>
 #include <string>
+#include <system_error>
 
 namespace chaos::orchestrator::perturbations {
 
-MemoryCapPerturbation::MemoryCapPerturbation(manifests::Parameters params) 
-    : params_(std::move(params)) {}
+MemoryCapPerturbation::MemoryCapPerturbation(manifests::Parameters params) : params_(std::move(params)) {}
 
-void MemoryCapPerturbation::apply(containers::IContainerEngine& /*engine*/, const manifests::Target& target) {
+void MemoryCapPerturbation::apply(containers::IContainerEngine& engine, const manifests::Target& target) {
     if (target.name.empty()) {
         throw std::system_error(std::make_error_code(std::errc::invalid_argument), "Target name is empty");
     }
@@ -27,7 +26,8 @@ void MemoryCapPerturbation::apply(containers::IContainerEngine& /*engine*/, cons
     int ret = std::system(cmd.c_str());
 
     if (ret != 0) {
-        throw std::system_error(std::make_error_code(std::errc::operation_not_supported), "Failed to apply memory cgroup limit via docker update");
+        throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
+                                "Failed to apply memory cgroup limit via docker update");
     }
 }
 

@@ -36,6 +36,7 @@ private:
     int handleStop(const std::string& containerId) const;
     int handleKill(const std::string& containerId) const;
     int handleServe(int port) const;
+    int handleRun(const std::string& manifestPath) const;
 };
 
 }  // namespace chaos::orchestrator::interfaces::cli

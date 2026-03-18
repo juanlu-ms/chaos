@@ -3,6 +3,8 @@
 
 #include <interfaces/cli/CliParser.hpp>
 #include <interfaces/web/Server.hpp>
+#include "manifests/ManifestParser.hpp"
+#include "perturbations/PerturbationFactory.hpp"
 #include <string>
 #include <vector>
 
@@ -59,6 +61,14 @@ int CliParser::run(int argc, char* argv[]) const {
         return handleKill(args[2]);
     }
 
+    if (command == "run") {
+        if (args.size() < 3) {
+            spdlog::error("'run' requires a path to a manifest JSON");
+            return 1;
+        }
+        return handleRun(args[2]);
+    }
+
     if (command == "serve") {
         int port = 8080;
         for (size_t i = 2; i + 1 < args.size(); ++i) {
@@ -89,6 +99,7 @@ void CliParser::printUsage() const {
         "  list                  List all containers\n"
         "  stop  <container_id>  Stop a running container\n"
         "  kill  <container_id>  Kill a running container\n"
+        "  run   <manifest.json> Execute a chaos manifest\n"
         "  serve [--port <n>]    Start the web server (default: 8080)\n"
         "  help                  Show this help message\n"
         "\n"
@@ -151,6 +162,26 @@ int CliParser::handleServe(int port) const {
         return 1;
     }
 
+    return 0;
+}
+
+int CliParser::handleRun(const std::string& manifestPath) const {
+    try {
+        auto manifest = chaos::orchestrator::manifests::ManifestParser::parse(manifestPath);
+        fmt::print("Executing manifest '{}' against target '{}'\n", manifest.test_name, manifest.target.name);
+        
+        chaos::orchestrator::perturbations::PerturbationFactory factory;
+        for (const auto& pert_spec : manifest.perturbations) {
+            fmt::print("Applying perturbation '{}'\n", pert_spec.type);
+            auto pert = factory.create(pert_spec);
+            pert->apply(m_engine, manifest.target);
+        }
+        
+        fmt::print("All perturbations applied successfully.\n");
+    } catch (const std::exception& ex) {
+        spdlog::error("Failed to run manifest: {}", ex.what());
+        return 1;
+    }
     return 0;
 }
 

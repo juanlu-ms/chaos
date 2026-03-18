@@ -10,6 +10,11 @@ set(ORCHESTRATOR_SOURCES
     src/interfaces/cli/CliParser.cpp
     src/interfaces/web/Server.cpp
     src/manifests/ManifestParser.cpp
+    src/perturbations/KillPerturbation.cpp
+    src/perturbations/PerturbationFactory.cpp
+    src/perturbations/MemoryCapPerturbation.cpp
+    src/perturbations/CpuCapPerturbation.cpp
+    src/perturbations/NetworkCapPerturbation.cpp
 )
 
 add_library(orchestrator_core STATIC ${ORCHESTRATOR_SOURCES})
@@ -43,6 +48,7 @@ set_target_properties(orchestrator_app PROPERTIES OUTPUT_NAME chaos)
 add_executable(orchestrator_unit_tests 
     tests/containers/internal/DockerClientUnitTest.cpp
     tests/manifests/ManifestParserUnitTest.cpp
+    tests/perturbations/PerturbationTests.cpp
 )
 
 target_include_directories(orchestrator_unit_tests PRIVATE
@@ -50,6 +56,7 @@ target_include_directories(orchestrator_unit_tests PRIVATE
 )
 target_link_libraries(orchestrator_unit_tests PRIVATE
     orchestrator_core
+    GTest::gmock
     GTest::gtest_main
 )
 

@@ -15,6 +15,9 @@ using chaos::orchestrator::manifests::ManifestParser;
 
 namespace {
 
+/**
+ * @brief Fixture for manifest parser tests.
+ */
 class ManifestParserUnitTest : public ::testing::Test {
 protected:
     std::vector<std::filesystem::path> tempFiles;
@@ -45,6 +48,9 @@ protected:
     }
 };
 
+/**
+ * @test Verifies parsing of a minimal valid manifest.
+ */
 TEST_F(ManifestParserUnitTest, ParsesMinimalValidManifest) {
     const auto file = createTempManifest(R"json(
 {
@@ -73,6 +79,9 @@ TEST_F(ManifestParserUnitTest, ParsesMinimalValidManifest) {
     EXPECT_TRUE(manifest.expectations[0].parameters.empty());
 }
 
+/**
+ * @test Verifies parsing of all supported perturbation and expectation types.
+ */
 TEST_F(ManifestParserUnitTest, ParsesAllSupportedPerturbationAndExpectationTypes) {
     const auto file = createTempManifest(R"json(
 {
@@ -115,10 +124,16 @@ TEST_F(ManifestParserUnitTest, ParsesAllSupportedPerturbationAndExpectationTypes
     EXPECT_EQ(manifest.expectations[3].parameters.at("substring"), "panic");
 }
 
+/**
+ * @test Verifies an exception is thrown when the manifest file does not exist.
+ */
 TEST_F(ManifestParserUnitTest, ThrowsWhenManifestFileDoesNotExist) {
     EXPECT_THROW((void)ManifestParser::parse("/tmp/chaos_manifest_file_that_does_not_exist.json"), std::runtime_error);
 }
 
+/**
+ * @test Verifies an exception is thrown when JSON content is malformed.
+ */
 TEST_F(ManifestParserUnitTest, ThrowsWhenJsonIsMalformed) {
     const auto file = createTempManifest(R"json(
 { "test_name": "bad-json", "target": { "type": "container", "name": "x" }
@@ -128,6 +143,9 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenJsonIsMalformed) {
 }
 
 // Temporary test until more types are supported
+/**
+ * @test Verifies a non-container target type is rejected.
+ */
 TEST_F(ManifestParserUnitTest, ThrowsWhenTargetTypeIsNotContainer) {
     const auto file = createTempManifest(R"json(
 {
@@ -141,6 +159,9 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenTargetTypeIsNotContainer) {
     EXPECT_THROW((void)ManifestParser::parse(file), std::runtime_error);
 }
 
+/**
+ * @test Verifies an exception is thrown when target name is missing.
+ */
 TEST_F(ManifestParserUnitTest, ThrowsWhenTargetNameIsMissing) {
     const auto file = createTempManifest(R"json(
 {
@@ -154,6 +175,9 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenTargetNameIsMissing) {
     EXPECT_THROW((void)ManifestParser::parse(file), std::runtime_error);
 }
 
+/**
+ * @test Verifies unsupported perturbation types are rejected.
+ */
 TEST_F(ManifestParserUnitTest, ThrowsWhenPerturbationTypeIsUnsupported) {
     const auto file = createTempManifest(R"json(
 {
@@ -167,6 +191,9 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenPerturbationTypeIsUnsupported) {
     EXPECT_THROW((void)ManifestParser::parse(file), std::runtime_error);
 }
 
+/**
+ * @test Verifies unsupported expectation types are rejected.
+ */
 TEST_F(ManifestParserUnitTest, ThrowsWhenExpectationTypeIsUnsupported) {
     const auto file = createTempManifest(R"json(
 {
@@ -180,6 +207,9 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenExpectationTypeIsUnsupported) {
     EXPECT_THROW((void)ManifestParser::parse(file), std::runtime_error);
 }
 
+/**
+ * @test Verifies log expectations require the substring parameter.
+ */
 TEST_F(ManifestParserUnitTest, ThrowsWhenLogExpectationHasNoSubstring) {
     const auto file = createTempManifest(R"json(
 {

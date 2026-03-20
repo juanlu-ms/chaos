@@ -4,6 +4,9 @@
 
 using chaos::orchestrator::containers::createContainerEngine;
 
+/**
+ * @test Verifies container listing when Docker is available.
+ */
 TEST(DockerClientIntegrationTest, ListsContainersWhenDockerAvailable) {
     auto adapter = createContainerEngine();
 

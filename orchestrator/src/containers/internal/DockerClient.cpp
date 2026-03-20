@@ -108,7 +108,7 @@ std::unique_ptr<chaos::orchestrator::containers::IContainerEngine> DockerClient:
             spdlog::error("DockerClient: connection to Docker socket failed");
             throw std::runtime_error("Failed to connect to Docker socket");
         }
-        return HttpResponse{response->status, response->body};
+        return HttpResponse{.status = response->status, .body = response->body};
     };
 
     return std::make_unique<DockerClient>(std::move(requestFn));

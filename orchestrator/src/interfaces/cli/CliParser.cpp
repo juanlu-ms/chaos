@@ -10,7 +10,7 @@ namespace chaos::orchestrator::interfaces::cli {
 
 CliParser::CliParser(chaos::orchestrator::containers::IContainerEngine& engine) : m_engine(engine) {}
 
-int CliParser::run(int argc, char* argv[]) {
+int CliParser::run(int argc, char* argv[]) const {
     if (argc < 2) {
         printUsage();
         return 1;

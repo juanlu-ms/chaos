@@ -19,14 +19,15 @@ namespace {
  * @brief Fixture for manifest parser tests.
  */
 class ManifestParserUnitTest : public ::testing::Test {
-protected:
+private:
     std::vector<std::filesystem::path> tempFiles;
 
+protected:
     std::string createTempManifest(const std::string& json) {
         static std::atomic<unsigned long long> counter{0};
         const auto id = counter.fetch_add(1, std::memory_order_relaxed);
         const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-        const auto filename = "chaos_manifest_parser_" + std::to_string(now) + "_" + std::to_string(id) + ".json";
+        const auto filename = std::format("chaos_manifest_parser_{}_{}.json", now, id);
         const auto path = std::filesystem::temp_directory_path() / filename;
 
         std::ofstream output(path);

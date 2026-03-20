@@ -26,7 +26,7 @@ public:
      * @param argv Argument values from main().
      * @return Exit code (0 on success, non-zero on error).
      */
-    int run(int argc, char* argv[]);
+    int run(int argc, char* argv[]) const;
 
 private:
     chaos::orchestrator::containers::IContainerEngine& m_engine;

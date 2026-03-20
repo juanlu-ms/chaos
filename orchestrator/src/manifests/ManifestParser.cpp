@@ -34,8 +34,7 @@ void from_json(const nlohmann::json& j, Expectation& e) {
     if (j.contains("parameters")) {
         j.at("parameters").get_to(e.parameters);
     }
-    if ((e.type == "log_contains" || e.type == "log_not_contains") &&
-        e.parameters.find("substring") == e.parameters.end()) {
+    if ((e.type == "log_contains" || e.type == "log_not_contains") && !e.parameters.contains("substring")) {
         throw std::runtime_error("Missing 'substring' parameter for log expectation");
     }
 }

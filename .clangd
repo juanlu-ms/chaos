@@ -1,10 +1,13 @@
 CompileFlags:
-  CompilationDatabase: /workspaces/chaos/build/debug-clang
-  Add:
-    - -I/workspaces/chaos/orchestrator/include
-    - -I/workspaces/chaos/orchestrator/src
-    - -I/workspaces/chaos/wrapper/src
-    - -isystem
-    - /workspaces/chaos/build/debug-clang/vcpkg_installed/x64-linux/include
-    - -isystem
-    - /workspaces/chaos/vcpkg_installed/x64-linux/include
+  Add: 
+    - "-Wall"
+    - "-Wextra"
+    - "-Werror"
+
+Diagnostics:
+  ClangTidy:
+    Add: [modernize-*, performance-*, bugprone-*]
+    Remove: [modernize-use-trailing-return-type]
+
+Index:
+  Background: Build

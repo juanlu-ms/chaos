@@ -38,7 +38,7 @@ chaos/
 │   │   │   └── web/
 │   │   ├── containers/
 │   │   │   └── internal/
-│   │   ├── manifest/
+│   │   ├── manifests/
 │   │   ├── perturbations/
 │   │   │   └── internal/
 │   │   ├── observability/

@@ -4,20 +4,22 @@
 
 namespace chaos::orchestrator::perturbations {
 
-void KillPerturbation::apply(containers::IContainerEngine& engine, const manifests::Target& target) {
+KillPerturbation::KillPerturbation(std::shared_ptr<containers::IContainerEngine> engine) : engine_(std::move(engine)) {}
+
+void KillPerturbation::apply(const manifests::Target& target) {
     if (target.name.empty()) {
         throw std::system_error(std::make_error_code(std::errc::invalid_argument), "Target name is empty");
     }
 
-    // Pass the target name to the container engine to kill it.
-    // IContainerEngine::killContainer takes a std::string_view
     try {
-        engine.killContainer(target.name);
+        engine_->killContainer(target.name);
     } catch (const std::exception& e) {
-        // Wrap any underlying exception in a system_error as mandated by the interface.
-        // If the engine itself doesn't throw system_error, we adapt it here.
         throw std::system_error(std::make_error_code(std::errc::operation_canceled), e.what());
     }
+}
+
+void KillPerturbation::revert(const manifests::Target& /*target*/) {
+    // No revert action for kill perturbation
 }
 
 }  // namespace chaos::orchestrator::perturbations

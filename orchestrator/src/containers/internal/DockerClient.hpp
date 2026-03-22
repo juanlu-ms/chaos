@@ -74,6 +74,13 @@ public:
     void createContainer(const std::string_view image, const std::vector<std::string>& options) override;
 
     /**
+     * @brief Start a container by ID.
+     * @param containerId Docker container ID.
+     * @throws std::exception On transport errors or non-OK responses.
+     */
+    void startContainer(const std::string_view containerId) override;
+
+    /**
      * @brief Stop a container by ID.
      * @param containerId Docker container ID.
      * @throws std::exception On transport errors or non-OK responses.

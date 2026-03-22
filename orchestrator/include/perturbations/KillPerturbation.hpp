@@ -22,10 +22,10 @@ public:
     void apply(const manifests::Target& target) override;
 
     /**
-     * @brief No revert action for kill perturbation.
+     * @brief Reverts the kill by attempting to start the container again.
+     * @param engine Reference to the container engine.
      * @param target Manifest target containing the container name.
-     * TODO: Change throws.
-     * @throws error If called.
+     * @throws std::system_error On failure to start.
      */
     void revert(const manifests::Target& target) override;
 

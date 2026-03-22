@@ -31,6 +31,13 @@ public:
     virtual void createContainer(const std::string_view image, const std::vector<std::string>& options) = 0;
 
     /**
+     * @brief Start a container by ID.
+     * @param containerId Docker container ID.
+     * @throws std::exception On transport errors or non-OK responses.
+     */
+    virtual void startContainer(const std::string_view containerId) = 0;
+
+    /**
      * @brief Stop a container by ID.
      * @param containerId Container ID to stop.
      * @throws std::exception On transport errors or non-OK responses.

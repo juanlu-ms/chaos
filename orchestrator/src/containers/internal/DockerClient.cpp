@@ -18,7 +18,7 @@ std::vector<chaos::orchestrator::containers::Container> DockerClient::listContai
     const auto response = request_(HttpMethod::GET, "/containers/json", "");
     if (response.status != 200) {
         SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
-        throw std::runtime_error(fmt::format("Docker API returned status {}", response.status));
+        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", response.status));
     }
 
     auto jsonResponse = parseResponse(response);
@@ -48,6 +48,8 @@ std::vector<chaos::orchestrator::containers::Container> DockerClient::listContai
 }
 
 void DockerClient::createContainer(const std::string_view image, const std::vector<std::string>& options) {
+    (void)image;
+    (void)options;
     // TODO: Implement container creation
 }
 
@@ -60,7 +62,7 @@ void DockerClient::startContainer(const std::string_view containerId) {
     if (const auto response = request_(HttpMethod::POST, fmt::format("/containers/{}/start", containerId), "");
         response.status != 204) {
         SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
-        throw std::runtime_error(fmt::format("Docker API returned status {}", response.status));
+        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", response.status));
     }
 
     SPDLOG_INFO("DockerClient: container {} started successfully", containerId);
@@ -78,7 +80,7 @@ void DockerClient::stopContainer(const std::string_view containerId) {
             request_(HttpMethod::POST, fmt::format("/containers/{}/stop?t={}", containerId, stopTimeoutSeconds), "");
         response.status != 204) {
         SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
-        throw std::runtime_error(fmt::format("Docker API returned status {}", response.status));
+        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", response.status));
     }
 
     SPDLOG_INFO("DockerClient: container {} stopped successfully", containerId);
@@ -93,7 +95,7 @@ void DockerClient::killContainer(const std::string_view containerId) {
     const auto response = request_(HttpMethod::POST, fmt::format("/containers/{}/kill", containerId), "");
     if (response.status != 204) {
         SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
-        throw std::runtime_error(fmt::format("Docker API returned status {}", response.status));
+        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", response.status));
     }
 
     if (!response.body.empty()) {
@@ -122,12 +124,13 @@ std::string DockerClient::exec(const std::string_view containerId, const std::st
         request_(HttpMethod::POST, fmt::format("/containers/{}/exec", containerId), execConfig.dump());
     if (createResponse.status != 201) {
         SPDLOG_ERROR("Docker exec create failed with status {}: {}", createResponse.status, createResponse.body);
-        throw std::runtime_error(fmt::format("Docker API returned status {}", createResponse.status));
+        throw containers::ContainerEngineApiError(
+            fmt::format("Docker API returned status {}", createResponse.status));
     }
 
     auto createJson = parseResponse(createResponse);
     if (!createJson.contains("Id") || !createJson["Id"].is_string()) {
-        throw std::runtime_error("Docker exec create response missing Id");
+        throw containers::ContainerEngineParseError("Docker exec create response missing Id");
     }
     const auto execId = createJson["Id"].get<std::string>();
 
@@ -139,7 +142,7 @@ std::string DockerClient::exec(const std::string_view containerId, const std::st
     const auto startResponse = request_(HttpMethod::POST, fmt::format("/exec/{}/start", execId), startConfig.dump());
     if (startResponse.status != 200) {
         SPDLOG_ERROR("Docker exec start failed with status {}: {}", startResponse.status, startResponse.body);
-        throw std::runtime_error(fmt::format("Docker API returned status {}", startResponse.status));
+        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", startResponse.status));
     }
 
     SPDLOG_INFO("DockerClient: command executed successfully in container {}", containerId);
@@ -172,7 +175,7 @@ std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> DockerClient:
 
         if (!response) {
             SPDLOG_ERROR("DockerClient: connection to Docker socket failed");
-            throw std::runtime_error("Failed to connect to Docker socket");
+            throw containers::ContainerEngineTransportError("Failed to connect to Docker socket");
         }
         return HttpResponse{.status = response->status, .body = response->body};
     };
@@ -183,13 +186,13 @@ std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> DockerClient:
 nlohmann::json DockerClient::parseResponse(const HttpResponse& response) const {
     if (response.body.empty()) {
         SPDLOG_ERROR("Docker API response body is empty");
-        throw std::runtime_error("Docker API response body is empty");
+        throw containers::ContainerEngineParseError("Docker API response body is empty");
     }
 
     auto jsonResponse = nlohmann::json::parse(response.body, nullptr, false);
     if (jsonResponse.is_discarded()) {
         SPDLOG_ERROR("Docker API response could not be parsed as JSON");
-        throw std::runtime_error("Failed to parse Docker API response");
+        throw containers::ContainerEngineParseError("Failed to parse Docker API response");
     }
 
     if (jsonResponse.is_object() && jsonResponse.contains("error")) {
@@ -197,7 +200,8 @@ nlohmann::json DockerClient::parseResponse(const HttpResponse& response) const {
         for (const auto& [key, value] : jsonResponse.items()) {
             SPDLOG_ERROR("  {}: {}", key, value.dump());
         }
-        throw std::runtime_error(fmt::format("Docker API error: {}", jsonResponse["error"].get<std::string>()));
+        throw containers::ContainerEngineApiError(
+            fmt::format("Docker API error: {}", jsonResponse["error"].get<std::string>()));
     }
 
     return jsonResponse;

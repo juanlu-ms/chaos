@@ -16,11 +16,11 @@ std::unique_ptr<IPerturbation> PerturbationFactory::create(std::shared_ptr<conta
     if (spec.type == "kill") {
         return std::make_unique<KillPerturbation>(std::move(engine), target.id);
     } else if (spec.type == "memory_cap") {
-        return std::make_unique<MemoryCapPerturbation>(engine, target, spec);
+        return std::make_unique<MemoryCapPerturbation>(std::move(engine), target.id, spec);
     } else if (spec.type == "cpu_cap") {
-        return std::make_unique<CpuCapPerturbation>(engine, target, spec);
+        return std::make_unique<CpuCapPerturbation>(std::move(engine), target.id, spec);
     } else if (spec.type == "network_delay") {
-        return std::make_unique<NetworkDelayPerturbation>(engine, target, spec);
+        return std::make_unique<NetworkDelayPerturbation>(std::move(engine), target.id, spec);
     }
 
     // Fallback for unimplemented types

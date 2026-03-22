@@ -14,7 +14,6 @@ MemoryCapPerturbation::MemoryCapPerturbation(std::shared_ptr<containers::IContai
 
 /**
  * @brief Applies the memory cap by modifying the container's cgroup.
- * @param target Manifest target containing the container name.
  * @throws std::system_error On failure to cap memory.
  */
 void MemoryCapPerturbation::apply() {
@@ -41,7 +40,6 @@ void MemoryCapPerturbation::apply() {
 
 /**
  * @brief Reverts the memory cap by removing the cgroup restriction.
- * @param target Manifest target containing the container name.
  * @throws std::system_error On failure to revert memory cap.
  */
 void MemoryCapPerturbation::revert() {

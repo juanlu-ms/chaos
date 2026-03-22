@@ -2,7 +2,9 @@
 
 #include <containers/IContainerEngine.hpp>
 #include <memory>
+#include <span>
 #include <string>
+#include <vector>
 
 namespace chaos::orchestrator::interfaces::cli {
 
@@ -23,11 +25,10 @@ public:
 
     /**
      * @brief Parse arguments and execute the requested command.
-     * @param argc Argument count from main().
-     * @param argv Argument values from main().
+      * @param argv Argument values from main(), including executable at index 0.
      * @return Exit code (0 on success, non-zero on error).
      */
-    int run(int argc, char* argv[]) const;
+     int run(std::span<char*> argv) const;
 
 private:
     /**
@@ -68,6 +69,8 @@ private:
      * @return Exit code (0 on success, non-zero on error).
      */
     int handleRun(const std::string& manifestPath) const;
+
+    int dispatchCommand(const std::vector<std::string>& args) const;
 };
 
 }  // namespace chaos::orchestrator::interfaces::cli

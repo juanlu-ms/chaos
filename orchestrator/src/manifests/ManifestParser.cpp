@@ -2,7 +2,6 @@
 
 #include <fstream>
 #include <nlohmann/json.hpp>
-#include <stdexcept>
 
 #include "manifests/Manifest.hpp"
 
@@ -12,11 +11,28 @@ void from_json(const nlohmann::json& j, Target& t) { j.at("id").get_to(t.id); }
 
 void from_json(const nlohmann::json& j, Perturbation& p) {
     j.at("type").get_to(p.type);
-    if (p.type != "kill" && p.type != "memory_cap" && p.type != "cpu_cap" && p.type != "network_cap") {
-        throw std::runtime_error("Unsupported perturbation type: " + p.type);
+    if (p.type != "kill" && p.type != "memory_cap" && p.type != "cpu_cap" && p.type != "network_delay") {
+        throw ManifestParserError("Unsupported perturbation type: " + p.type);
     }
     if (j.contains("parameters")) {
         j.at("parameters").get_to(p.parameters);
+    }
+
+    if (p.type == "memory_cap" && !p.parameters.contains("limit_bytes")) {
+        throw ManifestParserError("Missing 'limit_bytes' parameter for memory_cap perturbation");
+    }
+
+    if (p.type == "cpu_cap") {
+        if (!p.parameters.contains("quota")) {
+            throw ManifestParserError("Missing 'quota' parameter for cpu_cap perturbation");
+        }
+        if (!p.parameters.contains("period")) {
+            throw ManifestParserError("Missing 'period' parameter for cpu_cap perturbation");
+        }
+    }
+
+    if (p.type == "network_delay" && !p.parameters.contains("delay_ms")) {
+        throw ManifestParserError("Missing 'delay_ms' parameter for network_delay perturbation");
     }
 }
 
@@ -24,13 +40,13 @@ void from_json(const nlohmann::json& j, Expectation& e) {
     j.at("type").get_to(e.type);
     if (e.type != "container_running" && e.type != "container_not_running" && e.type != "log_contains" &&
         e.type != "log_not_contains") {
-        throw std::runtime_error("Unsupported expectation type: " + e.type);
+        throw ManifestParserError("Unsupported expectation type: " + e.type);
     }
     if (j.contains("parameters")) {
         j.at("parameters").get_to(e.parameters);
     }
     if ((e.type == "log_contains" || e.type == "log_not_contains") && !e.parameters.contains("substring")) {
-        throw std::runtime_error("Missing 'substring' parameter for log expectation");
+        throw ManifestParserError("Missing 'substring' parameter for log expectation");
     }
 }
 
@@ -46,20 +62,20 @@ void from_json(const nlohmann::json& j, ChaosManifest& m) {
 ChaosManifest ManifestParser::parse(const std::string& filepath) {
     std::ifstream file(filepath);
     if (!file.is_open()) {
-        throw std::runtime_error("Failed to open manifest file: " + filepath);
+        throw ManifestParserError("Failed to open manifest file: " + filepath);
     }
 
     nlohmann::json manifest_json;
     try {
         file >> manifest_json;
     } catch (const nlohmann::json::parse_error& e) {
-        throw std::runtime_error("JSON parse error in " + filepath + ": " + e.what());
+        throw ManifestParserError("JSON parse error in " + filepath + ": " + e.what());
     }
 
     try {
         return manifest_json.get<ChaosManifest>();
     } catch (const nlohmann::json::exception& e) {
-        throw std::runtime_error("Manifest validation error in " + filepath + ": " + e.what());
+        throw ManifestParserError("Manifest validation error in " + filepath + ": " + e.what());
     }
 }
 

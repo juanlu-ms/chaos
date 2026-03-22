@@ -15,14 +15,14 @@ public:
     virtual ~IPerturbation() = default;
 
     /**
-     * @brief Apply the perturbation to a specific target.
+     * @brief Apply the perturbation to the target bound at construction time.
      *
      * @throws std::system_error On failure to apply the perturbation.
      */
     virtual void apply() = 0;
 
     /**
-     * @brief Revert the perturbation to a specific target.
+     * @brief Revert the perturbation from the target bound at construction time.
      *
      * @throws std::system_error On failure to revert the perturbation.
      */

@@ -16,14 +16,12 @@ public:
 
     /**
      * @brief Applies the CPU cap by modifying the container's cgroup quotas.
-     * @param target Manifest target containing the container name.
      * @throws std::system_error On failure to cap CPU.
      */
     void apply() override;
 
     /**
      * @brief Reverts the CPU cap by restoring the container's cgroup quotas.
-     * @param target Manifest target containing the container name.
      * @throws std::system_error On failure to revert CPU cap.
      */
     void revert() override;

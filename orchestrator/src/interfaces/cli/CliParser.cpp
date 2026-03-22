@@ -2,7 +2,10 @@
 
 #include <interfaces/cli/CliParser.hpp>
 #include <interfaces/web/Server.hpp>
+#include <span>
 #include <string>
+#include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -11,20 +14,30 @@
 
 namespace chaos::orchestrator::interfaces::cli {
 
+namespace {
+
+[[nodiscard]] bool isVerboseFlag(const std::string_view arg) { return arg == "--verbose" || arg == "-v"; }
+
+[[nodiscard]] bool isHelpCommand(const std::string_view command) {
+    return command == "help" || command == "--help" || command == "-h";
+}
+
+}  // namespace
+
 CliParser::CliParser(std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> engine)
     : m_engine(std::move(engine)) {}
 
-int CliParser::run(int argc, char* argv[]) const {
-    if (argc < 2) {
+int CliParser::run(std::span<char*> argv) const {
+    if (argv.size() < 2) {
         printUsage();
         return 1;
     }
 
     std::vector<std::string> args;
     args.emplace_back(argv[0]);
-    for (int i = 1; i < argc; ++i) {
+    for (std::size_t i = 1; i < argv.size(); ++i) {
         std::string arg = argv[i];
-        if (arg == "--verbose" || arg == "-v") {
+        if (isVerboseFlag(arg)) {
             spdlog::set_level(spdlog::level::debug);
         } else {
             args.push_back(arg);
@@ -36,9 +49,13 @@ int CliParser::run(int argc, char* argv[]) const {
         return 1;
     }
 
+    return dispatchCommand(args);
+}
+
+int CliParser::dispatchCommand(const std::vector<std::string>& args) const {
     const std::string& command = args[1];
 
-    if (command == "help" || command == "--help" || command == "-h") {
+    if (isHelpCommand(command)) {
         printUsage();
         return 0;
     }
@@ -77,7 +94,10 @@ int CliParser::run(int argc, char* argv[]) const {
             if (args[i] == "--port") {
                 try {
                     port = std::stoi(args[i + 1]);
-                } catch (...) {
+                } catch (const std::invalid_argument&) {
+                    SPDLOG_ERROR("Invalid port number: {}", args[i + 1]);
+                    return 1;
+                } catch (const std::out_of_range&) {
                     SPDLOG_ERROR("Invalid port number: {}", args[i + 1]);
                     return 1;
                 }
@@ -119,11 +139,15 @@ int CliParser::handleList() const {
 
         SPDLOG_INFO("{:<14} {:<30} {}", "CONTAINER ID", "NAME", "STATE");
         for (const auto& c : containers) {
-            const std::string displayId =
-                c.id.empty() ? std::string("<missing>") : (c.id.size() > 12 ? c.id.substr(0, 12) : c.id);
+            std::string displayId = c.id;
+            if (displayId.empty()) {
+                displayId = "<missing>";
+            } else if (displayId.size() > 12) {
+                displayId = displayId.substr(0, 12);
+            }
             SPDLOG_INFO("{:<14} {:<30} {}", displayId, c.name, c.state);
         }
-    } catch (const std::exception& ex) {
+    } catch (const containers::ContainerEngineError& ex) {
         SPDLOG_ERROR("Failed to list containers: {}", ex.what());
         return 1;
     }
@@ -135,7 +159,10 @@ int CliParser::handleStop(const std::string& containerId) const {
     try {
         m_engine->stopContainer(containerId);
         SPDLOG_INFO("Container {} stopped.", containerId);
-    } catch (const std::exception& ex) {
+    } catch (const std::invalid_argument& ex) {
+        SPDLOG_ERROR("Failed to stop container {}: {}", containerId, ex.what());
+        return 1;
+    } catch (const containers::ContainerEngineError& ex) {
         SPDLOG_ERROR("Failed to stop container {}: {}", containerId, ex.what());
         return 1;
     }
@@ -147,7 +174,10 @@ int CliParser::handleKill(const std::string& containerId) const {
     try {
         m_engine->killContainer(containerId);
         SPDLOG_INFO("Container {} killed.", containerId);
-    } catch (const std::exception& ex) {
+    } catch (const std::invalid_argument& ex) {
+        SPDLOG_ERROR("Failed to kill container {}: {}", containerId, ex.what());
+        return 1;
+    } catch (const containers::ContainerEngineError& ex) {
         SPDLOG_ERROR("Failed to kill container {}: {}", containerId, ex.what());
         return 1;
     }
@@ -159,7 +189,7 @@ int CliParser::handleServe(int port) const {
     try {
         auto server = chaos::orchestrator::interfaces::web::Server(m_engine);
         server.listen(port);
-    } catch (const std::exception& ex) {
+    } catch (const std::system_error& ex) {
         SPDLOG_ERROR("Server error: {}", ex.what());
         return 1;
     }
@@ -170,17 +200,26 @@ int CliParser::handleServe(int port) const {
 int CliParser::handleRun(const std::string& manifestPath) const {
     try {
         auto manifest = chaos::orchestrator::manifests::ManifestParser::parse(manifestPath);
-        SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.name);
+        SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.id);
 
         chaos::orchestrator::perturbations::PerturbationFactory factory;
         for (const auto& pert_spec : manifest.perturbations) {
             SPDLOG_INFO("Applying perturbation '{}'", pert_spec.type);
-            auto perturbation = factory.create(m_engine, pert_spec);
-            perturbation->apply(manifest.target);
+            auto perturbation = factory.create(m_engine, manifest.target, pert_spec);
+            perturbation->apply();
         }
 
         SPDLOG_INFO("All perturbations applied successfully.");
-    } catch (const std::exception& ex) {
+    } catch (const manifests::ManifestParserError& ex) {
+        SPDLOG_ERROR("Failed to run manifest: {}", ex.what());
+        return 1;
+    } catch (const std::invalid_argument& ex) {
+        SPDLOG_ERROR("Failed to run manifest: {}", ex.what());
+        return 1;
+    } catch (const containers::ContainerEngineError& ex) {
+        SPDLOG_ERROR("Failed to run manifest: {}", ex.what());
+        return 1;
+    } catch (const std::system_error& ex) {
         SPDLOG_ERROR("Failed to run manifest: {}", ex.what());
         return 1;
     }

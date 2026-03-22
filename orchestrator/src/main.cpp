@@ -15,6 +15,6 @@ int main(int argc, char* argv[]) {
 
     auto engine = createContainerEngine();
 
-    CliParser ui(*engine);
+    CliParser ui(engine);
     return ui.run(argc, argv);
 }

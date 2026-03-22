@@ -5,6 +5,7 @@
 #include <spdlog/spdlog.h>
 #include <sys/socket.h>
 
+#include <memory>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 
@@ -46,6 +47,10 @@ std::vector<chaos::orchestrator::containers::Container> DockerClient::listContai
     return containers;
 }
 
+void DockerClient::createContainer(const std::string_view image, const std::vector<std::string>& options) {
+    throw std::runtime_error("Container creation is not supported by DockerClient");
+}
+
 void DockerClient::stopContainer(const std::string_view containerId) {
     if (containerId.empty()) {
         throw std::runtime_error("Container ID cannot be empty");
@@ -84,7 +89,11 @@ void DockerClient::killContainer(const std::string_view containerId) {
     spdlog::info("DockerClient: container {} killed successfully", containerId);
 }
 
-std::unique_ptr<chaos::orchestrator::containers::IContainerEngine> DockerClient::create(const std::string& socketPath) {
+std::string DockerClient::exec(const std::string_view containerId, const std::string_view command) {
+    throw std::runtime_error("Container exec is not supported by DockerClient");
+}
+
+std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> DockerClient::create(const std::string& socketPath) {
     spdlog::info("DockerClient: using socket {}", socketPath);
     auto client = std::make_shared<httplib::Client>(socketPath);
     client->set_address_family(AF_UNIX);
@@ -111,7 +120,7 @@ std::unique_ptr<chaos::orchestrator::containers::IContainerEngine> DockerClient:
         return HttpResponse{.status = response->status, .body = response->body};
     };
 
-    return std::make_unique<DockerClient>(std::move(requestFn));
+    return std::make_shared<DockerClient>(std::move(requestFn));
 }
 
 nlohmann::json DockerClient::validateResponse(const HttpResponse& response) const {

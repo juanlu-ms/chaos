@@ -27,7 +27,7 @@ struct HttpResponse {
 /**
  * @brief Docker Engine adapter implementing the container engine port.
  */
-class DockerClient : public chaos::orchestrator::containers::IContainerEngine {
+class DockerClient final : public chaos::orchestrator::containers::IContainerEngine {
 public:
     /**
      * @brief Function used to execute API requests.
@@ -55,7 +55,7 @@ public:
      * @param socketPath Path to Docker Engine Unix socket.
      * @return A container engine instance.
      */
-    static std::unique_ptr<chaos::orchestrator::containers::IContainerEngine> create(
+    static std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> create(
         const std::string& socketPath = "/var/run/docker.sock");
 
     /**
@@ -64,6 +64,14 @@ public:
      * @throws std::exception On unexpected response formats.
      */
     std::vector<chaos::orchestrator::containers::Container> listContainers() override;
+
+    /**
+     * @brief Create a new container with the specified image and options.
+     * @param image Container image to use (e.g. "nginx:latest").
+     * @param options Additional options for container creation (e.g. env vars).
+     * @throws std::exception On transport errors or non-OK responses.
+     */
+    void createContainer(const std::string_view image, const std::vector<std::string>& options) override;
 
     /**
      * @brief Stop a container by ID.
@@ -79,9 +87,25 @@ public:
      */
     void killContainer(const std::string_view containerId) override;
 
+    /**
+     * @brief Execute a command inside a running container.
+     * @param containerId ID of the target container.
+     * @param command Command to execute (e.g. "ls -la /").
+     * @return Output of the command execution.
+     * @throws std::exception On transport errors or non-OK responses.
+     */
+    std::string exec(const std::string_view containerId, const std::string_view command) override;
+
 private:
+    /** @brief Function used to execute API requests. */
     RequestFn request_;
 
+    /**
+     * @brief Validate the structure of an API response and parse it as JSON.
+     * @param response HTTP response to validate.
+     * @return Parsed JSON object.
+     * @throws std::exception On validation failures.
+     */
     nlohmann::json validateResponse(const HttpResponse& response) const;
 };
 

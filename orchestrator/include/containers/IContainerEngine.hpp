@@ -15,24 +15,6 @@ public:
     virtual ~IContainerEngine() = default;
 
     /**
-     * @brief Get the name of the container engine (e.g. "docker", "podman").
-     * @return Engine name.
-     */
-    virtual std::string getEngineName() const = 0;
-
-    /**
-     * @brief Get the version of the container engine.
-     * @return Engine version string.
-     */
-    virtual std::string getEngineVersion() const = 0;
-
-    /**
-     * @brief Check if the container engine is available and responsive.
-     * @return True if the engine is healthy, false otherwise.
-     */
-    virtual bool isEngineHealthy() const = 0;
-
-    /**
      * @brief List containers available in the engine.
      * @return Vector of container summaries.
      * @throws std::exception On transport or parsing failures.
@@ -46,7 +28,7 @@ public:
      * @return ID of the created container.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    virtual std::string createContainer(const std::string_view image, const std::vector<std::string>& options) = 0;
+    virtual void createContainer(const std::string_view image, const std::vector<std::string>& options) = 0;
 
     /**
      * @brief Stop a container by ID.

@@ -15,11 +15,38 @@ public:
     virtual ~IContainerEngine() = default;
 
     /**
+     * @brief Get the name of the container engine (e.g. "docker", "podman").
+     * @return Engine name.
+     */
+    virtual std::string getEngineName() const = 0;
+
+    /**
+     * @brief Get the version of the container engine.
+     * @return Engine version string.
+     */
+    virtual std::string getEngineVersion() const = 0;
+
+    /**
+     * @brief Check if the container engine is available and responsive.
+     * @return True if the engine is healthy, false otherwise.
+     */
+    virtual bool isEngineHealthy() const = 0;
+
+    /**
      * @brief List containers available in the engine.
      * @return Vector of container summaries.
      * @throws std::exception On transport or parsing failures.
      */
     virtual std::vector<Container> listContainers() = 0;
+
+    /**
+     * @brief Create a new container with the specified image and options.
+     * @param image Container image to use (e.g. "nginx:latest").
+     * @param options Additional options for container creation (e.g. env vars).
+     * @return ID of the created container.
+     * @throws std::exception On transport errors or non-OK responses.
+     */
+    virtual std::string createContainer(const std::string_view image, const std::vector<std::string>& options) = 0;
 
     /**
      * @brief Stop a container by ID.
@@ -34,6 +61,15 @@ public:
      * @throws std::exception On transport errors or non-OK responses.
      */
     virtual void killContainer(const std::string_view containerId) = 0;
+
+    /**
+     * @brief Execute a command inside a running container.
+     * @param containerId ID of the target container.
+     * @param command Command to execute (e.g. "ls -la /").
+     * @return Output of the command execution.
+     * @throws std::exception On transport errors or non-OK responses.
+     */
+    virtual std::string exec(const std::string_view containerId, const std::string_view command) = 0;
 };
 
 }  // namespace chaos::orchestrator::containers

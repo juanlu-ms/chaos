@@ -21,7 +21,8 @@ public:
      * @return Unique pointer to the instantiated IPerturbation.
      * @throws std::invalid_argument If the type is not recognized.
      */
-    std::unique_ptr<IPerturbation> create(const manifests::Perturbation& spec) override;
+    std::unique_ptr<IPerturbation> create(std::shared_ptr<containers::IContainerEngine> engine,
+                                          const manifests::Perturbation& spec) override;
 };
 
 }  // namespace chaos::orchestrator::perturbations

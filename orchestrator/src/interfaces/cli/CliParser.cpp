@@ -1,4 +1,3 @@
-#include <fmt/core.h>
 #include <spdlog/spdlog.h>
 
 #include <interfaces/cli/CliParser.hpp>
@@ -93,7 +92,7 @@ int CliParser::run(int argc, char* argv[]) const {
 }
 
 void CliParser::printUsage() const {
-    fmt::print(
+    spdlog::info(
         "Usage: chaos <command> [options]\n"
         "\n"
         "Chaos - Resilience Tool for Docker Containers\n"
@@ -114,15 +113,15 @@ int CliParser::handleList() const {
     try {
         auto containers = m_engine->listContainers();
         if (containers.empty()) {
-            fmt::print("No containers found.\n");
+            spdlog::info("No containers found.");
             return 0;
         }
 
-        fmt::print("{:<14} {:<30} {}\n", "CONTAINER ID", "NAME", "STATE");
+        spdlog::info("{:<14} {:<30} {}", "CONTAINER ID", "NAME", "STATE");
         for (const auto& c : containers) {
             const std::string displayId =
                 c.id.empty() ? std::string("<missing>") : (c.id.size() > 12 ? c.id.substr(0, 12) : c.id);
-            fmt::print("{:<14} {:<30} {}\n", displayId, c.name, c.state);
+            spdlog::info("{:<14} {:<30} {}", displayId, c.name, c.state);
         }
     } catch (const std::exception& ex) {
         spdlog::error("Failed to list containers: {}", ex.what());
@@ -135,7 +134,7 @@ int CliParser::handleList() const {
 int CliParser::handleStop(const std::string& containerId) const {
     try {
         m_engine->stopContainer(containerId);
-        fmt::print("Container {} stopped.\n", containerId);
+        spdlog::info("Container {} stopped.", containerId);
     } catch (const std::exception& ex) {
         spdlog::error("Failed to stop container {}: {}", containerId, ex.what());
         return 1;
@@ -147,7 +146,7 @@ int CliParser::handleStop(const std::string& containerId) const {
 int CliParser::handleKill(const std::string& containerId) const {
     try {
         m_engine->killContainer(containerId);
-        fmt::print("Container {} killed.\n", containerId);
+        spdlog::info("Container {} killed.", containerId);
     } catch (const std::exception& ex) {
         spdlog::error("Failed to kill container {}: {}", containerId, ex.what());
         return 1;
@@ -171,16 +170,16 @@ int CliParser::handleServe(int port) const {
 int CliParser::handleRun(const std::string& manifestPath) const {
     try {
         auto manifest = chaos::orchestrator::manifests::ManifestParser::parse(manifestPath);
-        fmt::print("Executing manifest '{}' against target '{}'\n", manifest.test_name, manifest.target.name);
+        spdlog::info("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.name);
 
         chaos::orchestrator::perturbations::PerturbationFactory factory;
         for (const auto& pert_spec : manifest.perturbations) {
-            fmt::print("Applying perturbation '{}'\n", pert_spec.type);
+            spdlog::info("Applying perturbation '{}'", pert_spec.type);
             auto perturbation = factory.create(m_engine, pert_spec);
             perturbation->apply(manifest.target);
         }
 
-        fmt::print("All perturbations applied successfully.\n");
+        spdlog::info("All perturbations applied successfully.");
     } catch (const std::exception& ex) {
         spdlog::error("Failed to run manifest: {}", ex.what());
         return 1;

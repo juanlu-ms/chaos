@@ -38,21 +38,21 @@ Server::Server(std::shared_ptr<chaos::orchestrator::containers::IContainerEngine
 }
 
 void Server::listen(int port) {
-    spdlog::info("chaos listening to http://127.0.0.1:{}", port);
+    SPDLOG_INFO("chaos listening to http://127.0.0.1:{}", port);
     m_server.listen("127.0.0.1", port);
 }
 
 void Server::setupRoutes() {
     if (auto webRoot = findWebRoot(); webRoot.has_value()) {
         if (!m_server.set_mount_point("/", webRoot->string())) {
-            spdlog::warn("Failed to mount static UI from {}", webRoot->string());
+            SPDLOG_WARN("Failed to mount static UI from {}", webRoot->string());
         } else {
-            spdlog::info("Serving static UI from {}", webRoot->string());
+            SPDLOG_INFO("Serving static UI from {}", webRoot->string());
         }
 
         m_server.Get("/", [](const httplib::Request&, httplib::Response& res) { res.set_redirect("/index.html"); });
     } else {
-        spdlog::warn("Static UI not found. Expected orchestrator/src/interfaces/web/static relative to project root.");
+        SPDLOG_WARN("Static UI not found. Expected orchestrator/src/interfaces/web/static relative to project root.");
     }
 
     m_server.Get("/status", [](const httplib::Request&, httplib::Response& res) {
@@ -65,20 +65,20 @@ void Server::setupRoutes() {
 
     m_server.Get("/containers", [this](const httplib::Request&, httplib::Response& res) {
         try {
-            spdlog::debug("/containers requested");
+            SPDLOG_DEBUG("/containers requested");
             auto containers = m_engine->listContainers();
             json j = json::array();
             for (const auto& c : containers) {
                 j.push_back({{"id", c.id}, {"name", c.name}, {"state", c.state}});
             }
             res.set_content(j.dump(4), "application/json");
-            spdlog::info("/containers served: {} items", containers.size());
+            SPDLOG_INFO("/containers served: {} items", containers.size());
         } catch (const std::exception& ex) {
             json err;
             err["error"] = ex.what();
             res.status = 500;
             res.set_content(err.dump(4), "application/json");
-            spdlog::error("/containers failed: {}", ex.what());
+            SPDLOG_ERROR("/containers failed: {}", ex.what());
         }
     });
 
@@ -91,7 +91,7 @@ void Server::setupRoutes() {
 
         const std::string containerId = req.matches[1];
         try {
-            spdlog::info("/containers/{}/stop requested", containerId);
+            SPDLOG_INFO("/containers/{}/stop requested", containerId);
             m_engine->stopContainer(containerId);
             json j;
             j["status"] = "ok";
@@ -103,7 +103,7 @@ void Server::setupRoutes() {
             err["error"] = ex.what();
             res.status = 500;
             res.set_content(err.dump(4), "application/json");
-            spdlog::error("/containers/{}/stop failed: {}", containerId, ex.what());
+            SPDLOG_ERROR("/containers/{}/stop failed: {}", containerId, ex.what());
         }
     });
 
@@ -116,7 +116,7 @@ void Server::setupRoutes() {
 
         const std::string containerId = req.matches[1];
         try {
-            spdlog::info("/containers/{}/kill requested", containerId);
+            SPDLOG_INFO("/containers/{}/kill requested", containerId);
             m_engine->killContainer(containerId);
             json j;
             j["status"] = "ok";
@@ -128,7 +128,7 @@ void Server::setupRoutes() {
             err["error"] = ex.what();
             res.status = 500;
             res.set_content(err.dump(4), "application/json");
-            spdlog::error("/containers/{}/kill failed: {}", containerId, ex.what());
+            SPDLOG_ERROR("/containers/{}/kill failed: {}", containerId, ex.what());
         }
     });
 }

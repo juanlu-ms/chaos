@@ -49,7 +49,7 @@ int CliParser::run(int argc, char* argv[]) const {
 
     if (command == "stop") {
         if (args.size() < 3) {
-            spdlog::error("'stop' requires a container ID");
+            SPDLOG_ERROR("'stop' requires a container ID");
             return 1;
         }
         return handleStop(args[2]);
@@ -57,7 +57,7 @@ int CliParser::run(int argc, char* argv[]) const {
 
     if (command == "kill") {
         if (args.size() < 3) {
-            spdlog::error("'kill' requires a container ID");
+            SPDLOG_ERROR("'kill' requires a container ID");
             return 1;
         }
         return handleKill(args[2]);
@@ -65,7 +65,7 @@ int CliParser::run(int argc, char* argv[]) const {
 
     if (command == "run") {
         if (args.size() < 3) {
-            spdlog::error("'run' requires a path to a manifest JSON");
+            SPDLOG_ERROR("'run' requires a path to a manifest JSON");
             return 1;
         }
         return handleRun(args[2]);
@@ -78,7 +78,7 @@ int CliParser::run(int argc, char* argv[]) const {
                 try {
                     port = std::stoi(args[i + 1]);
                 } catch (...) {
-                    spdlog::error("Invalid port number: {}", args[i + 1]);
+                    SPDLOG_ERROR("Invalid port number: {}", args[i + 1]);
                     return 1;
                 }
             }
@@ -86,13 +86,13 @@ int CliParser::run(int argc, char* argv[]) const {
         return handleServe(port);
     }
 
-    spdlog::error("Unknown command: '{}'", command);
+    SPDLOG_ERROR("Unknown command: '{}'", command);
     printUsage();
     return 1;
 }
 
 void CliParser::printUsage() const {
-    spdlog::info(
+    SPDLOG_INFO(
         "Usage: chaos <command> [options]\n"
         "\n"
         "Chaos - Resilience Tool for Docker Containers\n"
@@ -113,18 +113,18 @@ int CliParser::handleList() const {
     try {
         auto containers = m_engine->listContainers();
         if (containers.empty()) {
-            spdlog::info("No containers found.");
+            SPDLOG_INFO("No containers found.");
             return 0;
         }
 
-        spdlog::info("{:<14} {:<30} {}", "CONTAINER ID", "NAME", "STATE");
+        SPDLOG_INFO("{:<14} {:<30} {}", "CONTAINER ID", "NAME", "STATE");
         for (const auto& c : containers) {
             const std::string displayId =
                 c.id.empty() ? std::string("<missing>") : (c.id.size() > 12 ? c.id.substr(0, 12) : c.id);
-            spdlog::info("{:<14} {:<30} {}", displayId, c.name, c.state);
+            SPDLOG_INFO("{:<14} {:<30} {}", displayId, c.name, c.state);
         }
     } catch (const std::exception& ex) {
-        spdlog::error("Failed to list containers: {}", ex.what());
+        SPDLOG_ERROR("Failed to list containers: {}", ex.what());
         return 1;
     }
 
@@ -134,9 +134,9 @@ int CliParser::handleList() const {
 int CliParser::handleStop(const std::string& containerId) const {
     try {
         m_engine->stopContainer(containerId);
-        spdlog::info("Container {} stopped.", containerId);
+        SPDLOG_INFO("Container {} stopped.", containerId);
     } catch (const std::exception& ex) {
-        spdlog::error("Failed to stop container {}: {}", containerId, ex.what());
+        SPDLOG_ERROR("Failed to stop container {}: {}", containerId, ex.what());
         return 1;
     }
 
@@ -146,9 +146,9 @@ int CliParser::handleStop(const std::string& containerId) const {
 int CliParser::handleKill(const std::string& containerId) const {
     try {
         m_engine->killContainer(containerId);
-        spdlog::info("Container {} killed.", containerId);
+        SPDLOG_INFO("Container {} killed.", containerId);
     } catch (const std::exception& ex) {
-        spdlog::error("Failed to kill container {}: {}", containerId, ex.what());
+        SPDLOG_ERROR("Failed to kill container {}: {}", containerId, ex.what());
         return 1;
     }
 
@@ -160,7 +160,7 @@ int CliParser::handleServe(int port) const {
         auto server = chaos::orchestrator::interfaces::web::Server(m_engine);
         server.listen(port);
     } catch (const std::exception& ex) {
-        spdlog::error("Server error: {}", ex.what());
+        SPDLOG_ERROR("Server error: {}", ex.what());
         return 1;
     }
 
@@ -170,18 +170,18 @@ int CliParser::handleServe(int port) const {
 int CliParser::handleRun(const std::string& manifestPath) const {
     try {
         auto manifest = chaos::orchestrator::manifests::ManifestParser::parse(manifestPath);
-        spdlog::info("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.name);
+        SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.name);
 
         chaos::orchestrator::perturbations::PerturbationFactory factory;
         for (const auto& pert_spec : manifest.perturbations) {
-            spdlog::info("Applying perturbation '{}'", pert_spec.type);
+            SPDLOG_INFO("Applying perturbation '{}'", pert_spec.type);
             auto perturbation = factory.create(m_engine, pert_spec);
             perturbation->apply(manifest.target);
         }
 
-        spdlog::info("All perturbations applied successfully.");
+        SPDLOG_INFO("All perturbations applied successfully.");
     } catch (const std::exception& ex) {
-        spdlog::error("Failed to run manifest: {}", ex.what());
+        SPDLOG_ERROR("Failed to run manifest: {}", ex.what());
         return 1;
     }
     return 0;

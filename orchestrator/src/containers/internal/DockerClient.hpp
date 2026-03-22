@@ -33,10 +33,11 @@ public:
      * @brief Function used to execute API requests.
      * @param method HTTP method (GET or POST).
      * @param endpoint API endpoint (e.g., /containers/json).
+     * @param body Optional request payload encoded as JSON.
      * @return HTTP response with status code and body.
      * @throws std::exception On transport errors.
      */
-    using RequestFn = std::function<HttpResponse(HttpMethod, std::string_view)>;
+    using RequestFn = std::function<HttpResponse(HttpMethod, std::string_view, std::string_view)>;
 
     /**
      * @brief Construct an adapter using an injected request function.
@@ -108,12 +109,12 @@ private:
     RequestFn request_;
 
     /**
-     * @brief Validate the structure of an API response and parse it as JSON.
-     * @param response HTTP response to validate.
+     * @brief Parse HTTP response body as JSON and handle errors.
+     * @param response HTTP response to parse.
      * @return Parsed JSON object.
-     * @throws std::exception On validation failures.
+     * @throws std::exception On parsing failures.
      */
-    nlohmann::json validateResponse(const HttpResponse& response) const;
+    nlohmann::json parseResponse(const HttpResponse& response) const;
 };
 
 }  // namespace chaos::orchestrator::containers::internal

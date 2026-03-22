@@ -15,13 +15,13 @@ DockerClient::DockerClient(RequestFn requestFn) : request_(std::move(requestFn))
 
 std::vector<chaos::orchestrator::containers::Container> DockerClient::listContainers() {
     SPDLOG_DEBUG("DockerClient: listing containers");
-    const auto response = request_(HttpMethod::GET, "/containers/json");
+    const auto response = request_(HttpMethod::GET, "/containers/json", "");
     if (response.status != 200) {
         SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
         throw std::runtime_error(fmt::format("Docker API returned status {}", response.status));
     }
 
-    auto jsonResponse = validateResponse(response);
+    auto jsonResponse = parseResponse(response);
 
     std::vector<chaos::orchestrator::containers::Container> containers;
     containers.reserve(jsonResponse.size());
@@ -48,7 +48,7 @@ std::vector<chaos::orchestrator::containers::Container> DockerClient::listContai
 }
 
 void DockerClient::createContainer(const std::string_view image, const std::vector<std::string>& options) {
-    throw std::runtime_error("Container creation is not supported by DockerClient");
+    // TODO: Implement container creation
 }
 
 void DockerClient::startContainer(const std::string_view containerId) {
@@ -57,7 +57,7 @@ void DockerClient::startContainer(const std::string_view containerId) {
     }
     SPDLOG_DEBUG("DockerClient: starting container {}", containerId);
 
-    if (const auto response = request_(HttpMethod::POST, fmt::format("/containers/{}/start", containerId));
+    if (const auto response = request_(HttpMethod::POST, fmt::format("/containers/{}/start", containerId), "");
         response.status != 204) {
         SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
         throw std::runtime_error(fmt::format("Docker API returned status {}", response.status));
@@ -75,10 +75,8 @@ void DockerClient::stopContainer(const std::string_view containerId) {
     constexpr int stopTimeoutSeconds = 5;
 
     if (const auto response =
-            request_(HttpMethod::POST, fmt::format("/containers/{}/stop?t={}", containerId, stopTimeoutSeconds));
-        response.status == 304) {
-        SPDLOG_WARN("DockerClient: container {} is already stopped", containerId);
-    } else if (response.status != 204) {
+            request_(HttpMethod::POST, fmt::format("/containers/{}/stop?t={}", containerId, stopTimeoutSeconds), "");
+        response.status != 204) {
         SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
         throw std::runtime_error(fmt::format("Docker API returned status {}", response.status));
     }
@@ -92,21 +90,60 @@ void DockerClient::killContainer(const std::string_view containerId) {
     }
     SPDLOG_DEBUG("DockerClient: killing container {}", containerId);
 
-    const auto response = request_(HttpMethod::POST, fmt::format("/containers/{}/kill", containerId));
+    const auto response = request_(HttpMethod::POST, fmt::format("/containers/{}/kill", containerId), "");
     if (response.status != 204) {
         SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
         throw std::runtime_error(fmt::format("Docker API returned status {}", response.status));
     }
 
     if (!response.body.empty()) {
-        validateResponse(response);
+        parseResponse(response);
     }
 
     SPDLOG_INFO("DockerClient: container {} killed successfully", containerId);
 }
 
 std::string DockerClient::exec(const std::string_view containerId, const std::string_view command) {
-    throw std::runtime_error("Container exec is not supported by DockerClient");
+    if (containerId.empty()) {
+        throw std::invalid_argument("Container ID cannot be empty");
+    }
+    if (command.empty()) {
+        throw std::invalid_argument("Command cannot be empty");
+    }
+    SPDLOG_DEBUG("DockerClient: executing command {} in container {}", command, containerId);
+
+    nlohmann::json execConfig = {
+        {"AttachStdin", false}, {"AttachStdout", true},
+        {"AttachStderr", true}, {"Tty", false},
+        {"Privileged", false},  {"Cmd", nlohmann::json::array({"/bin/sh", "-lc", std::string(command)})},
+    };
+
+    const auto createResponse =
+        request_(HttpMethod::POST, fmt::format("/containers/{}/exec", containerId), execConfig.dump());
+    if (createResponse.status != 201) {
+        SPDLOG_ERROR("Docker exec create failed with status {}: {}", createResponse.status, createResponse.body);
+        throw std::runtime_error(fmt::format("Docker API returned status {}", createResponse.status));
+    }
+
+    auto createJson = parseResponse(createResponse);
+    if (!createJson.contains("Id") || !createJson["Id"].is_string()) {
+        throw std::runtime_error("Docker exec create response missing Id");
+    }
+    const auto execId = createJson["Id"].get<std::string>();
+
+    nlohmann::json startConfig = {
+        {"Detach", false},
+        {"Tty", false},
+    };
+
+    const auto startResponse = request_(HttpMethod::POST, fmt::format("/exec/{}/start", execId), startConfig.dump());
+    if (startResponse.status != 200) {
+        SPDLOG_ERROR("Docker exec start failed with status {}: {}", startResponse.status, startResponse.body);
+        throw std::runtime_error(fmt::format("Docker API returned status {}", startResponse.status));
+    }
+
+    SPDLOG_INFO("DockerClient: command executed successfully in container {}", containerId);
+    return startResponse.body;
 }
 
 std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> DockerClient::create(const std::string& socketPath) {
@@ -116,7 +153,7 @@ std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> DockerClient:
     client->set_connection_timeout(5);
     client->set_read_timeout(30);
 
-    auto requestFn = [client](HttpMethod method, std::string_view endpoint) {
+    auto requestFn = [client](HttpMethod method, std::string_view endpoint, std::string_view body) {
         SPDLOG_DEBUG("DockerClient: request {} {}", method == HttpMethod::GET ? "GET" : "POST", endpoint);
         httplib::Result response;
         std::string endpointStr(endpoint);
@@ -125,7 +162,11 @@ std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> DockerClient:
                 response = client->Get(endpointStr);
                 break;
             case HttpMethod::POST:
-                response = client->Post(endpointStr);
+                if (body.empty()) {
+                    response = client->Post(endpointStr);
+                } else {
+                    response = client->Post(endpointStr, std::string(body), "application/json");
+                }
                 break;
         }
 
@@ -139,7 +180,7 @@ std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> DockerClient:
     return std::make_shared<DockerClient>(std::move(requestFn));
 }
 
-nlohmann::json DockerClient::validateResponse(const HttpResponse& response) const {
+nlohmann::json DockerClient::parseResponse(const HttpResponse& response) const {
     if (response.body.empty()) {
         SPDLOG_ERROR("Docker API response body is empty");
         throw std::runtime_error("Docker API response body is empty");

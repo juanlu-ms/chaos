@@ -5,6 +5,11 @@
 #include <nlohmann/json.hpp>
 #include <string_view>
 
+/**
+ * @file DockerClientUnitTest.cpp
+ * @brief Unit tests for DockerClient behavior using a mocked transport adapter.
+ */
+
 using chaos::orchestrator::containers::internal::DockerClient;
 using chaos::orchestrator::containers::internal::HttpMethod;
 using chaos::orchestrator::containers::internal::HttpResponse;
@@ -15,9 +20,10 @@ namespace {
  * @brief Creates a DockerClient adapter that returns container list responses.
  */
 DockerClient makeAdapterForListContainers(const nlohmann::json& response) {
-    return DockerClient([response](HttpMethod method, std::string_view endpoint) {
+    return DockerClient([response](HttpMethod method, std::string_view endpoint, std::string_view body) {
         EXPECT_EQ(method, HttpMethod::GET);
         EXPECT_EQ(endpoint, "/containers/json");
+        EXPECT_TRUE(body.empty());
         return HttpResponse{.status = 200, .body = response.dump()};
     });
 }
@@ -26,8 +32,9 @@ DockerClient makeAdapterForListContainers(const nlohmann::json& response) {
  * @brief Creates a DockerClient adapter that throws a transport-level error.
  */
 DockerClient makeAdapterWithError(const std::string& errorMessage) {
-    return DockerClient(
-        [errorMessage](HttpMethod, std::string_view) -> HttpResponse { throw std::runtime_error(errorMessage); });
+    return DockerClient([errorMessage](HttpMethod, std::string_view, std::string_view) -> HttpResponse {
+        throw std::runtime_error(errorMessage);
+    });
 }
 
 }  // namespace
@@ -129,12 +136,14 @@ TEST(DockerClientUnitTest, StopContainerCallsCorrectEndpoint) {
     bool wasCalled = false;
     const std::string containerId = "test-container-456";
 
-    auto adapter = DockerClient([&wasCalled, &containerId](HttpMethod method, std::string_view endpoint) {
-        wasCalled = true;
-        EXPECT_EQ(method, HttpMethod::POST);
-        EXPECT_EQ(endpoint, fmt::format("/containers/{}/stop?t=5", containerId));
-        return HttpResponse{204, ""};
-    });
+    auto adapter =
+        DockerClient([&wasCalled, &containerId](HttpMethod method, std::string_view endpoint, std::string_view body) {
+            wasCalled = true;
+            EXPECT_EQ(method, HttpMethod::POST);
+            EXPECT_EQ(endpoint, fmt::format("/containers/{}/stop?t=5", containerId));
+            EXPECT_TRUE(body.empty());
+            return HttpResponse{204, ""};
+        });
 
     adapter.stopContainer(containerId);
     EXPECT_TRUE(wasCalled);
@@ -155,7 +164,7 @@ TEST(DockerClientUnitTest, StopContainerPropagatesApiError) {
 TEST(DockerClientUnitTest, StopContainerWithEmptyIdThrows) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::array());
 
-    EXPECT_THROW(adapter.stopContainer(""), std::runtime_error);
+    EXPECT_THROW(adapter.stopContainer(""), std::invalid_argument);
 }
 
 /**
@@ -165,12 +174,14 @@ TEST(DockerClientUnitTest, KillContainerCallsCorrectEndpoint) {
     bool wasCalled = false;
     const std::string containerId = "test-container-123";
 
-    auto adapter = DockerClient([&wasCalled, &containerId](HttpMethod method, std::string_view endpoint) {
-        wasCalled = true;
-        EXPECT_EQ(method, HttpMethod::POST);
-        EXPECT_EQ(endpoint, fmt::format("/containers/{}/kill", containerId));
-        return HttpResponse{204, ""};
-    });
+    auto adapter =
+        DockerClient([&wasCalled, &containerId](HttpMethod method, std::string_view endpoint, std::string_view body) {
+            wasCalled = true;
+            EXPECT_EQ(method, HttpMethod::POST);
+            EXPECT_EQ(endpoint, fmt::format("/containers/{}/kill", containerId));
+            EXPECT_TRUE(body.empty());
+            return HttpResponse{204, ""};
+        });
 
     adapter.killContainer(containerId);
     EXPECT_TRUE(wasCalled);
@@ -191,5 +202,51 @@ TEST(DockerClientUnitTest, KillContainerPropagatesApiError) {
 TEST(DockerClientUnitTest, KillContainerWithEmptyIdThrows) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::array());
 
-    EXPECT_THROW(adapter.killContainer(""), std::runtime_error);
+    EXPECT_THROW(adapter.killContainer(""), std::invalid_argument);
+}
+
+/**
+ * @test Verifies exec performs create+start flow and returns command output.
+ */
+TEST(DockerClientUnitTest, ExecCallsCreateAndStartEndpoints) {
+    const std::string containerId = "container-1";
+    const std::string command = "echo hello";
+    int calls = 0;
+
+    auto adapter = DockerClient([&](HttpMethod method, std::string_view endpoint, std::string_view body) {
+        EXPECT_EQ(method, HttpMethod::POST);
+        ++calls;
+
+        if (calls == 1) {
+            EXPECT_EQ(endpoint, fmt::format("/containers/{}/exec", containerId));
+            const auto payload = nlohmann::json::parse(body);
+            EXPECT_TRUE(payload["AttachStdout"].get<bool>());
+            EXPECT_TRUE(payload["AttachStderr"].get<bool>());
+            EXPECT_FALSE(payload["Tty"].get<bool>());
+            EXPECT_EQ(payload["Cmd"].at(0).get<std::string>(), "/bin/sh");
+            EXPECT_EQ(payload["Cmd"].at(1).get<std::string>(), "-lc");
+            EXPECT_EQ(payload["Cmd"].at(2).get<std::string>(), command);
+            return HttpResponse{201, R"json({"Id":"exec-123"})json"};
+        }
+
+        EXPECT_EQ(endpoint, "/exec/exec-123/start");
+        const auto payload = nlohmann::json::parse(body);
+        EXPECT_FALSE(payload["Detach"].get<bool>());
+        EXPECT_FALSE(payload["Tty"].get<bool>());
+        return HttpResponse{200, "hello\n"};
+    });
+
+    const auto output = adapter.exec(containerId, command);
+    EXPECT_EQ(calls, 2);
+    EXPECT_EQ(output, "hello\n");
+}
+
+/**
+ * @test Verifies exec validates empty input arguments.
+ */
+TEST(DockerClientUnitTest, ExecRejectsEmptyArguments) {
+    auto adapter = makeAdapterForListContainers(nlohmann::json::array());
+
+    EXPECT_THROW(adapter.exec("", "echo hi"), std::invalid_argument);
+    EXPECT_THROW(adapter.exec("container", ""), std::invalid_argument);
 }

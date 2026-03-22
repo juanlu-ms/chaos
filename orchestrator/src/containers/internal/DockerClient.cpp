@@ -17,7 +17,7 @@ std::vector<chaos::orchestrator::containers::Container> DockerClient::listContai
     SPDLOG_DEBUG("DockerClient: listing containers");
     const auto response = request_(HttpMethod::GET, "/containers/json");
     if (response.status != 200) {
-        SPDLOG_WARN("Docker API returned status {}", response.status);
+        SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
         throw std::runtime_error(fmt::format("Docker API returned status {}", response.status));
     }
 
@@ -51,19 +51,35 @@ void DockerClient::createContainer(const std::string_view image, const std::vect
     throw std::runtime_error("Container creation is not supported by DockerClient");
 }
 
+void DockerClient::startContainer(const std::string_view containerId) {
+    if (containerId.empty()) {
+        throw std::invalid_argument("Container ID cannot be empty");
+    }
+    SPDLOG_DEBUG("DockerClient: starting container {}", containerId);
+
+    if (const auto response = request_(HttpMethod::POST, fmt::format("/containers/{}/start", containerId));
+        response.status != 204) {
+        SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
+        throw std::runtime_error(fmt::format("Docker API returned status {}", response.status));
+    }
+
+    SPDLOG_INFO("DockerClient: container {} started successfully", containerId);
+}
+
 void DockerClient::stopContainer(const std::string_view containerId) {
     if (containerId.empty()) {
-        throw std::runtime_error("Container ID cannot be empty");
+        throw std::invalid_argument("Container ID cannot be empty");
     }
     SPDLOG_DEBUG("DockerClient: stopping container {}", containerId);
 
     constexpr int stopTimeoutSeconds = 5;
-    const auto response =
-        request_(HttpMethod::POST, fmt::format("/containers/{}/stop?t={}", containerId, stopTimeoutSeconds));
-    if (response.status == 304) {
+
+    if (const auto response =
+            request_(HttpMethod::POST, fmt::format("/containers/{}/stop?t={}", containerId, stopTimeoutSeconds));
+        response.status == 304) {
         SPDLOG_WARN("DockerClient: container {} is already stopped", containerId);
     } else if (response.status != 204) {
-        SPDLOG_WARN("Docker API returned status {}", response.status);
+        SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
         throw std::runtime_error(fmt::format("Docker API returned status {}", response.status));
     }
 
@@ -72,13 +88,13 @@ void DockerClient::stopContainer(const std::string_view containerId) {
 
 void DockerClient::killContainer(const std::string_view containerId) {
     if (containerId.empty()) {
-        throw std::runtime_error("Container ID cannot be empty");
+        throw std::invalid_argument("Container ID cannot be empty");
     }
     SPDLOG_DEBUG("DockerClient: killing container {}", containerId);
 
     const auto response = request_(HttpMethod::POST, fmt::format("/containers/{}/kill", containerId));
     if (response.status != 204) {
-        SPDLOG_WARN("Docker API returned status {}", response.status);
+        SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
         throw std::runtime_error(fmt::format("Docker API returned status {}", response.status));
     }
 

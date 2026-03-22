@@ -2,7 +2,7 @@
 set -euo pipefail
 
 MODE="${1:-all}"
-CONFIGURE_PRESET="${CONFIGURE_PRESET:-dev-linux-gcc}"
+CONFIGURE_PRESET="${CONFIGURE_PRESET:-dev-linux-clang}"
 BUILD_PRESET="${BUILD_PRESET:-debug}"
 TEST_PRESET="${TEST_PRESET:-test}"
 

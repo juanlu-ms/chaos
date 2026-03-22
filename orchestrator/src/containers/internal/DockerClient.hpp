@@ -1,6 +1,5 @@
 #pragma once
 
-#include <containers/IContainerEngine.hpp>
 #include <functional>
 #include <memory>
 #include <nlohmann/json_fwd.hpp>
@@ -8,12 +7,14 @@
 #include <string_view>
 #include <vector>
 
+#include "containers/IContainerEngine.hpp"
+
 namespace chaos::orchestrator::containers::internal {
 
 /**
  * @brief Supported HTTP methods for Docker Engine API calls.
  */
-enum class HttpMethod { GET, POST };
+enum class HttpMethod : std::int8_t { GET, POST };
 
 /**
  * @brief Raw HTTP response from Docker Engine API.

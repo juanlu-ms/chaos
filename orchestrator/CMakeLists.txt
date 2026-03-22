@@ -9,6 +9,7 @@ set(ORCHESTRATOR_SOURCES
     src/containers/internal/DockerClient.cpp
     src/interfaces/cli/CliParser.cpp
     src/interfaces/web/Server.cpp
+    src/manifests/ManifestParser.cpp
 )
 
 add_library(orchestrator_core STATIC ${ORCHESTRATOR_SOURCES})
@@ -39,7 +40,11 @@ target_include_directories(orchestrator_app PRIVATE
 target_link_libraries(orchestrator_app PRIVATE orchestrator_core)
 set_target_properties(orchestrator_app PROPERTIES OUTPUT_NAME chaos)
 
-add_executable(orchestrator_unit_tests tests/containers/internal/DockerClientUnitTest.cpp)
+add_executable(orchestrator_unit_tests 
+    tests/containers/internal/DockerClientUnitTest.cpp
+    tests/manifests/ManifestParserUnitTest.cpp
+)
+
 target_include_directories(orchestrator_unit_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )

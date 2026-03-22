@@ -54,7 +54,7 @@ CHAOS/
 │   ├── src/
 │   │   ├── interfaces/
 │   │   ├── containers/
-│   │   ├── scenarios/
+│   │   ├── manifests/
 │   │   ├── perturbations/
 │   │   ├── observability/
 │   │   └── main.cpp

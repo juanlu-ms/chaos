@@ -11,14 +11,20 @@ using chaos::orchestrator::containers::internal::HttpResponse;
 
 namespace {
 
+/**
+ * @brief Creates a DockerClient adapter that returns container list responses.
+ */
 DockerClient makeAdapterForListContainers(const nlohmann::json& response) {
     return DockerClient([response](HttpMethod method, std::string_view endpoint) {
         EXPECT_EQ(method, HttpMethod::GET);
         EXPECT_EQ(endpoint, "/containers/json");
-        return HttpResponse{200, response.dump()};
+        return HttpResponse{.status = 200, .body = response.dump()};
     });
 }
 
+/**
+ * @brief Creates a DockerClient adapter that throws a transport-level error.
+ */
 DockerClient makeAdapterWithError(const std::string& errorMessage) {
     return DockerClient(
         [errorMessage](HttpMethod, std::string_view) -> HttpResponse { throw std::runtime_error(errorMessage); });
@@ -26,6 +32,9 @@ DockerClient makeAdapterWithError(const std::string& errorMessage) {
 
 }  // namespace
 
+/**
+ * @test Verifies correct parsing of a single-container list.
+ */
 TEST(DockerClientUnitTest, ParsesContainerList) {
     const auto mockResponse = nlohmann::json::array({
         {
@@ -44,6 +53,9 @@ TEST(DockerClientUnitTest, ParsesContainerList) {
     EXPECT_EQ(containers[0].state, "running");
 }
 
+/**
+ * @test Verifies an empty response produces an empty list.
+ */
 TEST(DockerClientUnitTest, ParsesEmptyContainerList) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::array());
 
@@ -51,12 +63,18 @@ TEST(DockerClientUnitTest, ParsesEmptyContainerList) {
     EXPECT_TRUE(containers.empty());
 }
 
+/**
+ * @test Verifies an invalid daemon response raises an exception.
+ */
 TEST(DockerClientUnitTest, ThrowsOnErrorInResponse) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::object({{"error", "not an array"}}));
 
     EXPECT_THROW(adapter.listContainers(), std::runtime_error);
 }
 
+/**
+ * @test Verifies tolerant handling of containers with missing fields.
+ */
 TEST(DockerClientUnitTest, HandlesContainersWithMissingFields) {
     const auto mockResponse = nlohmann::json::array({
         {{"Id", "abc123"}},
@@ -74,6 +92,9 @@ TEST(DockerClientUnitTest, HandlesContainersWithMissingFields) {
     EXPECT_EQ(containers[1].name, "only-name");
 }
 
+/**
+ * @test Verifies parsing of multiple containers with different states.
+ */
 TEST(DockerClientUnitTest, ParsesMultipleContainers) {
     const auto mockResponse = nlohmann::json::array({
         {{"Id", "aaa"}, {"Names", nlohmann::json::array({"/alpha"})}, {"State", "running"}},
@@ -92,12 +113,18 @@ TEST(DockerClientUnitTest, ParsesMultipleContainers) {
     EXPECT_EQ(containers[2].state, "paused");
 }
 
+/**
+ * @test Verifies propagation of transport errors.
+ */
 TEST(DockerClientUnitTest, PropagatesTransportErrors) {
     auto adapter = makeAdapterWithError("Connection refused");
 
     EXPECT_THROW(adapter.listContainers(), std::runtime_error);
 }
 
+/**
+ * @test Verifies stopContainer calls the expected endpoint and HTTP method.
+ */
 TEST(DockerClientUnitTest, StopContainerCallsCorrectEndpoint) {
     bool wasCalled = false;
     const std::string containerId = "test-container-456";
@@ -113,18 +140,27 @@ TEST(DockerClientUnitTest, StopContainerCallsCorrectEndpoint) {
     EXPECT_TRUE(wasCalled);
 }
 
+/**
+ * @test Verifies stopContainer propagates API errors.
+ */
 TEST(DockerClientUnitTest, StopContainerPropagatesApiError) {
     auto adapter = makeAdapterWithError("Docker daemon unreachable");
 
     EXPECT_THROW(adapter.stopContainer("any-id"), std::runtime_error);
 }
 
+/**
+ * @test Verifies stopContainer rejects empty container IDs.
+ */
 TEST(DockerClientUnitTest, StopContainerWithEmptyIdThrows) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::array());
 
     EXPECT_THROW(adapter.stopContainer(""), std::runtime_error);
 }
 
+/**
+ * @test Verifies killContainer calls the expected endpoint and HTTP method.
+ */
 TEST(DockerClientUnitTest, KillContainerCallsCorrectEndpoint) {
     bool wasCalled = false;
     const std::string containerId = "test-container-123";
@@ -140,12 +176,18 @@ TEST(DockerClientUnitTest, KillContainerCallsCorrectEndpoint) {
     EXPECT_TRUE(wasCalled);
 }
 
+/**
+ * @test Verifies killContainer propagates API errors.
+ */
 TEST(DockerClientUnitTest, KillContainerPropagatesApiError) {
     auto adapter = makeAdapterWithError("Docker daemon is on fire");
 
     EXPECT_THROW(adapter.killContainer("any-id"), std::runtime_error);
 }
 
+/**
+ * @test Verifies killContainer rejects empty container IDs.
+ */
 TEST(DockerClientUnitTest, KillContainerWithEmptyIdThrows) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::array());
 

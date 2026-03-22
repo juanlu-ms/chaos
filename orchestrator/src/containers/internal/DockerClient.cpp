@@ -1,12 +1,12 @@
+#include "DockerClient.hpp"
+
 #include <fmt/format.h>
 #include <httplib.h>
 #include <spdlog/spdlog.h>
 #include <sys/socket.h>
 
-#include <containers/internal/DockerClient.hpp>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
-#include <string>
 
 namespace chaos::orchestrator::containers::internal {
 
@@ -108,7 +108,7 @@ std::unique_ptr<chaos::orchestrator::containers::IContainerEngine> DockerClient:
             spdlog::error("DockerClient: connection to Docker socket failed");
             throw std::runtime_error("Failed to connect to Docker socket");
         }
-        return HttpResponse{response->status, response->body};
+        return HttpResponse{.status = response->status, .body = response->body};
     };
 
     return std::make_unique<DockerClient>(std::move(requestFn));

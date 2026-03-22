@@ -10,7 +10,8 @@ namespace chaos::orchestrator::perturbations {
  */
 class CpuCapPerturbation final : public IPerturbation {
 public:
-    CpuCapPerturbation(std::shared_ptr<containers::IContainerEngine> engine, const manifests::Perturbation& spec);
+    explicit CpuCapPerturbation(std::shared_ptr<containers::IContainerEngine> engine,
+                                const manifests::Perturbation& spec);
     ~CpuCapPerturbation() override = default;
 
     /**

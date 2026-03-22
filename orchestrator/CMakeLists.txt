@@ -10,11 +10,11 @@ set(ORCHESTRATOR_SOURCES
     src/interfaces/cli/CliParser.cpp
     src/interfaces/web/Server.cpp
     src/manifests/ManifestParser.cpp
-    src/perturbations/KillPerturbation.cpp
     src/perturbations/PerturbationFactory.cpp
-    src/perturbations/MemoryCapPerturbation.cpp
-    src/perturbations/CpuCapPerturbation.cpp
-    src/perturbations/NetworkCapPerturbation.cpp
+    src/perturbations/internal/KillPerturbation.cpp
+    src/perturbations/internal/MemoryCapPerturbation.cpp
+    src/perturbations/internal/CpuCapPerturbation.cpp
+    src/perturbations/internal/NetworkDelayPerturbation.cpp
 )
 
 add_library(orchestrator_core STATIC ${ORCHESTRATOR_SOURCES})

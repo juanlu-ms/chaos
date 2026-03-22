@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <gtest/gtest.h>
 
 #include <atomic>
@@ -27,7 +28,7 @@ protected:
         static std::atomic<unsigned long long> counter{0};
         const auto id = counter.fetch_add(1, std::memory_order_relaxed);
         const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-        const auto filename = std::format("chaos_manifest_parser_{}_{}.json", now, id);
+        const auto filename = fmt::format("chaos_manifest_parser_{}_{}.json", now, id);
         const auto path = std::filesystem::temp_directory_path() / filename;
 
         std::ofstream output(path);

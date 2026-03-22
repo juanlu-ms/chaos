@@ -17,11 +17,14 @@ public:
 
     /**
      * @brief Creates the concrete perturbation based on the spec type.
+     * @param engine The container engine used to interact with the target.
+     * @param target The target specification.
      * @param spec The parsed perturbation definition (e.g., type="MemoryCap").
      * @return Unique pointer to the instantiated IPerturbation.
      * @throws std::invalid_argument If the type is not recognized.
      */
     std::unique_ptr<IPerturbation> create(std::shared_ptr<containers::IContainerEngine> engine,
+                                          const manifests::Target& target,
                                           const manifests::Perturbation& spec) override;
 };
 

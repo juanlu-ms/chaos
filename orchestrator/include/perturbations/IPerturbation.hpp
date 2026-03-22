@@ -17,18 +17,16 @@ public:
     /**
      * @brief Apply the perturbation to a specific target.
      *
-     * @param target The target definition from the manifest.
      * @throws std::system_error On failure to apply the perturbation.
      */
-    virtual void apply(const manifests::Target& target) = 0;
+    virtual void apply() = 0;
 
     /**
      * @brief Revert the perturbation to a specific target.
      *
-     * @param target The target definition from the manifest.
      * @throws std::system_error On failure to revert the perturbation.
      */
-    virtual void revert(const manifests::Target& target) = 0;
+    virtual void revert() = 0;
 };
 
 /**
@@ -42,11 +40,13 @@ public:
      * @brief Creates a perturbation based on the manifest specification.
      *
      * @param engine The container engine used to interact with the target.
+     * @param target The target specification.
      * @param spec The perturbation specification (type and parameters).
      * @return A unique pointer to the instantiated perturbation.
      * @throws std::invalid_argument If the perturbation type is unknown or parameters are invalid.
      */
     virtual std::unique_ptr<IPerturbation> create(std::shared_ptr<containers::IContainerEngine> engine,
+                                                  const manifests::Target& target,
                                                   const manifests::Perturbation& spec) = 0;
 };
 

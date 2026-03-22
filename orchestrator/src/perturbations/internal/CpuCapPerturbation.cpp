@@ -1,19 +1,28 @@
 #include "perturbations/CpuCapPerturbation.hpp"
 
+#include <spdlog/spdlog.h>
+
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
 #include <utility>
 
+#include "manifests/Manifest.hpp"
+
 namespace chaos::orchestrator::perturbations {
 
-CpuCapPerturbation::CpuCapPerturbation(std::shared_ptr<containers::IContainerEngine> engine,
+CpuCapPerturbation::CpuCapPerturbation(std::shared_ptr<containers::IContainerEngine> engine, std::string target_id,
                                        const manifests::Perturbation& spec)
-    : engine_(std::move(engine)), params_(spec.parameters) {}
+    : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
 
-void CpuCapPerturbation::apply(const manifests::Target& target) {
-    if (target.name.empty()) {
-        throw std::invalid_argument("Target name is empty");
+void CpuCapPerturbation::apply() {
+    if (hasBeenApplied_) {
+        SPDLOG_WARN("CPU Cap Perturbation already applied to target {}, skipping", target_id_);
+        return;
+    }
+
+    if (target_id_.empty()) {
+        throw std::invalid_argument("Target ID is empty");
     }
 
     auto limit_it = params_.find("quota");
@@ -28,11 +37,17 @@ void CpuCapPerturbation::apply(const manifests::Target& target) {
                             "Failed to apply cpu cgroup quota");
 }
 
-void CpuCapPerturbation::revert(const manifests::Target& target) {
-    // TODO: Implement cpu limit revert with cgroups
-    if (target.name.empty()) {
-        throw std::invalid_argument("Target name is empty");
+void CpuCapPerturbation::revert() {
+    if (!hasBeenApplied_) {
+        SPDLOG_WARN("CPU Cap Perturbation was not applied, skipping revert");
+        return;
     }
+
+    if (target_id_.empty()) {
+        throw std::invalid_argument("Target ID is empty");
+    }
+
+    // TODO: Implement cpu limit revert with cgroups
 }
 
 }  // namespace chaos::orchestrator::perturbations

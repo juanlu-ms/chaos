@@ -10,30 +10,30 @@ namespace chaos::orchestrator::perturbations {
  */
 class KillPerturbation final : public IPerturbation {
 public:
-    explicit KillPerturbation(std::shared_ptr<containers::IContainerEngine> engine);
+    explicit KillPerturbation(std::shared_ptr<containers::IContainerEngine> engine, std::string target_id);
     ~KillPerturbation() override = default;
 
     /**
      * @brief Kills the target container using the provided engine.
-     * @param engine Reference to the container engine.
-     * @param target Manifest target containing the container name.
      * @throws std::system_error On failure to kill.
      */
-    void apply(const manifests::Target& target) override;
+    void apply() override;
 
     /**
      * @brief Reverts the kill by attempting to start the container again.
-     * @param engine Reference to the container engine.
-     * @param target Manifest target containing the container name.
      * @throws std::system_error On failure to start.
      */
-    void revert(const manifests::Target& target) override;
+    void revert() override;
 
 private:
-    /**
-     * @brief The container engine used to interact with the target.
-     */
+    /** @brief The container engine used to interact with the target. */
     std::shared_ptr<containers::IContainerEngine> engine_;
+
+    /** @brief ID of the container to kill */
+    std::string target_id_;
+
+    /** @brief Flag indicating whether the perturbation has been applied. */
+    bool hasBeenApplied_ = false;
 };
 
 }  // namespace chaos::orchestrator::perturbations

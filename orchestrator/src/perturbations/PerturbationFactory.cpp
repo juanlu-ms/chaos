@@ -1,6 +1,7 @@
 #include "perturbations/PerturbationFactory.hpp"
 
 #include <stdexcept>
+#include <utility>
 
 #include "perturbations/CpuCapPerturbation.hpp"
 #include "perturbations/KillPerturbation.hpp"
@@ -10,15 +11,16 @@
 namespace chaos::orchestrator::perturbations {
 
 std::unique_ptr<IPerturbation> PerturbationFactory::create(std::shared_ptr<containers::IContainerEngine> engine,
+                                                           const manifests::Target& target,
                                                            const manifests::Perturbation& spec) {
     if (spec.type == "kill") {
-        return std::make_unique<KillPerturbation>(engine);
+        return std::make_unique<KillPerturbation>(std::move(engine), target.id);
     } else if (spec.type == "memory_cap") {
-        return std::make_unique<MemoryCapPerturbation>(engine, spec);
+        return std::make_unique<MemoryCapPerturbation>(engine, target, spec);
     } else if (spec.type == "cpu_cap") {
-        return std::make_unique<CpuCapPerturbation>(engine, spec);
+        return std::make_unique<CpuCapPerturbation>(engine, target, spec);
     } else if (spec.type == "network_delay") {
-        return std::make_unique<NetworkDelayPerturbation>(engine, spec);
+        return std::make_unique<NetworkDelayPerturbation>(engine, target, spec);
     }
 
     // Fallback for unimplemented types

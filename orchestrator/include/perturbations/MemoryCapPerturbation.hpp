@@ -10,19 +10,34 @@ namespace chaos::orchestrator::perturbations {
  */
 class MemoryCapPerturbation final : public IPerturbation {
 public:
-    explicit MemoryCapPerturbation(manifests::Parameters params);
+    explicit MemoryCapPerturbation(std::shared_ptr<containers::IContainerEngine> engine, std::string target_id,
+                                   const manifests::Perturbation& spec);
     ~MemoryCapPerturbation() override = default;
 
     /**
      * @brief Applies the memory cap by modifying the container's cgroup.
-     * @param engine Reference to the container engine.
-     * @param target Manifest target containing the container name.
      * @throws std::system_error On failure to cap memory.
      */
-    void apply(containers::IContainerEngine& engine, const manifests::Target& target) override;
+    void apply() override;
+
+    /**
+     * @brief Reverts the memory cap by removing the cgroup restriction.
+     * @throws std::system_error On failure to revert memory cap.
+     */
+    void revert() override;
 
 private:
+    /** @brief The container engine used to interact with the target. */
+    std::shared_ptr<containers::IContainerEngine> engine_;
+
+    /** @brief Target ID for the memory cap perturbation */
+    std::string target_id_;
+
+    /** @brief Parameters for the memory cap perturbation, e.g., limit_bytes. */
     manifests::Parameters params_;
+
+    /** @brief Flag indicating whether the perturbation has been applied. */
+    bool hasBeenApplied_ = false;
 };
 
 }  // namespace chaos::orchestrator::perturbations

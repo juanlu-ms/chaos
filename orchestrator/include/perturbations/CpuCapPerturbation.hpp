@@ -10,7 +10,7 @@ namespace chaos::orchestrator::perturbations {
  */
 class CpuCapPerturbation final : public IPerturbation {
 public:
-    explicit CpuCapPerturbation(std::shared_ptr<containers::IContainerEngine> engine,
+    explicit CpuCapPerturbation(std::shared_ptr<containers::IContainerEngine> engine, std::string target_id,
                                 const manifests::Perturbation& spec);
     ~CpuCapPerturbation() override = default;
 
@@ -19,24 +19,27 @@ public:
      * @param target Manifest target containing the container name.
      * @throws std::system_error On failure to cap CPU.
      */
-    void apply(const manifests::Target& target) override;
+    void apply() override;
 
     /**
      * @brief Reverts the CPU cap by restoring the container's cgroup quotas.
      * @param target Manifest target containing the container name.
      * @throws std::system_error On failure to revert CPU cap.
      */
-    void revert(const manifests::Target& target) override;
+    void revert() override;
 
 private:
-    /**
-     * @brief The container engine used to interact with the target.
-     */
+    /** @brief The container engine used to interact with the target. */
     std::shared_ptr<containers::IContainerEngine> engine_;
-    /**
-     * @brief Parameters for the CPU cap perturbation (e.g., quota value).
-     */
+
+    /** @brief Target ID for the CPU cap perturbation */
+    std::string target_id_;
+
+    /** @brief Parameters for the CPU cap perturbation (e.g., quota value). */
     manifests::Parameters params_;
+
+    /** @brief Flag indicating whether the perturbation has been applied. */
+    bool hasBeenApplied_ = false;
 };
 
 }  // namespace chaos::orchestrator::perturbations

@@ -11,6 +11,11 @@
 
 #include "manifests/ManifestParser.hpp"
 
+/**
+ * @file ManifestParserUnitTest.cpp
+ * @brief Unit tests for manifest parsing and validation rules.
+ */
+
 using chaos::orchestrator::manifests::ChaosManifest;
 using chaos::orchestrator::manifests::ManifestParser;
 

@@ -8,13 +8,7 @@
 
 namespace chaos::orchestrator::manifests {
 
-void from_json(const nlohmann::json& j, Target& t) {
-    if (j.value("type", "") != "container") {
-        throw std::runtime_error("Unsupported target type: " + j.value("type", ""));
-    }
-    j.at("type").get_to(t.type);
-    j.at("name").get_to(t.name);
-}
+void from_json(const nlohmann::json& j, Target& t) { j.at("id").get_to(t.id); }
 
 void from_json(const nlohmann::json& j, Perturbation& p) {
     j.at("type").get_to(p.type);

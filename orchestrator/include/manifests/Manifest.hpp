@@ -24,8 +24,7 @@ struct TransparentStringHash {
 using Parameters = std::unordered_map<std::string, std::string, TransparentStringHash, std::equal_to<>>;
 
 struct Target {
-    std::string type;
-    std::string name;
+    std::string id;
 };
 
 struct Perturbation {

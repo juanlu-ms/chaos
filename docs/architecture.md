@@ -3,7 +3,7 @@
 ## Perturbations Engine Design
 
 ### Overview
-The perturbation engine follows the **Factory Mode** and **Strategy** design patterns to decouple the instantiation and execution of chaos attacks from the core orchestrator.
+The perturbation engine follows the **Factory Mode** and **Command** design patterns to decouple the instantiation and execution of chaos attacks from the core orchestrator.
 
 ### Interfaces and SOLID Compliance
 All perturbations implement the `IPerturbation` interface. This ensures compliance with the **Open/Closed Principle (OCP)**: adding new attacks does not require modifying the orchestrator logic. It also honors **Dependency Inversion**, as the orchestrator depends on the abstract `IPerturbation` rather than concrete implementations (like `KillPerturbation`).

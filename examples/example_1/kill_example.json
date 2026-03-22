@@ -1,7 +1,6 @@
 {
-    "test_name": "Example 1",
+    "test_name": "Kill Example",
     "target": {
-        "type": "container",
         "name": "example_1_target"
     },
     "perturbations": [

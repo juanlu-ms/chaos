@@ -12,6 +12,7 @@ void from_json(const nlohmann::json& j, Target& t) {
     if (j.value("type", "") != "container") {
         throw std::runtime_error("Unsupported target type: " + j.value("type", ""));
     }
+    j.at("type").get_to(t.type);
     j.at("name").get_to(t.name);
 }
 

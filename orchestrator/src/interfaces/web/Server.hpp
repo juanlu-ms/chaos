@@ -15,7 +15,7 @@ public:
      * @brief Construct the server with a container engine dependency.
      * @param engine Engine used to retrieve container data.
      */
-    explicit Server(chaos::orchestrator::containers::IContainerEngine& engine);
+    explicit Server(std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> engine);
     ~Server() = default;
 
     /**
@@ -25,8 +25,10 @@ public:
     void listen(int port);
 
 private:
+    /** @brief The underlying HTTP server. */
     httplib::Server m_server;
-    chaos::orchestrator::containers::IContainerEngine& m_engine;
+    /** @brief The container engine instance. */
+    std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> m_engine;
 
     /**
      * @brief Register all HTTP routes.

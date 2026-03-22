@@ -1,6 +1,7 @@
 #pragma once
 
 #include <containers/IContainerEngine.hpp>
+#include <memory>
 #include <string>
 
 namespace chaos::orchestrator::interfaces::cli {
@@ -14,7 +15,7 @@ public:
      * @brief Construct the CLI adapter with a container engine.
      * @param engine Non-owning reference to the container engine port.
      */
-    explicit CliParser(chaos::orchestrator::containers::IContainerEngine& engine);
+    explicit CliParser(std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> engine);
     ~CliParser() = default;
 
     CliParser(const CliParser&) = delete;
@@ -29,13 +30,43 @@ public:
     int run(int argc, char* argv[]) const;
 
 private:
-    chaos::orchestrator::containers::IContainerEngine& m_engine;
+    /**
+     * @brief The container engine instance.
+     */
+    std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> m_engine;
 
+    /**
+     * @brief Print the usage message.
+     */
     void printUsage() const;
+    /**
+     * @brief Handle the 'list' command.
+     * @return Exit code (0 on success, non-zero on error).
+     */
     int handleList() const;
+    /**
+     * @brief Handle the 'stop' command.
+     * @param containerId The ID of the container to stop.
+     * @return Exit code (0 on success, non-zero on error).
+     */
     int handleStop(const std::string& containerId) const;
+    /**
+     * @brief Handle the 'kill' command.
+     * @param containerId The ID of the container to kill.
+     * @return Exit code (0 on success, non-zero on error).
+     */
     int handleKill(const std::string& containerId) const;
+    /**
+     * @brief Handle the 'serve' command.
+     * @param port The port to listen on.
+     * @return Exit code (0 on success, non-zero on error).
+     */
     int handleServe(int port) const;
+    /**
+     * @brief Handle the 'run' command.
+     * @param manifestPath The path to the manifest JSON file.
+     * @return Exit code (0 on success, non-zero on error).
+     */
     int handleRun(const std::string& manifestPath) const;
 };
 

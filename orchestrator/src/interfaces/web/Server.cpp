@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 using json = nlohmann::json;
@@ -31,7 +32,10 @@ std::optional<std::filesystem::path> findWebRoot() {
 }
 }  // namespace
 
-Server::Server(chaos::orchestrator::containers::IContainerEngine& engine) : m_engine(engine) { setupRoutes(); }
+Server::Server(std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> engine)
+    : m_engine(std::move(engine)) {
+    setupRoutes();
+}
 
 void Server::listen(int port) {
     spdlog::info("chaos listening to http://127.0.0.1:{}", port);
@@ -62,7 +66,7 @@ void Server::setupRoutes() {
     m_server.Get("/containers", [this](const httplib::Request&, httplib::Response& res) {
         try {
             spdlog::debug("/containers requested");
-            auto containers = m_engine.listContainers();
+            auto containers = m_engine->listContainers();
             json j = json::array();
             for (const auto& c : containers) {
                 j.push_back({{"id", c.id}, {"name", c.name}, {"state", c.state}});
@@ -88,7 +92,7 @@ void Server::setupRoutes() {
         const std::string containerId = req.matches[1];
         try {
             spdlog::info("/containers/{}/stop requested", containerId);
-            m_engine.stopContainer(containerId);
+            m_engine->stopContainer(containerId);
             json j;
             j["status"] = "ok";
             j["action"] = "stop";
@@ -113,7 +117,7 @@ void Server::setupRoutes() {
         const std::string containerId = req.matches[1];
         try {
             spdlog::info("/containers/{}/kill requested", containerId);
-            m_engine.killContainer(containerId);
+            m_engine->killContainer(containerId);
             json j;
             j["status"] = "ok";
             j["action"] = "kill";

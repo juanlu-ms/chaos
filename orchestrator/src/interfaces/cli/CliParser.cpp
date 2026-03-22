@@ -3,14 +3,17 @@
 
 #include <interfaces/cli/CliParser.hpp>
 #include <interfaces/web/Server.hpp>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "manifests/ManifestParser.hpp"
 #include "perturbations/PerturbationFactory.hpp"
-#include <string>
-#include <vector>
 
 namespace chaos::orchestrator::interfaces::cli {
 
-CliParser::CliParser(chaos::orchestrator::containers::IContainerEngine& engine) : m_engine(engine) {}
+CliParser::CliParser(std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> engine)
+    : m_engine(std::move(engine)) {}
 
 int CliParser::run(int argc, char* argv[]) const {
     if (argc < 2) {
@@ -109,7 +112,7 @@ void CliParser::printUsage() const {
 
 int CliParser::handleList() const {
     try {
-        auto containers = m_engine.listContainers();
+        auto containers = m_engine->listContainers();
         if (containers.empty()) {
             fmt::print("No containers found.\n");
             return 0;
@@ -131,7 +134,7 @@ int CliParser::handleList() const {
 
 int CliParser::handleStop(const std::string& containerId) const {
     try {
-        m_engine.stopContainer(containerId);
+        m_engine->stopContainer(containerId);
         fmt::print("Container {} stopped.\n", containerId);
     } catch (const std::exception& ex) {
         spdlog::error("Failed to stop container {}: {}", containerId, ex.what());
@@ -143,7 +146,7 @@ int CliParser::handleStop(const std::string& containerId) const {
 
 int CliParser::handleKill(const std::string& containerId) const {
     try {
-        m_engine.killContainer(containerId);
+        m_engine->killContainer(containerId);
         fmt::print("Container {} killed.\n", containerId);
     } catch (const std::exception& ex) {
         spdlog::error("Failed to kill container {}: {}", containerId, ex.what());
@@ -169,14 +172,14 @@ int CliParser::handleRun(const std::string& manifestPath) const {
     try {
         auto manifest = chaos::orchestrator::manifests::ManifestParser::parse(manifestPath);
         fmt::print("Executing manifest '{}' against target '{}'\n", manifest.test_name, manifest.target.name);
-        
+
         chaos::orchestrator::perturbations::PerturbationFactory factory;
         for (const auto& pert_spec : manifest.perturbations) {
             fmt::print("Applying perturbation '{}'\n", pert_spec.type);
-            auto pert = factory.create(pert_spec);
-            pert->apply(m_engine, manifest.target);
+            auto perturbation = factory.create(m_engine, pert_spec);
+            perturbation->apply(manifest.target);
         }
-        
+
         fmt::print("All perturbations applied successfully.\n");
     } catch (const std::exception& ex) {
         spdlog::error("Failed to run manifest: {}", ex.what());

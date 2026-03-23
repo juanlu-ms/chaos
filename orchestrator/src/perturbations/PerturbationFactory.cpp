@@ -4,8 +4,10 @@
 #include <utility>
 
 #include "perturbations/CpuCapPerturbation.hpp"
+#include "perturbations/GarbagePacketPerturbation.hpp"
 #include "perturbations/KillPerturbation.hpp"
 #include "perturbations/MemoryCapPerturbation.hpp"
+#include "perturbations/NetworkCutoffPerturbation.hpp"
 #include "perturbations/NetworkDelayPerturbation.hpp"
 
 namespace chaos::orchestrator::perturbations {
@@ -21,6 +23,10 @@ std::unique_ptr<IPerturbation> PerturbationFactory::create(std::shared_ptr<conta
         return std::make_unique<CpuCapPerturbation>(std::move(engine), target.id, spec);
     } else if (spec.type == "network_delay") {
         return std::make_unique<NetworkDelayPerturbation>(std::move(engine), target.id, spec);
+    } else if (spec.type == "network_cutoff") {
+        return std::make_unique<NetworkCutoffPerturbation>(std::move(engine), target.id, spec);
+    } else if (spec.type == "garbage_packet") {
+        return std::make_unique<GarbagePacketPerturbation>(std::move(engine), target.id, spec);
     }
 
     // Fallback for unimplemented types

@@ -5,8 +5,10 @@
 #include "MockContainerEngine.hpp"
 #include "manifests/Manifest.hpp"
 #include "perturbations/CpuCapPerturbation.hpp"
+#include "perturbations/GarbagePacketPerturbation.hpp"
 #include "perturbations/KillPerturbation.hpp"
 #include "perturbations/MemoryCapPerturbation.hpp"
+#include "perturbations/NetworkCutoffPerturbation.hpp"
 #include "perturbations/NetworkDelayPerturbation.hpp"
 #include "perturbations/PerturbationFactory.hpp"
 
@@ -168,5 +170,86 @@ TEST(PerturbationTests, MemoryCapThrowsOnEmptyTargetId) {
     manifests::Perturbation spec{"memory_cap", {{"limit_bytes", "104857600"}}};
 
     perturbations::MemoryCapPerturbation pert(mockEngine, "", spec);
+    EXPECT_THROW(pert.apply(), std::invalid_argument);
+}
+
+/**
+ * @test Verifies the factory creates NetworkCutoffPerturbation for type "network_cutoff".
+ */
+TEST(PerturbationTests, FactoryCreatesNetworkCutoffPerturbation) {
+    perturbations::PerturbationFactory factory;
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Target target{"test-container"};
+
+    manifests::Perturbation spec{"network_cutoff", {{"dst_ip", "8.8.8.8"}}};
+    auto pert = factory.create(mockEngine, target, spec);
+    EXPECT_NE(dynamic_cast<perturbations::NetworkCutoffPerturbation*>(pert.get()), nullptr);
+}
+
+/**
+ * @test Verifies the factory creates GarbagePacketPerturbation for type "garbage_packet".
+ */
+TEST(PerturbationTests, FactoryCreatesGarbagePacketPerturbation) {
+    perturbations::PerturbationFactory factory;
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Target target{"test-container"};
+
+    manifests::Perturbation spec{"garbage_packet", {{"corrupt_pct", "5%"}}};
+    auto pert = factory.create(mockEngine, target, spec);
+    EXPECT_NE(dynamic_cast<perturbations::GarbagePacketPerturbation*>(pert.get()), nullptr);
+}
+
+/**
+ * @test Verifies NetworkCutoffPerturbation::revert is a no-op when not applied.
+ */
+TEST(PerturbationTests, NetworkCutoffRevertIsNoOpWhenNotApplied) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"network_cutoff", {{"dst_ip", "8.8.8.8"}}};
+
+    perturbations::NetworkCutoffPerturbation pert(mockEngine, "test-container", spec);
+    EXPECT_NO_THROW(pert.revert());
+}
+
+/**
+ * @test Verifies NetworkCutoffPerturbation::apply throws when target ID is empty.
+ */
+TEST(PerturbationTests, NetworkCutoffThrowsOnEmptyTargetId) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"network_cutoff", {{"dst_ip", "8.8.8.8"}}};
+
+    perturbations::NetworkCutoffPerturbation pert(mockEngine, "", spec);
+    EXPECT_THROW(pert.apply(), std::invalid_argument);
+}
+
+/**
+ * @test Verifies GarbagePacketPerturbation::revert is a no-op when not applied.
+ */
+TEST(PerturbationTests, GarbagePacketRevertIsNoOpWhenNotApplied) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"garbage_packet", {{"corrupt_pct", "5%"}}};
+
+    perturbations::GarbagePacketPerturbation pert(mockEngine, "test-container", spec);
+    EXPECT_NO_THROW(pert.revert());
+}
+
+/**
+ * @test Verifies GarbagePacketPerturbation::apply throws when target ID is empty.
+ */
+TEST(PerturbationTests, GarbagePacketThrowsOnEmptyTargetId) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"garbage_packet", {{"corrupt_pct", "5%"}}};
+
+    perturbations::GarbagePacketPerturbation pert(mockEngine, "", spec);
+    EXPECT_THROW(pert.apply(), std::invalid_argument);
+}
+
+/**
+ * @test Verifies GarbagePacketPerturbation::apply throws when no netem parameters provided.
+ */
+TEST(PerturbationTests, GarbagePacketThrowsOnNoNetemParameters) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"garbage_packet", {}};
+
+    perturbations::GarbagePacketPerturbation pert(mockEngine, "test-container", spec);
     EXPECT_THROW(pert.apply(), std::invalid_argument);
 }

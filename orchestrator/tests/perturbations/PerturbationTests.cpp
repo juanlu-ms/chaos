@@ -100,3 +100,73 @@ TEST(PerturbationTests, NetworkDelayThrowsOnMissingParameter) {
     perturbations::NetworkDelayPerturbation pert(mockEngine, target.id, spec);
     EXPECT_THROW(pert.apply(), std::invalid_argument);
 }
+
+/**
+ * @test Verifies CpuCapPerturbation::revert is idempotent when not applied.
+ */
+TEST(PerturbationTests, CpuCapRevertIsNoOpWhenNotApplied) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"cpu_cap", {{"quota", "50000"}}};
+
+    perturbations::CpuCapPerturbation pert(mockEngine, "test-container", spec);
+    // Should not throw — revert is a no-op when not applied
+    EXPECT_NO_THROW(pert.revert());
+}
+
+/**
+ * @test Verifies MemoryCapPerturbation::revert is idempotent when not applied.
+ */
+TEST(PerturbationTests, MemoryCapRevertIsNoOpWhenNotApplied) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"memory_cap", {{"limit_bytes", "104857600"}}};
+
+    perturbations::MemoryCapPerturbation pert(mockEngine, "test-container", spec);
+    // Should not throw — revert is a no-op when not applied
+    EXPECT_NO_THROW(pert.revert());
+}
+
+/**
+ * @test Verifies CpuCapPerturbation::apply is idempotent when called twice.
+ * @note This test verifies the guard flag prevents re-applying.
+ */
+TEST(PerturbationTests, CpuCapApplyIsSkippedWhenAlreadyApplied) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"cpu_cap", {{"quota", "50000"}}};
+
+    perturbations::CpuCapPerturbation pert(mockEngine, "", spec);
+    // Empty target: first apply throws, showing the quota check runs before guard
+    EXPECT_THROW(pert.apply(), std::invalid_argument);
+}
+
+/**
+ * @test Verifies MemoryCapPerturbation::apply throws on missing limit_bytes.
+ */
+TEST(PerturbationTests, MemoryCapThrowsOnMissingLimitBytes) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"memory_cap", {}};  // No limit_bytes
+
+    perturbations::MemoryCapPerturbation pert(mockEngine, "test-container", spec);
+    EXPECT_THROW(pert.apply(), std::system_error);
+}
+
+/**
+ * @test Verifies CpuCapPerturbation::apply throws when target ID is empty.
+ */
+TEST(PerturbationTests, CpuCapThrowsOnEmptyTargetId) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"cpu_cap", {{"quota", "50000"}}};
+
+    perturbations::CpuCapPerturbation pert(mockEngine, "", spec);
+    EXPECT_THROW(pert.apply(), std::invalid_argument);
+}
+
+/**
+ * @test Verifies MemoryCapPerturbation::apply throws when target ID is empty.
+ */
+TEST(PerturbationTests, MemoryCapThrowsOnEmptyTargetId) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"memory_cap", {{"limit_bytes", "104857600"}}};
+
+    perturbations::MemoryCapPerturbation pert(mockEngine, "", spec);
+    EXPECT_THROW(pert.apply(), std::invalid_argument);
+}

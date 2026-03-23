@@ -250,3 +250,62 @@ TEST(DockerClientUnitTest, ExecRejectsEmptyArguments) {
     EXPECT_THROW(adapter.exec("", "echo hi"), std::invalid_argument);
     EXPECT_THROW(adapter.exec("container", ""), std::invalid_argument);
 }
+
+/**
+ * @test Verifies createContainer sends POST to /containers/create with image in JSON body.
+ */
+TEST(DockerClientUnitTest, CreateContainerSendsCorrectRequest) {
+    bool wasCalled = false;
+    std::string capturedBody;
+
+    auto adapter = DockerClient([&wasCalled, &capturedBody](HttpMethod method, std::string_view endpoint,
+                                                             std::string_view body) {
+        wasCalled = true;
+        EXPECT_EQ(method, HttpMethod::POST);
+        EXPECT_EQ(endpoint, "/containers/create");
+        capturedBody = std::string(body);
+        return HttpResponse{201, R"json({"Id":"newly-created-id","Warnings":[]})json"};
+    });
+
+    adapter.createContainer("alpine:latest", {});
+    EXPECT_TRUE(wasCalled);
+
+    const auto payload = nlohmann::json::parse(capturedBody);
+    EXPECT_EQ(payload.at("Image").get<std::string>(), "alpine:latest");
+}
+
+/**
+ * @test Verifies createContainer includes Env options when provided.
+ */
+TEST(DockerClientUnitTest, CreateContainerIncludesEnvOptions) {
+    std::string capturedBody;
+
+    auto adapter =
+        DockerClient([&capturedBody](HttpMethod, std::string_view, std::string_view body) {
+            capturedBody = std::string(body);
+            return HttpResponse{201, R"json({"Id":"test-id","Warnings":[]})json"};
+        });
+
+    adapter.createContainer("nginx:latest", {"FOO=bar", "BAZ=qux"});
+
+    const auto payload = nlohmann::json::parse(capturedBody);
+    ASSERT_TRUE(payload.at("Env").is_array());
+    EXPECT_EQ(payload.at("Env").size(), 2U);
+    EXPECT_EQ(payload.at("Env").at(0).get<std::string>(), "FOO=bar");
+}
+
+/**
+ * @test Verifies createContainer throws when given an empty image name.
+ */
+TEST(DockerClientUnitTest, CreateContainerRejectsEmptyImage) {
+    auto adapter = makeAdapterForListContainers(nlohmann::json::array());
+    EXPECT_THROW(adapter.createContainer("", {}), std::invalid_argument);
+}
+
+/**
+ * @test Verifies createContainer propagates API errors.
+ */
+TEST(DockerClientUnitTest, CreateContainerPropagatesApiError) {
+    auto adapter = makeAdapterWithError("Docker daemon unavailable");
+    EXPECT_THROW(adapter.createContainer("alpine:latest", {}), std::runtime_error);
+}

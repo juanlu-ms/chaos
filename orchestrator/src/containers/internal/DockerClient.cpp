@@ -48,9 +48,31 @@ std::vector<chaos::orchestrator::containers::Container> DockerClient::listContai
 }
 
 void DockerClient::createContainer(const std::string_view image, const std::vector<std::string>& options) {
-    (void)image;
-    (void)options;
-    // TODO: Implement container creation
+    if (image.empty()) {
+        throw std::invalid_argument("Image name cannot be empty");
+    }
+    SPDLOG_DEBUG("DockerClient: creating container from image {}", image);
+
+    nlohmann::json body = {
+        {"Image", std::string(image)},
+    };
+
+    if (!options.empty()) {
+        body["Env"] = options;
+    }
+
+    const auto response = request_(HttpMethod::POST, "/containers/create", body.dump());
+    if (response.status != 201) {
+        SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
+        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", response.status));
+    }
+
+    auto jsonResponse = parseResponse(response);
+    if (!jsonResponse.contains("Id") || !jsonResponse["Id"].is_string()) {
+        throw containers::ContainerEngineParseError("Docker create response missing Id field");
+    }
+
+    SPDLOG_INFO("DockerClient: container created with id {}", jsonResponse["Id"].get<std::string>());
 }
 
 void DockerClient::startContainer(const std::string_view containerId) {

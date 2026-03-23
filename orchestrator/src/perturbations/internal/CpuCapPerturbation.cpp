@@ -3,6 +3,7 @@
 
 #include "perturbations/CpuCapPerturbation.hpp"
 
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
 #include <cstdlib>
@@ -54,7 +55,7 @@ std::string resolveCgroupPath(const std::string& pid) {
  * @throws std::runtime_error On failure.
  */
 std::string fetchContainerPid(const std::string& containerId) {
-    std::string cmd = "docker inspect --format '{{.State.Pid}}' " + containerId;
+    std::string cmd = fmt::format("docker inspect --format '{{.State.Pid}}' {}", containerId);
     FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) {
         throw std::runtime_error("Failed to run docker inspect to fetch PID");
@@ -133,7 +134,7 @@ void CpuCapPerturbation::apply() {
     try {
         const std::string pid = fetchContainerPid(target_id_);
         const std::string cgroupDir = resolveCgroupPath(pid);
-        const std::string cpuMaxPath = cgroupDir + "/cpu.max";
+        const std::string cpuMaxPath = fmt::format("{}/cpu.max", cgroupDir);
 
         // cgroups v2 cpu.max format: "<quota> <period>" (both in microseconds)
         // Default period is 100000. Write "<quota> 100000"
@@ -168,7 +169,7 @@ void CpuCapPerturbation::revert() {
     try {
         const std::string pid = fetchContainerPid(target_id_);
         const std::string cgroupDir = resolveCgroupPath(pid);
-        const std::string cpuMaxPath = cgroupDir + "/cpu.max";
+        const std::string cpuMaxPath = fmt::format("{}/cpu.max", cgroupDir);
 
         writeCgroupFile(cpuMaxPath, "max 100000");
 

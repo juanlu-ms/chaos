@@ -1,10 +1,17 @@
+/// @file NetworkDelayPerturbation.cpp
+/// @brief Implements network delay via tc netem inside the container using IContainerEngine::exec.
+
 #include "perturbations/NetworkDelayPerturbation.hpp"
 
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
-#include <cstdlib>
+#include <stdexcept>
 #include <string>
 #include <system_error>
+#include <utility>
+
+#include "containers/IContainerEngine.hpp"
 
 namespace chaos::orchestrator::perturbations {
 
@@ -12,6 +19,16 @@ NetworkDelayPerturbation::NetworkDelayPerturbation(std::shared_ptr<containers::I
                                                    std::string target_id, const manifests::Perturbation& spec)
     : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
 
+/**
+ * @brief Applies a tc netem delay inside the container via IContainerEngine::exec.
+ *
+ * Uses the container engine abstraction (Docker API exec) rather than shelling
+ * out with std::system — this keeps the class testable and consistent with the
+ * rest of the perturbation architecture.
+ *
+ * @throws std::invalid_argument If target ID or delay_ms parameter is missing.
+ * @throws std::system_error On IContainerEngine exec failure.
+ */
 void NetworkDelayPerturbation::apply() {
     if (hasBeenApplied_) {
         SPDLOG_WARN("Network Delay Perturbation already applied to target {}, skipping", target_id_);
@@ -24,20 +41,26 @@ void NetworkDelayPerturbation::apply() {
 
     auto delay_it = params_.find("delay_ms");
     if (delay_it == params_.end()) {
-        throw std::invalid_argument("Missing delay_ms parameter for network cap");
+        throw std::invalid_argument("Missing delay_ms parameter for network delay perturbation");
     }
 
-    std::string delay = delay_it->second;
+    const std::string& delay = delay_it->second;
 
-    std::string cmd = "docker exec " + target_id_ + " tc qdisc add dev eth0 root netem delay " + delay + "ms";
-    int ret = std::system(cmd.c_str());
-
-    if (ret != 0) {
+    try {
+        engine_->exec(target_id_, fmt::format("tc qdisc add dev eth0 root netem delay {}ms", delay));
+        hasBeenApplied_ = true;
+        SPDLOG_INFO("Network Delay Perturbation applied: delay={}ms on target {}", delay, target_id_);
+    } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
-                                "Failed to apply tc netem delay inside container");
+                                std::string("Failed to apply tc netem delay inside container: ") + e.what());
     }
 }
 
+/**
+ * @brief Reverts the tc netem delay by deleting the root qdisc via IContainerEngine::exec.
+ *
+ * @throws std::system_error On IContainerEngine exec failure.
+ */
 void NetworkDelayPerturbation::revert() {
     if (!hasBeenApplied_) {
         SPDLOG_WARN("Network Delay Perturbation was not applied, skipping revert");
@@ -48,12 +71,13 @@ void NetworkDelayPerturbation::revert() {
         throw std::invalid_argument("Target ID is empty");
     }
 
-    std::string cmd = "docker exec " + target_id_ + " tc qdisc del dev eth0 root netem";
-    int ret = std::system(cmd.c_str());
-
-    if (ret != 0) {
+    try {
+        engine_->exec(target_id_, "tc qdisc del dev eth0 root netem");
+        hasBeenApplied_ = false;
+        SPDLOG_INFO("Network Delay Perturbation reverted on target {}", target_id_);
+    } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
-                                "Failed to revert tc netem delay inside container");
+                                std::string("Failed to revert tc netem delay inside container: ") + e.what());
     }
 }
 

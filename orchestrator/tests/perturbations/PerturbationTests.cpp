@@ -253,3 +253,80 @@ TEST(PerturbationTests, GarbagePacketThrowsOnNoNetemParameters) {
     perturbations::GarbagePacketPerturbation pert(mockEngine, "test-container", spec);
     EXPECT_THROW(pert.apply(), std::invalid_argument);
 }
+
+/**
+ * @test Verifies NetworkDelayPerturbation::apply calls exec with the correct tc netem command.
+ *
+ * Now that NetworkDelayPerturbation delegates to IContainerEngine::exec, it can be
+ * fully verified through the mock without any real Docker dependency.
+ */
+TEST(PerturbationTests, NetworkDelayApplyCallsExecWithCorrectCommand) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"network_delay", {{"delay_ms", "100"}}};
+
+    EXPECT_CALL(*mockEngine,
+                exec(std::string_view("target-c"), std::string_view("tc qdisc add dev eth0 root netem delay 100ms")))
+        .Times(1)
+        .WillOnce(Return(std::string{}));
+
+    perturbations::NetworkDelayPerturbation pert(mockEngine, "target-c", spec);
+    EXPECT_NO_THROW(pert.apply());
+}
+
+/**
+ * @test Verifies NetworkDelayPerturbation::revert calls exec with the correct tc delete command.
+ */
+TEST(PerturbationTests, NetworkDelayRevertCallsExecWithCorrectCommand) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"network_delay", {{"delay_ms", "50"}}};
+
+    EXPECT_CALL(*mockEngine, exec(std::string_view("target-c"), ::testing::_))
+        .Times(2)
+        .WillRepeatedly(Return(std::string{}));
+
+    perturbations::NetworkDelayPerturbation pert(mockEngine, "target-c", spec);
+    pert.apply();
+    EXPECT_NO_THROW(pert.revert());
+}
+
+/**
+ * @test Verifies NetworkDelayPerturbation::apply is idempotent (second call is a no-op).
+ */
+TEST(PerturbationTests, NetworkDelayApplyIsSkippedWhenAlreadyApplied) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"network_delay", {{"delay_ms", "100"}}};
+
+    // exec should be called only once despite two apply() calls
+    EXPECT_CALL(*mockEngine, exec(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(Return(std::string{}));
+
+    perturbations::NetworkDelayPerturbation pert(mockEngine, "target-c", spec);
+    pert.apply();
+    pert.apply();  // second call should be no-op
+}
+
+/**
+ * @test Verifies NetworkDelayPerturbation::revert is a no-op when not applied.
+ */
+TEST(PerturbationTests, NetworkDelayRevertIsNoOpWhenNotApplied) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"network_delay", {{"delay_ms", "100"}}};
+
+    EXPECT_CALL(*mockEngine, exec(::testing::_, ::testing::_)).Times(0);
+
+    perturbations::NetworkDelayPerturbation pert(mockEngine, "target-c", spec);
+    EXPECT_NO_THROW(pert.revert());
+}
+
+/**
+ * @test Verifies NetworkDelayPerturbation::apply throws when empty target ID.
+ */
+TEST(PerturbationTests, NetworkDelayThrowsOnEmptyTargetId) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"network_delay", {{"delay_ms", "100"}}};
+
+    perturbations::NetworkDelayPerturbation pert(mockEngine, "", spec);
+    EXPECT_THROW(pert.apply(), std::invalid_argument);
+}
+

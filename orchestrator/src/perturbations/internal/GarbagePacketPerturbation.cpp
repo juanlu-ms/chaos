@@ -5,62 +5,15 @@
 
 #include <spdlog/spdlog.h>
 
-#include <cstdlib>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <system_error>
 #include <utility>
 
+#include "PerturbationUtils.hpp"
+
 namespace chaos::orchestrator::perturbations {
-
-namespace {
-
-/**
- * @brief Fetches the host-level PID of a container using 'docker inspect'.
- * @param containerId Docker container ID or name.
- * @return PID as a string.
- * @throws std::runtime_error On failure.
- */
-std::string fetchContainerPid(const std::string& containerId) {
-    std::string cmd = "docker inspect --format '{{.State.Pid}}' " + containerId;
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) {
-        throw std::runtime_error("Failed to run docker inspect to fetch PID");
-    }
-
-    char buffer[64];
-    std::string result;
-    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-        result += buffer;
-    }
-    pclose(pipe);
-
-    while (!result.empty() && (result.back() == '\n' || result.back() == ' ')) {
-        result.pop_back();
-    }
-
-    if (result.empty() || result == "0") {
-        throw std::runtime_error("Failed to resolve container PID for: " + containerId);
-    }
-
-    return result;
-}
-
-/**
- * @brief Runs a shell command and throws on failure.
- * @param cmd Shell command to execute.
- * @param errorMsg Error message to embed in the exception on failure.
- * @throws std::system_error If the command exits with non-zero.
- */
-void runCommand(const std::string& cmd, const std::string& errorMsg) {
-    int ret = std::system(cmd.c_str());
-    if (ret != 0) {
-        throw std::system_error(std::make_error_code(std::errc::operation_not_supported), errorMsg);
-    }
-}
-
-}  // namespace
 
 GarbagePacketPerturbation::GarbagePacketPerturbation(std::shared_ptr<containers::IContainerEngine> engine,
                                                      std::string target_id, const manifests::Perturbation& spec)
@@ -119,11 +72,11 @@ void GarbagePacketPerturbation::apply() {
     }();
 
     try {
-        const std::string pid = fetchContainerPid(target_id_);
+        const std::string pid = internal::fetchContainerPid(target_id_);
         const std::string nsenter = "nsenter -t " + pid + " -n -- ";
 
-        const std::string applyCmd = nsenter + "tc qdisc add dev " + iface + " root netem" + opts;
-        runCommand(applyCmd, "Failed to apply tc netem rule");
+        internal::runCommand(nsenter + "tc qdisc add dev " + iface + " root netem" + opts,
+                             "Failed to apply tc netem rule");
 
         hasBeenApplied_ = true;
         SPDLOG_INFO("Garbage Packet Perturbation applied on target {} iface={}: {}", target_id_, iface, opts);
@@ -159,11 +112,11 @@ void GarbagePacketPerturbation::revert() {
     }();
 
     try {
-        const std::string pid = fetchContainerPid(target_id_);
+        const std::string pid = internal::fetchContainerPid(target_id_);
         const std::string nsenter = "nsenter -t " + pid + " -n -- ";
 
-        const std::string revertCmd = nsenter + "tc qdisc del dev " + iface + " root netem";
-        runCommand(revertCmd, "Failed to revert tc netem rule");
+        internal::runCommand(nsenter + "tc qdisc del dev " + iface + " root netem",
+                             "Failed to revert tc netem rule");
 
         hasBeenApplied_ = false;
         SPDLOG_INFO("Garbage Packet Perturbation reverted on target {}", target_id_);

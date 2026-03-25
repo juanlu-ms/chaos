@@ -17,6 +17,7 @@ set(ORCHESTRATOR_SOURCES
     src/perturbations/internal/NetworkDelayPerturbation.cpp
     src/perturbations/internal/NetworkCutoffPerturbation.cpp
     src/perturbations/internal/GarbagePacketPerturbation.cpp
+    src/perturbations/internal/PerturbationUtils.cpp
 )
 
 add_library(orchestrator_core STATIC ${ORCHESTRATOR_SOURCES})

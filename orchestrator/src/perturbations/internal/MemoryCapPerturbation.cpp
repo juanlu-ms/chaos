@@ -5,94 +5,29 @@
 
 #include <spdlog/spdlog.h>
 
-#include <cstdio>
 #include <fstream>
 #include <stdexcept>
 #include <string>
 #include <system_error>
 
+#include "PerturbationUtils.hpp"
+
 namespace chaos::orchestrator::perturbations {
 
 namespace {
 
-/**
- * @brief Resolves the cgroup v2 path for a container via its PID.
- *
- * Reads /proc/<pid>/cgroup and extracts the hierarchy path.
- * Then maps that to /sys/fs/cgroup/ to produce the full controller path.
- *
- * @param pid Host-level PID of the container's init process.
- * @return Absolute path to the container's cgroup v2 directory.
- * @throws std::runtime_error If the cgroup file cannot be parsed.
- */
 std::string resolveCgroupPath(const std::string& pid) {
     std::ifstream cgroupFile("/proc/" + pid + "/cgroup");
     if (!cgroupFile.is_open()) {
         throw std::runtime_error("Failed to open /proc/" + pid + "/cgroup");
     }
-
     std::string line;
     while (std::getline(cgroupFile, line)) {
-        // cgroups v2 entries are prefixed with "0::"
         if (line.rfind("0::", 0) == 0) {
-            std::string relativePath = line.substr(3);  // strip "0::"
-            return "/sys/fs/cgroup" + relativePath;
+            return "/sys/fs/cgroup" + line.substr(3);
         }
     }
-
     throw std::runtime_error("Unable to find cgroups v2 entry in /proc/" + pid + "/cgroup");
-}
-
-/**
- * @brief Fetches the host-level PID of a container using 'docker inspect'.
- *
- * @param containerId Docker container ID or name.
- * @return PID as a string.
- * @throws std::runtime_error On failure.
- */
-std::string fetchContainerPid(const std::string& containerId) {
-    std::string cmd = "docker inspect --format '{{.State.Pid}}' " + containerId;
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) {
-        throw std::runtime_error("Failed to run docker inspect to fetch PID");
-    }
-
-    char buffer[64];
-    std::string result;
-    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-        result += buffer;
-    }
-    pclose(pipe);
-
-    // Trim whitespace/newlines
-    while (!result.empty() && (result.back() == '\n' || result.back() == ' ')) {
-        result.pop_back();
-    }
-
-    if (result.empty() || result == "0") {
-        throw std::runtime_error("Failed to resolve container PID for: " + containerId);
-    }
-
-    return result;
-}
-
-/**
- * @brief Writes a value to a cgroup controller file.
- * @param path Absolute path to the cgroup file.
- * @param value Value to write.
- * @throws std::system_error On write failure.
- */
-void writeCgroupFile(const std::string& path, const std::string& value) {
-    std::ofstream file(path);
-    if (!file.is_open()) {
-        throw std::system_error(std::make_error_code(std::errc::permission_denied),
-                                "Failed to open cgroup file: " + path);
-    }
-    file << value;
-    if (!file) {
-        throw std::system_error(std::make_error_code(std::errc::io_error),
-                                "Failed to write to cgroup file: " + path);
-    }
 }
 
 }  // namespace
@@ -128,11 +63,10 @@ void MemoryCapPerturbation::apply() {
     const std::string& limit = limit_it->second;
 
     try {
-        const std::string pid = fetchContainerPid(target_id_);
-        const std::string cgroupDir = resolveCgroupPath(pid);
-        const std::string memMaxPath = cgroupDir + "/memory.max";
+        const std::string pid = internal::fetchContainerPid(target_id_);
+        const std::string memMaxPath = resolveCgroupPath(pid) + "/memory.max";
 
-        writeCgroupFile(memMaxPath, limit);
+        internal::writeCgroupFile(memMaxPath, limit);
 
         hasBeenApplied_ = true;
         SPDLOG_INFO("Memory Cap Perturbation applied: limit_bytes={} on target {}", limit, target_id_);
@@ -161,11 +95,10 @@ void MemoryCapPerturbation::revert() {
     }
 
     try {
-        const std::string pid = fetchContainerPid(target_id_);
-        const std::string cgroupDir = resolveCgroupPath(pid);
-        const std::string memMaxPath = cgroupDir + "/memory.max";
+        const std::string pid = internal::fetchContainerPid(target_id_);
+        const std::string memMaxPath = resolveCgroupPath(pid) + "/memory.max";
 
-        writeCgroupFile(memMaxPath, "max");
+        internal::writeCgroupFile(memMaxPath, "max");
 
         hasBeenApplied_ = false;
         SPDLOG_INFO("Memory Cap Perturbation reverted on target {}", target_id_);

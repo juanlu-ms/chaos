@@ -25,6 +25,7 @@ public:
     MOCK_METHOD(void, stopContainer, (const std::string_view containerId), (override));
     MOCK_METHOD(void, killContainer, (const std::string_view containerId), (override));
     MOCK_METHOD(std::string, exec, (const std::string_view containerId, const std::string_view command), (override));
+    MOCK_METHOD(std::string, getLogs, (const std::string_view containerId), (override));
 };
 
 }  // namespace chaos::orchestrator::tests

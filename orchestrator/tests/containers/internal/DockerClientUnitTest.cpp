@@ -309,3 +309,37 @@ TEST(DockerClientUnitTest, CreateContainerPropagatesApiError) {
     auto adapter = makeAdapterWithError("Docker daemon unavailable");
     EXPECT_THROW(adapter.createContainer("alpine:latest", {}), std::runtime_error);
 }
+
+/**
+ * @test Verifies getLogs calls the correct Docker API endpoint and returns body.
+ */
+TEST(DockerClientUnitTest, GetLogsCallsCorrectEndpoint) {
+    const std::string expectedLogs = "app started\nsome error\n";
+    DockerClient adapter([&expectedLogs](HttpMethod method, std::string_view endpoint, std::string_view body) {
+        EXPECT_EQ(method, HttpMethod::GET);
+        EXPECT_EQ(endpoint, "/containers/my-id/logs?stdout=1&stderr=1&timestamps=0");
+        EXPECT_TRUE(body.empty());
+        return HttpResponse{.status = 200, .body = expectedLogs};
+    });
+    EXPECT_EQ(adapter.getLogs("my-id"), expectedLogs);
+}
+
+/**
+ * @test Verifies getLogs throws std::invalid_argument on empty container ID.
+ */
+TEST(DockerClientUnitTest, GetLogsWithEmptyIdThrows) {
+    auto adapter = makeAdapterForListContainers(nlohmann::json::array());
+    EXPECT_THROW(adapter.getLogs(""), std::invalid_argument);
+}
+
+/**
+ * @test Verifies getLogs throws ContainerEngineApiError on non-200 response.
+ */
+TEST(DockerClientUnitTest, GetLogsPropagatesApiError) {
+    DockerClient adapter([](HttpMethod, std::string_view, std::string_view) {
+        return HttpResponse{.status = 404, .body = "not found"};
+    });
+    EXPECT_THROW(adapter.getLogs("missing-container"),
+                 chaos::orchestrator::containers::ContainerEngineApiError);
+}
+

@@ -10,6 +10,8 @@
 #include <vector>
 
 #include "manifests/ManifestParser.hpp"
+#include "observability/ObservabilityEngine.hpp"
+#include "observability/ValidationEngine.hpp"
 #include "perturbations/PerturbationFactory.hpp"
 
 namespace chaos::orchestrator::interfaces::cli {
@@ -210,6 +212,27 @@ int CliParser::handleRun(const std::string& manifestPath) const {
         }
 
         SPDLOG_INFO("All perturbations applied successfully.");
+
+        // Evaluate manifest expectations
+        if (!manifest.expectations.empty()) {
+            SPDLOG_INFO("Evaluating {} expectation(s)...", manifest.expectations.size());
+            observability::ObservabilityEngine obs(m_engine);
+            observability::ValidationEngine validator(std::move(obs));
+            const auto results = validator.validate(manifest.target.id, manifest.expectations);
+
+            bool anyFailed = false;
+            for (const auto& result : results) {
+                if (!result.passed) {
+                    anyFailed = true;
+                }
+            }
+
+            if (anyFailed) {
+                SPDLOG_ERROR("Chaos run FAILED: one or more expectations were not met.");
+                return 1;
+            }
+            SPDLOG_INFO("Chaos run PASSED: all expectations met.");
+        }
     } catch (const manifests::ManifestParserError& ex) {
         SPDLOG_ERROR("Failed to run manifest: {}", ex.what());
         return 1;

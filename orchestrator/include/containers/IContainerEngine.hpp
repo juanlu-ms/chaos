@@ -80,6 +80,14 @@ public:
      * @throws ContainerEngineError On transport errors or non-OK responses.
      */
     virtual std::string exec(const std::string_view containerId, const std::string_view command) = 0;
+
+    /**
+     * @brief Fetch stdout/stderr logs for a container.
+     * @param containerId Docker container ID.
+     * @return Raw log text (stdout/stderr combined).
+     * @throws ContainerEngineError On transport errors or non-OK responses.
+     */
+    virtual std::string getLogs(const std::string_view containerId) = 0;
 };
 
 }  // namespace chaos::orchestrator::containers

@@ -104,6 +104,16 @@ public:
      */
     std::string exec(const std::string_view containerId, const std::string_view command) override;
 
+    /**
+     * @brief Fetch stdout/stderr logs from a container via Docker Engine API.
+     * @param containerId Docker container ID.
+     * @return Raw log text (may contain Docker multiplexed stream headers).
+     * @throws std::invalid_argument On empty containerId.
+     * @throws ContainerEngineApiError On non-200 HTTP response.
+     * @throws ContainerEngineTransportError On connection failure.
+     */
+    std::string getLogs(const std::string_view containerId) override;
+
 private:
     /** @brief Function used to execute API requests. */
     RequestFn request_;

@@ -205,6 +205,25 @@ std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> DockerClient:
     return std::make_shared<DockerClient>(std::move(requestFn));
 }
 
+std::string DockerClient::getLogs(const std::string_view containerId) {
+    if (containerId.empty()) {
+        throw std::invalid_argument("Container ID must not be empty");
+    }
+
+    SPDLOG_DEBUG("Fetching logs for container: {}", containerId);
+
+    const std::string endpoint = fmt::format("/containers/{}/logs?stdout=1&stderr=1&timestamps=0", containerId);
+    const auto response = request_(HttpMethod::GET, endpoint, "");
+
+    if (response.status != 200) {
+        throw containers::ContainerEngineApiError(
+            fmt::format("Failed to get logs for container '{}': HTTP {}", containerId, response.status));
+    }
+
+    SPDLOG_INFO("Fetched logs for container '{}'", containerId);
+    return response.body;
+}
+
 nlohmann::json DockerClient::parseResponse(const HttpResponse& response) const {
     if (response.body.empty()) {
         SPDLOG_ERROR("Docker API response body is empty");

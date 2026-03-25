@@ -18,6 +18,8 @@ set(ORCHESTRATOR_SOURCES
     src/perturbations/internal/NetworkCutoffPerturbation.cpp
     src/perturbations/internal/GarbagePacketPerturbation.cpp
     src/perturbations/internal/PerturbationUtils.cpp
+    src/observability/ObservabilityEngine.cpp
+    src/observability/ValidationEngine.cpp
 )
 
 add_library(orchestrator_core STATIC ${ORCHESTRATOR_SOURCES})
@@ -52,10 +54,13 @@ add_executable(orchestrator_unit_tests
     tests/containers/internal/DockerClientUnitTest.cpp
     tests/manifests/ManifestParserUnitTest.cpp
     tests/perturbations/PerturbationTests.cpp
+    tests/observability/ObservabilityEngineUnitTest.cpp
+    tests/observability/ValidationEngineUnitTest.cpp
 )
 
 target_include_directories(orchestrator_unit_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/perturbations
 )
 target_link_libraries(orchestrator_unit_tests PRIVATE
     orchestrator_core

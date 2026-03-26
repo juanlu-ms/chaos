@@ -298,4 +298,38 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenLegacyNetworkCapTypeIsUsed) {
     EXPECT_THROW((void)ManifestParser::parseFromFile(file), chaos::orchestrator::manifests::ManifestParserError);
 }
 
+/**
+ * @test Verifies that a target can be specified via "name" field instead of "id".
+ */
+TEST_F(ManifestParserUnitTest, TargetCanBeSpecifiedByName) {
+    const auto file = createTempManifest(R"json(
+{
+  "test_name": "by-name",
+  "target": { "name": "my-container" },
+  "perturbations": [ { "type": "kill" } ],
+  "expectations": []
+}
+)json");
+
+    const auto manifest = ManifestParser::parseFromFile(file);
+    EXPECT_EQ(manifest.target.id, "my-container");
+}
+
+/**
+ * @test Verifies that a target missing both "id" and "name" throws a ManifestParserError.
+ */
+TEST_F(ManifestParserUnitTest, TargetMissingBothIdAndNameThrows) {
+    const auto file = createTempManifest(R"json(
+{
+  "test_name": "no-target-key",
+  "target": { "something_else": "value" },
+  "perturbations": [ { "type": "kill" } ],
+  "expectations": []
+}
+)json");
+
+    EXPECT_THROW((void)ManifestParser::parseFromFile(file),
+                 chaos::orchestrator::manifests::ManifestParserError);
+}
+
 }  // namespace

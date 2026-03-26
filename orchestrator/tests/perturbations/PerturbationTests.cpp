@@ -320,3 +320,42 @@ TEST(PerturbationTests, NetworkDelayThrowsOnEmptyTargetId) {
     EXPECT_THROW(pert.apply(), std::invalid_argument);
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Docker-API Call Tests (Phase 2)
+// ═══════════════════════════════════════════════════════════════════════
+
+TEST(PerturbationTests, CpuCapApplyCallsUpdateResourcesWithCorrectQuota) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"cpu_cap", {{"quota", "50000"}}};
+    EXPECT_CALL(*mockEngine, updateResources(std::string_view("target"), 0, 50000, 100000)).Times(1);
+    perturbations::CpuCapPerturbation pert(mockEngine, "target", spec);
+    EXPECT_NO_THROW(pert.apply());
+}
+
+TEST(PerturbationTests, MemoryCapApplyCallsUpdateResourcesWithCorrectLimit) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"memory_cap", {{"limit_bytes", "104857600"}}};
+    EXPECT_CALL(*mockEngine, updateResources(std::string_view("target"), 104857600, 0, 0)).Times(1);
+    perturbations::MemoryCapPerturbation pert(mockEngine, "target", spec);
+    EXPECT_NO_THROW(pert.apply());
+}
+
+TEST(PerturbationTests, GarbagePacketApplyCallsExecWithDefaultNetemCommand) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"garbage_packet", {}};
+    EXPECT_CALL(*mockEngine,
+                exec(std::string_view("target"), std::string_view("tc qdisc add dev eth0 root netem corrupt 100")))
+        .Times(1).WillOnce(Return(std::string{}));
+    perturbations::GarbagePacketPerturbation pert(mockEngine, "target", spec);
+    EXPECT_NO_THROW(pert.apply());
+}
+
+TEST(PerturbationTests, NetworkCutoffApplyCallsExecWithIptablesDropRules) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"network_cutoff", {}};
+    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), ::testing::_))
+        .Times(2).WillRepeatedly(Return(std::string{}));
+    perturbations::NetworkCutoffPerturbation pert(mockEngine, "target", spec);
+    EXPECT_NO_THROW(pert.apply());
+}

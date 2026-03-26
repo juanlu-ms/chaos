@@ -77,7 +77,7 @@ TEST_F(ManifestParserUnitTest, ParsesMinimalValidManifest) {
 }
 )json");
 
-    const ChaosManifest manifest = ManifestParser::parse(file);
+    const ChaosManifest manifest = ManifestParser::parseFromFile(file);
 
     EXPECT_EQ(manifest.test_name, "minimal");
     EXPECT_EQ(manifest.target.id, "orders-api");
@@ -114,7 +114,7 @@ TEST_F(ManifestParserUnitTest, ParsesAllSupportedPerturbationAndExpectationTypes
 }
 )json");
 
-    const ChaosManifest manifest = ManifestParser::parse(file);
+    const ChaosManifest manifest = ManifestParser::parseFromFile(file);
 
     ASSERT_EQ(manifest.perturbations.size(), 4U);
     EXPECT_EQ(manifest.perturbations[0].type, "kill");
@@ -139,7 +139,7 @@ TEST_F(ManifestParserUnitTest, ParsesAllSupportedPerturbationAndExpectationTypes
  * @test Verifies an exception is thrown when the manifest file does not exist.
  */
 TEST_F(ManifestParserUnitTest, ThrowsWhenManifestFileDoesNotExist) {
-    EXPECT_THROW((void)ManifestParser::parse("/tmp/chaos_manifest_file_that_does_not_exist.json"),
+    EXPECT_THROW((void)ManifestParser::parseFromFile("/tmp/chaos_manifest_file_that_does_not_exist.json"),
                  chaos::orchestrator::manifests::ManifestParserError);
 }
 
@@ -151,7 +151,7 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenJsonIsMalformed) {
 { "test_name": "bad-json", "target": { "type": "container", "name": "x" }
 )json");
 
-    EXPECT_THROW((void)ManifestParser::parse(file), chaos::orchestrator::manifests::ManifestParserError);
+    EXPECT_THROW((void)ManifestParser::parseFromFile(file), chaos::orchestrator::manifests::ManifestParserError);
 }
 
 /**
@@ -167,7 +167,7 @@ TEST_F(ManifestParserUnitTest, IgnoresAdditionalTargetFields) {
 }
 )json");
 
-    EXPECT_NO_THROW((void)ManifestParser::parse(file));
+    EXPECT_NO_THROW((void)ManifestParser::parseFromFile(file));
 }
 
 /**
@@ -183,7 +183,7 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenTargetIdIsMissing) {
 }
 )json");
 
-    EXPECT_THROW((void)ManifestParser::parse(file), chaos::orchestrator::manifests::ManifestParserError);
+    EXPECT_THROW((void)ManifestParser::parseFromFile(file), chaos::orchestrator::manifests::ManifestParserError);
 }
 
 /**
@@ -199,7 +199,7 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenPerturbationTypeIsUnsupported) {
 }
 )json");
 
-    EXPECT_THROW((void)ManifestParser::parse(file), chaos::orchestrator::manifests::ManifestParserError);
+    EXPECT_THROW((void)ManifestParser::parseFromFile(file), chaos::orchestrator::manifests::ManifestParserError);
 }
 
 /**
@@ -215,7 +215,7 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenExpectationTypeIsUnsupported) {
 }
 )json");
 
-    EXPECT_THROW((void)ManifestParser::parse(file), chaos::orchestrator::manifests::ManifestParserError);
+    EXPECT_THROW((void)ManifestParser::parseFromFile(file), chaos::orchestrator::manifests::ManifestParserError);
 }
 
 /**
@@ -231,7 +231,7 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenLogExpectationHasNoSubstring) {
 }
 )json");
 
-    EXPECT_THROW((void)ManifestParser::parse(file), chaos::orchestrator::manifests::ManifestParserError);
+    EXPECT_THROW((void)ManifestParser::parseFromFile(file), chaos::orchestrator::manifests::ManifestParserError);
 }
 
 /**
@@ -247,7 +247,7 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenMemoryCapHasNoLimitBytes) {
 }
 )json");
 
-    EXPECT_THROW((void)ManifestParser::parse(file), chaos::orchestrator::manifests::ManifestParserError);
+    EXPECT_THROW((void)ManifestParser::parseFromFile(file), chaos::orchestrator::manifests::ManifestParserError);
 }
 
 /**
@@ -263,7 +263,7 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenCpuCapHasMissingPeriod) {
 }
 )json");
 
-    EXPECT_THROW((void)ManifestParser::parse(file), chaos::orchestrator::manifests::ManifestParserError);
+    EXPECT_THROW((void)ManifestParser::parseFromFile(file), chaos::orchestrator::manifests::ManifestParserError);
 }
 
 /**
@@ -279,7 +279,7 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenNetworkDelayHasNoDelayMs) {
 }
 )json");
 
-    EXPECT_THROW((void)ManifestParser::parse(file), chaos::orchestrator::manifests::ManifestParserError);
+    EXPECT_THROW((void)ManifestParser::parseFromFile(file), chaos::orchestrator::manifests::ManifestParserError);
 }
 
 /**
@@ -295,7 +295,7 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenLegacyNetworkCapTypeIsUsed) {
 }
 )json");
 
-    EXPECT_THROW((void)ManifestParser::parse(file), chaos::orchestrator::manifests::ManifestParserError);
+    EXPECT_THROW((void)ManifestParser::parseFromFile(file), chaos::orchestrator::manifests::ManifestParserError);
 }
 
 }  // namespace

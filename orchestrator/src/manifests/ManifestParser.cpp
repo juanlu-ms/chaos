@@ -60,7 +60,7 @@ void from_json(const nlohmann::json& j, ChaosManifest& m) {
     }
 }
 
-ChaosManifest ManifestParser::parse(const std::string& filepath) {
+ChaosManifest ManifestParser::parseFromFile(const std::string& filepath) {
     std::ifstream file(filepath);
     if (!file.is_open()) {
         throw ManifestParserError("Failed to open manifest file: " + filepath);

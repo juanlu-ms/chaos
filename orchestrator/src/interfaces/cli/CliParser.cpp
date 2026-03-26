@@ -201,7 +201,7 @@ int CliParser::handleServe(int port) const {
 
 int CliParser::handleRun(const std::string& manifestPath) const {
     try {
-        auto manifest = chaos::orchestrator::manifests::ManifestParser::parse(manifestPath);
+        auto manifest = chaos::orchestrator::manifests::ManifestParser::parseFromFile(manifestPath);
         SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.id);
 
         chaos::orchestrator::perturbations::PerturbationFactory factory;

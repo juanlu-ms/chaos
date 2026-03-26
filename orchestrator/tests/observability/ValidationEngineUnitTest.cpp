@@ -159,3 +159,103 @@ TEST(ValidationEngineTests, UnknownExpectationTypeReturnsFailed) {
     EXPECT_FALSE(results[0].passed);
     EXPECT_EQ(results[0].expectationType, "unknown_type");
 }
+
+#include <httplib.h>
+#include <thread>
+#include <chrono>
+
+TEST(ValidationEngineTests, HttpStatusPassesOnExpectedStatus) {
+    httplib::Server svr;
+    svr.Get("/ping", [](const httplib::Request&, httplib::Response& res) {
+        res.status = 200;
+        res.set_content("ok", "text/plain");
+    });
+    int port = svr.bind_to_any_port("127.0.0.1");
+    std::thread t([&svr]() { svr.listen_after_bind(); });
+
+    auto mock = std::make_shared<tests::MockContainerEngine>();
+    EXPECT_CALL(*mock, getContainerIp(std::string_view("ctr"))).WillOnce(Return("127.0.0.1"));
+
+    auto engine = makeEngine(mock);
+    manifests::Expectation exp{"http_status", {
+        {"port", std::to_string(port)},
+        {"path", "/ping"},
+        {"expected_status", "200"}
+    }};
+    const auto results = engine.validate("ctr", {exp});
+
+    svr.stop();
+    t.join();
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_TRUE(results[0].passed);
+}
+
+TEST(ValidationEngineTests, HttpStatusFailsOnUnexpectedStatus) {
+    httplib::Server svr;
+    svr.Get("/ping", [](const httplib::Request&, httplib::Response& res) {
+        res.status = 404;
+        res.set_content("not found", "text/plain");
+    });
+    int port = svr.bind_to_any_port("127.0.0.1");
+    std::thread t([&svr]() { svr.listen_after_bind(); });
+
+    auto mock = std::make_shared<tests::MockContainerEngine>();
+    EXPECT_CALL(*mock, getContainerIp(std::string_view("ctr"))).WillOnce(Return("127.0.0.1"));
+
+    auto engine = makeEngine(mock);
+    manifests::Expectation exp{"http_status", {
+        {"port", std::to_string(port)},
+        {"path", "/ping"},
+        {"expected_status", "200"}
+    }};
+    const auto results = engine.validate("ctr", {exp});
+
+    svr.stop();
+    t.join();
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_FALSE(results[0].passed);
+}
+
+TEST(ValidationEngineTests, HttpLatencyValidatesBounds) {
+    httplib::Server svr;
+    svr.Get("/ping", [](const httplib::Request&, httplib::Response& res) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20)); // create artificial latency
+        res.status = 200;
+        res.set_content("ok", "text/plain");
+    });
+    int port = svr.bind_to_any_port("127.0.0.1");
+    std::thread t([&svr]() { svr.listen_after_bind(); });
+
+    auto mock = std::make_shared<tests::MockContainerEngine>();
+    
+    // Call 1: passes (bounds logic: 0 to 500ms bounds, actual ~20ms)
+    EXPECT_CALL(*mock, getContainerIp(std::string_view("ctr"))).WillRepeatedly(Return("127.0.0.1"));
+
+    auto engine = makeEngine(mock);
+    manifests::Expectation exp_pass{"http_latency", {
+        {"port", std::to_string(port)},
+        {"path", "/ping"},
+        {"min_latency_ms", "0"},
+        {"max_latency_ms", "500"}
+    }};
+    const auto results_pass = engine.validate("ctr", {exp_pass});
+    ASSERT_EQ(results_pass.size(), 1u);
+    EXPECT_TRUE(results_pass[0].passed);
+
+    // Call 2: fails (bounds logic, max 10ms, actual ~20ms)
+    manifests::Expectation exp_fail{"http_latency", {
+        {"port", std::to_string(port)},
+        {"path", "/ping"},
+        {"min_latency_ms", "0"},
+        {"max_latency_ms", "10"}
+    }};
+    const auto results_fail = engine.validate("ctr", {exp_fail});
+    ASSERT_EQ(results_fail.size(), 1u);
+    EXPECT_FALSE(results_fail[0].passed);
+
+    svr.stop();
+    t.join();
+}
+

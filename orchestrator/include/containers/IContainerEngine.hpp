@@ -88,6 +88,16 @@ public:
      * @throws ContainerEngineError On transport errors or non-OK responses.
      */
     virtual std::string getLogs(const std::string_view containerId) = 0;
+
+    /**
+     * @brief Update container resources like CPU and memory.
+     * @param containerId ID of the target container.
+     * @param memory_bytes Max memory in bytes (0 to ignore/reset).
+     * @param cpu_quota CPU quota in microseconds (0 to ignore/reset).
+     * @param cpu_period CPU period in microseconds (0 to ignore).
+     * @throws ContainerEngineError On transport errors or non-OK responses.
+     */
+    virtual void updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota, int64_t cpu_period) = 0;
 };
 
 }  // namespace chaos::orchestrator::containers

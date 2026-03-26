@@ -224,6 +224,35 @@ std::string DockerClient::getLogs(const std::string_view containerId) {
     return response.body;
 }
 
+void DockerClient::updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota, int64_t cpu_period) {
+    if (containerId.empty()) {
+        throw std::invalid_argument("Container ID must not be empty");
+    }
+
+    nlohmann::json updateConfig = nlohmann::json::object();
+    if (memory_bytes >= 0) {
+        updateConfig["Memory"] = memory_bytes;
+    }
+    if (cpu_quota >= 0) {
+        updateConfig["CpuQuota"] = cpu_quota;
+    }
+    if (cpu_period > 0) {
+        updateConfig["CpuPeriod"] = cpu_period;
+    }
+
+    SPDLOG_DEBUG("Updating resources for container {}: {}", containerId, updateConfig.dump());
+
+    const std::string endpoint = fmt::format("/containers/{}/update", containerId);
+    const auto response = request_(HttpMethod::POST, endpoint, updateConfig.dump());
+
+    if (response.status != 200) {
+        throw containers::ContainerEngineApiError(
+            fmt::format("Failed to update resources for container '{}': HTTP {}", containerId, response.status));
+    }
+
+    SPDLOG_INFO("Updated resources for container '{}'", containerId);
+}
+
 nlohmann::json DockerClient::parseResponse(const HttpResponse& response) const {
     if (response.body.empty()) {
         SPDLOG_ERROR("Docker API response body is empty");

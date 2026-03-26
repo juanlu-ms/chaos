@@ -16,7 +16,7 @@ Perturbations are the fault injection mechanisms applied to a target container. 
 - **Description**: Enforces a strict physical memory limit.
 - **Parameters**:
   - `limit_bytes` (integer): The maximum amount of RAM the container is allowed to use.
-- **Under the hood**: Modifies the `memory.limit_in_bytes` or `memory.max` via Linux cgroups v1/v2.
+- **Under the hood**: Uses the Docker Update API to natively limit container memory allocation.
 - **Effect**: If the container attempts to allocate memory beyond this limit, the kernel's OOM (Out-Of-Memory) killer will terminate the offending process.
 
 ### 3. `cpu_cap`
@@ -24,7 +24,7 @@ Perturbations are the fault injection mechanisms applied to a target container. 
 - **Parameters**:
   - `quota` (integer): The amount of CPU time (in microseconds) the container can use per period.
   - `period` (integer): The length of the CPU accounting period (in microseconds).
-- **Under the hood**: Edits `cpu.cfs_quota_us` and `cpu.cfs_period_us` in the cgroup filesystem.
+- **Under the hood**: Uses the Docker Update API to natively restrict the CPU scheduling ratio.
 - **Effect**: Execution of the container is artificially paused or slowed down to strictly enforce the CPU ratio (quota/period). 
 
 ### 4. `network_delay`

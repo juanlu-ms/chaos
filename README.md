@@ -14,7 +14,7 @@ Unlike production cluster chaos orchestrators, CHAOS focuses on development-time
 
 ### Perturbations
 CHAOS supports injecting various faults into target containers:
-- **Resource Limits**: `cpu_cap`, `memory_cap`
+- **Resource Limits**: `cpu_cap`, `memory_cap` (Powered by Docker Update API)
 - **Network Faults**: `network_delay`, `network_cutoff`, `garbage_packet`
 - **Lifecycle**: `kill`
 

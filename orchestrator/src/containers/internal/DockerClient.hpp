@@ -114,6 +114,11 @@ public:
      */
     std::string getLogs(const std::string_view containerId) override;
 
+    /**
+     * @brief Update container resources (CPU, Memory) via Docker Engine API.
+     */
+    void updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota, int64_t cpu_period) override;
+
 private:
     /** @brief Function used to execute API requests. */
     RequestFn request_;

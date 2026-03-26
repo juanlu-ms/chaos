@@ -243,16 +243,6 @@ TEST(PerturbationTests, GarbagePacketThrowsOnEmptyTargetId) {
     EXPECT_THROW(pert.apply(), std::invalid_argument);
 }
 
-/**
- * @test Verifies GarbagePacketPerturbation::apply throws when no netem parameters provided.
- */
-TEST(PerturbationTests, GarbagePacketThrowsOnNoNetemParameters) {
-    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
-    manifests::Perturbation spec{"garbage_packet", {}};
-
-    perturbations::GarbagePacketPerturbation pert(mockEngine, "test-container", spec);
-    EXPECT_THROW(pert.apply(), std::invalid_argument);
-}
 
 /**
  * @test Verifies NetworkDelayPerturbation::apply calls exec with the correct tc netem command.

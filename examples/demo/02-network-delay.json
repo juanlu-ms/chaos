@@ -7,7 +7,7 @@
         {
             "type": "network_delay",
             "parameters": {
-                "delay_ms": 500
+                "delay_ms": "500"
             }
         }
     ],

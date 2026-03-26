@@ -1,7 +1,7 @@
 {
     "test_name": "Garbage Flood Demo",
     "target": {
-        "id": "chaos-demo-1"
+        "id": "89b7a45ef79c"
     },
     "perturbations": [
         {

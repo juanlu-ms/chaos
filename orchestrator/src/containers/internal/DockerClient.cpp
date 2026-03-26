@@ -254,6 +254,41 @@ void DockerClient::updateResources(const std::string_view containerId, int64_t m
     SPDLOG_INFO("Updated resources for container '{}'", containerId);
 }
 
+std::string DockerClient::getContainerIp(const std::string_view containerId) {
+    if (containerId.empty()) {
+        throw std::invalid_argument("Container ID must not be empty");
+    }
+
+    SPDLOG_DEBUG("Fetching IP for container: {}", containerId);
+
+    const std::string endpoint = fmt::format("/containers/{}/json", containerId);
+    const auto response = request_(HttpMethod::GET, endpoint, "");
+
+    if (response.status != 200) {
+        throw containers::ContainerEngineApiError(
+            fmt::format("Failed to inspect container '{}': HTTP {}", containerId, response.status));
+    }
+
+    auto jsonResponse = parseResponse(response);
+    
+    if (jsonResponse.contains("NetworkSettings") && jsonResponse["NetworkSettings"].contains("Networks")) {
+        auto& networks = jsonResponse["NetworkSettings"]["Networks"];
+        if (networks.is_object() && !networks.empty()) {
+            auto firstNetwork = networks.begin().value();
+            if (firstNetwork.contains("IPAddress") && firstNetwork["IPAddress"].is_string()) {
+                std::string ip = firstNetwork["IPAddress"].get<std::string>();
+                if (!ip.empty()) {
+                    SPDLOG_INFO("Fetched IP {} for container '{}'", ip, containerId);
+                    return ip;
+                }
+            }
+        }
+    }
+
+    throw containers::ContainerEngineParseError(
+        fmt::format("Could not find IPAddress in inspect response for container '{}'", containerId));
+}
+
 nlohmann::json DockerClient::parseResponse(const HttpResponse& response) const {
     if (response.body.empty()) {
         SPDLOG_ERROR("Docker API response body is empty");

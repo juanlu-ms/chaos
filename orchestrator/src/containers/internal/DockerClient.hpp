@@ -119,6 +119,11 @@ public:
      */
     void updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota, int64_t cpu_period) override;
 
+    /**
+     * @brief Fetch the primary IP address of a running container.
+     */
+    std::string getContainerIp(const std::string_view containerId) override;
+
 private:
     /** @brief Function used to execute API requests. */
     RequestFn request_;

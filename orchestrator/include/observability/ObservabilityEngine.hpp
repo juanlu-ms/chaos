@@ -36,6 +36,14 @@ public:
      */
     std::string getLogs(const std::string& containerId) const;
 
+    /**
+     * @brief Retrieve the IPv4 address for a container.
+     * @param containerId Docker container ID.
+     * @return IPv4 address as a string.
+     * @throws containers::ContainerEngineError On retrieval failure.
+     */
+    std::string getContainerIp(const std::string& containerId) const;
+
 private:
     std::shared_ptr<containers::IContainerEngine> engine_;
 };

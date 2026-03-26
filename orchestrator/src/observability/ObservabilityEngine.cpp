@@ -34,4 +34,9 @@ std::string ObservabilityEngine::getLogs(const std::string& containerId) const {
     return engine_->getLogs(containerId);
 }
 
+std::string ObservabilityEngine::getContainerIp(const std::string& containerId) const {
+    SPDLOG_DEBUG("ObservabilityEngine: getting IP for container '{}'", containerId);
+    return engine_->getContainerIp(containerId);
+}
+
 }  // namespace chaos::orchestrator::observability

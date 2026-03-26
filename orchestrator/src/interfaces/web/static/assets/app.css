@@ -348,3 +348,79 @@ p {
     justify-content: center;
   }
 }
+
+/* --- NEW: Logs Output --- */
+.log-output {
+  background: rgba(0,0,0,0.4);
+  border-radius: 8px;
+  padding: 1rem;
+  font-family: monospace;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 400px;
+  overflow-y: auto;
+  color: #cdd6f4;
+}
+
+/* --- NEW: Run Panel --- */
+.run-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+.run-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.manifest-textarea {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 0.75rem;
+  color: #cdd6f4;
+  font-family: monospace;
+  font-size: 0.8rem;
+  resize: vertical;
+  width: 100%;
+  box-sizing: border-box;
+}
+.manifest-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(137, 180, 250, 0.2);
+}
+.run-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.result-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.result-item {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+.result-item.pass {
+  background: rgba(54,249,196,0.08);
+  color: #36f9c4;
+}
+.result-item.fail {
+  background: rgba(248,113,113,0.08);
+  color: #f87171;
+}
+.result-type {
+  font-weight: 600;
+}
+.result-msg {
+  color: var(--muted);
+}

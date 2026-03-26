@@ -98,6 +98,14 @@ public:
      * @throws ContainerEngineError On transport errors or non-OK responses.
      */
     virtual void updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota, int64_t cpu_period) = 0;
+
+    /**
+     * @brief Fetch the primary IP address of a running container.
+     * @param containerId Docker container ID.
+     * @return IPv4 address as a string.
+     * @throws ContainerEngineError On transport errors, parsing failures, or if container is not running.
+     */
+    virtual std::string getContainerIp(const std::string_view containerId) = 0;
 };
 
 }  // namespace chaos::orchestrator::containers

@@ -44,15 +44,11 @@ void NetworkCutoffPerturbation::apply() {
     }
 
     try {
-        const std::string pid = internal::fetchContainerPid(target_id_);
-        const std::string nsenter = fmt::format("nsenter -t {} -n -- ", pid);
-
         bool hasFilter = false;
 
         auto addRule = [&](const std::string& applyArgs, const std::string& revertArgs) {
-            internal::runCommand(nsenter + "iptables " + applyArgs,
-                                 "Failed to apply iptables rule: " + applyArgs);
-            revertCommands_.push_back(nsenter + "iptables " + revertArgs);
+            engine_->exec(target_id_, "iptables " + applyArgs);
+            revertCommands_.push_back("iptables " + revertArgs);
             hasFilter = true;
         };
 
@@ -111,7 +107,7 @@ void NetworkCutoffPerturbation::revert() {
 
     try {
         for (const auto& cmd : revertCommands_) {
-            internal::runCommand(cmd, "Failed to revert iptables rule: " + cmd);
+            engine_->exec(target_id_, cmd);
         }
 
         revertCommands_.clear();

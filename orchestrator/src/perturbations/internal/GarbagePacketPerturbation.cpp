@@ -71,11 +71,9 @@ void GarbagePacketPerturbation::apply() {
     }();
 
     try {
-        const std::string pid = internal::fetchContainerPid(target_id_);
-        const std::string nsenter = "nsenter -t " + pid + " -n -- ";
+        engine_->exec(target_id_, fmt::format("tc qdisc add dev {} root netem{}", iface, opts));
 
-        internal::runCommand(fmt::format("{}tc qdisc add dev {} root netem{}", nsenter, iface, opts),
-                             "Failed to apply tc netem rule");
+
 
         hasBeenApplied_ = true;
         SPDLOG_INFO("Garbage Packet Perturbation applied on target {} iface={}: {}", target_id_, iface, opts);
@@ -111,10 +109,9 @@ void GarbagePacketPerturbation::revert() {
     }();
 
     try {
-        const std::string pid = internal::fetchContainerPid(target_id_);
-        const std::string nsenter = "nsenter -t " + pid + " -n -- ";
+        engine_->exec(target_id_, "tc qdisc del dev " + iface + " root netem");
 
-        internal::runCommand(nsenter + "tc qdisc del dev " + iface + " root netem", "Failed to revert tc netem rule");
+
 
         hasBeenApplied_ = false;
         SPDLOG_INFO("Garbage Packet Perturbation reverted on target {}", target_id_);

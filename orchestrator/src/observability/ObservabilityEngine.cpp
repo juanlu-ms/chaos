@@ -16,8 +16,13 @@ ObservabilityEngine::ObservabilityEngine(std::shared_ptr<containers::IContainerE
 bool ObservabilityEngine::isRunning(const std::string& containerId) const {
     const auto containers = engine_->listContainers();
     const auto it = std::find_if(containers.begin(), containers.end(), [&containerId](const auto& c) {
-        // Match by exact ID or by ID prefix (Docker short-ID support)
-        return (c.id == containerId || c.id.starts_with(containerId)) && c.state == "running";
+        if (c.id == containerId || c.id.starts_with(containerId)) {
+            return c.state == "running";
+        }
+        if (c.name == containerId || c.name == "/" + containerId) {
+            return c.state == "running";
+        }
+        return false;
     });
     const bool running = (it != containers.end());
     SPDLOG_DEBUG("Container '{}' isRunning: {}", containerId, running);

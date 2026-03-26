@@ -232,6 +232,7 @@ void DockerClient::updateResources(const std::string_view containerId, int64_t m
     nlohmann::json updateConfig = nlohmann::json::object();
     if (memory_bytes >= 0) {
         updateConfig["Memory"] = memory_bytes;
+        updateConfig["MemorySwap"] = memory_bytes;
     }
     if (cpu_quota >= 0) {
         updateConfig["CpuQuota"] = cpu_quota;

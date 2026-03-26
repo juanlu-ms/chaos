@@ -16,20 +16,28 @@ docker rm -f chaos-demo-1 > /dev/null 2>&1 || true
 
 echo "3. Starting target container (chaos-demo-1)..."
 # NET_ADMIN is required for tc and iptables network perturbations
-docker run -d --name chaos-demo-1 --cap-add=NET_ADMIN chaos-demo-target > /dev/null
+docker run -d --name chaos-demo-1 --cap-add=NET_ADMIN -p 8000:8000 chaos-demo-target > /dev/null
 
 echo ""
 echo "✅ Target application is running in the background."
+echo "✅ API available at http://127.0.0.1:8000"
 echo ""
 echo "▶ NEXT STEPS"
 echo ""
-echo "1. Compile the orchestrator if you haven't already:"
+echo "1. Validate and stress the target API from this folder:"
+echo "   ./api-ping.sh"
+echo "   ./api-allocate.sh 5"
+echo "   ./api-cpu.sh 3"
+echo "   # Optional: run target in single-thread mode"
+echo "   # CHAOS_THREADED=0 bash run-demo.sh"
+echo ""
+echo "2. Compile the orchestrator if you haven't already:"
 echo "   bash scripts/cmake-local.sh all"
 echo ""
-echo "2. Start the CHAOS Web Dashboard (from the repository root):"
+echo "3. Start the CHAOS Web Dashboard (from the repository root):"
 echo "   ./build/debug/orchestrator/chaos serve --port 8080"
 echo ""
-echo "3. Open your browser to http://127.0.0.1:8080"
+echo "4. Open your browser to http://127.0.0.1:8080"
 echo "   - View live logs for 'chaos-demo-1' by clicking the Logs button."
 echo "   - Copy a JSON manifest from examples/demo/"
 echo "     (like examples/demo/01-resource-exhaustion.json)"

@@ -17,7 +17,6 @@ set(ORCHESTRATOR_SOURCES
     src/perturbations/internal/NetworkDelayPerturbation.cpp
     src/perturbations/internal/NetworkCutoffPerturbation.cpp
     src/perturbations/internal/GarbagePacketPerturbation.cpp
-    src/perturbations/internal/PerturbationUtils.cpp
     src/observability/ObservabilityEngine.cpp
     src/observability/ValidationEngine.cpp
 )

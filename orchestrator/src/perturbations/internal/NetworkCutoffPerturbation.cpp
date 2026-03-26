@@ -1,9 +1,8 @@
 /// @file NetworkCutoffPerturbation.cpp
-/// @brief Implements network cutoff via iptables rules in the container's network namespace.
+/// @brief Implements network cutoff via iptables rules executed inside the container.
 
 #include "perturbations/NetworkCutoffPerturbation.hpp"
 
-#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
 #include <stdexcept>
@@ -11,7 +10,7 @@
 #include <system_error>
 #include <utility>
 
-#include "PerturbationUtils.hpp"
+#include "containers/IContainerEngine.hpp"
 
 namespace chaos::orchestrator::perturbations {
 
@@ -20,9 +19,9 @@ NetworkCutoffPerturbation::NetworkCutoffPerturbation(std::shared_ptr<containers:
     : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
 
 /**
- * @brief Applies iptables DROP rules inside the container's network namespace.
+ * @brief Applies iptables DROP rules inside the container via IContainerEngine::exec.
  *
- * Strategy: Use nsenter to inject iptables rules into the container's netns.
+ * Strategy: Execute iptables commands directly inside the target container.
  * - If "dst_ip" param: block `OUTPUT -d <ip>`
  * - If "dst_port" param: block `OUTPUT -p tcp --dport <port>`
  * - If "src_port" param: block `INPUT -p tcp --dport <port>`
@@ -31,7 +30,7 @@ NetworkCutoffPerturbation::NetworkCutoffPerturbation(std::shared_ptr<containers:
  * All applied rules are tracked so they can be removed precisely on revert.
  *
  * @throws std::invalid_argument If target ID is empty.
- * @throws std::system_error On command failure.
+ * @throws std::system_error On IContainerEngine exec failure.
  */
 void NetworkCutoffPerturbation::apply() {
     if (hasBeenApplied_) {
@@ -79,21 +78,20 @@ void NetworkCutoffPerturbation::apply() {
         hasBeenApplied_ = true;
         SPDLOG_INFO("Network Cutoff Perturbation applied on target {}", target_id_);
 
-    } catch (const std::system_error&) {
-        throw;
-    } catch (const std::exception& e) {
-        throw std::system_error(std::make_error_code(std::errc::operation_not_supported), e.what());
+    } catch (const containers::ContainerEngineError& e) {
+        throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
+                                std::string("Failed to apply iptables rules inside container: ") + e.what());
     }
 }
 
 /**
- * @brief Reverts applied iptables rules inside the container's network namespace.
+ * @brief Reverts applied iptables rules by executing the inverse commands via IContainerEngine::exec.
  *
  * Removes exactly the rules that were created during apply(), preserving any
  * other iptables rules that may have existed before, allowing the container
  * to reconnect normally.
  *
- * @throws std::system_error On command failure.
+ * @throws std::system_error On IContainerEngine exec failure.
  */
 void NetworkCutoffPerturbation::revert() {
     if (!hasBeenApplied_) {
@@ -114,10 +112,9 @@ void NetworkCutoffPerturbation::revert() {
         hasBeenApplied_ = false;
         SPDLOG_INFO("Network Cutoff Perturbation reverted on target {}", target_id_);
 
-    } catch (const std::system_error&) {
-        throw;
-    } catch (const std::exception& e) {
-        throw std::system_error(std::make_error_code(std::errc::operation_not_supported), e.what());
+    } catch (const containers::ContainerEngineError& e) {
+        throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
+                                std::string("Failed to revert iptables rules inside container: ") + e.what());
     }
 }
 

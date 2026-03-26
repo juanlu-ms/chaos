@@ -1,0 +1,26 @@
+{
+    "test_name": "Resource Exhaustion Demo",
+    "target": {
+        "id": "chaos-demo-1"
+    },
+    "perturbations": [
+        {
+            "type": "cpu_cap",
+            "parameters": {
+                "quota": 10000,
+                "period": 100000
+            }
+        },
+        {
+            "type": "memory_cap",
+            "parameters": {
+                "limit_bytes": 52428800
+            }
+        }
+    ],
+    "expectations": [
+        {
+            "type": "container_running"
+        }
+    ]
+}

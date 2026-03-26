@@ -1,0 +1,16 @@
+{
+    "test_name": "Fatal Kill Demo",
+    "target": {
+        "id": "chaos-demo-1"
+    },
+    "perturbations": [
+        {
+            "type": "kill"
+        }
+    ],
+    "expectations": [
+        {
+            "type": "container_not_running"
+        }
+    ]
+}

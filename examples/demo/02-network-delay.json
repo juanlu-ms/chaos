@@ -1,0 +1,19 @@
+{
+    "test_name": "Network Delay Demo",
+    "target": {
+        "id": "chaos-demo-1"
+    },
+    "perturbations": [
+        {
+            "type": "network_delay",
+            "parameters": {
+                "delay_ms": 500
+            }
+        }
+    ],
+    "expectations": [
+        {
+            "type": "container_running"
+        }
+    ]
+}

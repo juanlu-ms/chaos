@@ -15,7 +15,6 @@
                 "llvm-vs-code-extensions.vscode-clangd",
                 "ms-azuretools.vscode-containers",
                 "eamodio.gitlens",
-                "matepek.vscode-catch2-test-adapter",
                 "SonarSource.sonarlint-vscode"
             ],
             "settings": {

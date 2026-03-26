@@ -1,7 +1,7 @@
 {
     "test_name": "Resource Exhaustion Demo",
     "target": {
-        "id": "89b7a45ef79c"
+        "id": "chaos-demo-1"
     },
     "perturbations": [
         {
@@ -14,7 +14,7 @@
         {
             "type": "memory_cap",
             "parameters": {
-                "limit_bytes": "52428800"
+                "limit_bytes": "268435456"
             }
         }
     ],

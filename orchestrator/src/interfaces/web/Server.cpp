@@ -8,6 +8,11 @@
 #include <utility>
 #include <vector>
 
+#include "manifests/ManifestParser.hpp"
+#include "observability/ObservabilityEngine.hpp"
+#include "observability/ValidationEngine.hpp"
+#include "perturbations/PerturbationFactory.hpp"
+
 using json = nlohmann::json;
 
 namespace chaos::orchestrator::interfaces::web {
@@ -129,6 +134,70 @@ void Server::setupRoutes() {
             res.status = 500;
             res.set_content(err.dump(4), "application/json");
             SPDLOG_ERROR("/containers/{}/kill failed: {}", containerId, ex.what());
+        }
+    });
+
+    m_server.Get(R"(/containers/([^/]+)/logs)", [this](const httplib::Request& req, httplib::Response& res) {
+        if (req.matches.size() < 2) {
+            res.status = 400;
+            res.set_content("Missing container id", "text/plain");
+            return;
+        }
+        const std::string id = req.matches[1];
+        try {
+            const auto logs = m_engine->getLogs(id);
+            res.set_content(logs, "text/plain");
+        } catch (const std::exception& ex) {
+            res.status = 500;
+            json err;
+            err["error"] = ex.what();
+            res.set_content(err.dump(4), "application/json");
+        }
+    });
+
+    m_server.Post("/run", [this](const httplib::Request& req, httplib::Response& res) {
+        if (req.body.empty()) {
+            res.status = 400;
+            json err;
+            err["error"] = "Empty request body";
+            res.set_content(err.dump(4), "application/json");
+            return;
+        }
+        try {
+            auto manifest = manifests::ManifestParser::parseFromJson(req.body);
+            perturbations::PerturbationFactory factory;
+            for (const auto& pert_spec : manifest.perturbations) {
+                auto p = factory.create(m_engine, manifest.target, pert_spec);
+                p->apply();
+            }
+
+            observability::ObservabilityEngine obs(m_engine);
+            observability::ValidationEngine validator(std::move(obs));
+            const auto results = validator.validate(manifest.target.id, manifest.expectations);
+
+            bool passed = std::all_of(results.begin(), results.end(), [](const auto& r) { return r.passed; });
+            json j;
+            j["passed"] = passed;
+            j["results"] = json::array();
+            for (const auto& r : results) {
+                j["results"].push_back({
+                    {"type", r.expectationType},
+                    {"passed", r.passed},
+                    {"message", r.message}
+                });
+            }
+            res.status = passed ? 200 : 422;
+            res.set_content(j.dump(4), "application/json");
+        } catch (const manifests::ManifestParserError& ex) {
+            res.status = 400;
+            json err;
+            err["error"] = ex.what();
+            res.set_content(err.dump(4), "application/json");
+        } catch (const std::exception& ex) {
+            res.status = 500;
+            json err;
+            err["error"] = ex.what();
+            res.set_content(err.dump(4), "application/json");
         }
     });
 }

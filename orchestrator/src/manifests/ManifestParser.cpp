@@ -11,7 +11,8 @@ void from_json(const nlohmann::json& j, Target& t) { j.at("id").get_to(t.id); }
 
 void from_json(const nlohmann::json& j, Perturbation& p) {
     j.at("type").get_to(p.type);
-    if (p.type != "kill" && p.type != "memory_cap" && p.type != "cpu_cap" && p.type != "network_delay") {
+    if (p.type != "kill" && p.type != "memory_cap" && p.type != "cpu_cap" && p.type != "network_delay" &&
+        p.type != "network_cutoff" && p.type != "garbage_packet") {
         throw ManifestParserError("Unsupported perturbation type: " + p.type);
     }
     if (j.contains("parameters")) {
@@ -76,6 +77,19 @@ ChaosManifest ManifestParser::parse(const std::string& filepath) {
         return manifest_json.get<ChaosManifest>();
     } catch (const nlohmann::json::exception& e) {
         throw ManifestParserError("Manifest validation error in " + filepath + ": " + e.what());
+    }
+}
+
+ChaosManifest ManifestParser::parseFromJson(const std::string& jsonStr) {
+    nlohmann::json manifest_json = nlohmann::json::parse(jsonStr, nullptr, false);
+    if (manifest_json.is_discarded()) {
+        throw ManifestParserError("Invalid JSON string");
+    }
+
+    try {
+        return manifest_json.get<ChaosManifest>();
+    } catch (const nlohmann::json::exception& e) {
+        throw ManifestParserError("Manifest validation error from JSON string: " + std::string(e.what()));
     }
 }
 

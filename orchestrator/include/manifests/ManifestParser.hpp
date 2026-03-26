@@ -15,6 +15,10 @@ public:
 class ManifestParser {
 public:
     static ChaosManifest parse(const std::string& filepath);
+
+    /// @brief Parse a ChaosManifest from a JSON string.
+    /// @throws ManifestParserError On parse failure.
+    static ChaosManifest parseFromJson(const std::string& jsonStr);
 };
 
 }  // namespace chaos::orchestrator::manifests

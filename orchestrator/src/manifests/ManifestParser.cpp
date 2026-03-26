@@ -7,7 +7,15 @@
 
 namespace chaos::orchestrator::manifests {
 
-void from_json(const nlohmann::json& j, Target& t) { j.at("id").get_to(t.id); }
+void from_json(const nlohmann::json& j, Target& t) {
+    if (j.contains("id")) {
+        j.at("id").get_to(t.id);
+    } else if (j.contains("name")) {
+        j.at("name").get_to(t.id);
+    } else {
+        throw ManifestParserError("Target must define either 'id' or 'name'");
+    }
+}
 
 void from_json(const nlohmann::json& j, Perturbation& p) {
     j.at("type").get_to(p.type);

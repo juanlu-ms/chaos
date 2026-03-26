@@ -60,10 +60,9 @@ void GarbagePacketPerturbation::apply() {
         netemOpts << " duplicate " << it->second;
     }
 
-    const std::string opts = netemOpts.str();
+    std::string opts = netemOpts.str();
     if (opts.empty()) {
-        throw std::invalid_argument(
-            "GarbagePacketPerturbation requires at least one parameter: corrupt_pct, loss_pct, or duplicate_pct");
+        opts = " corrupt 100";
     }
 
     const std::string iface = [&] {

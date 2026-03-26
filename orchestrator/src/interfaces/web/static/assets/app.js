@@ -115,13 +115,8 @@ const renderContainers = (containers) => {
     stopBtn.className = "action-btn";
     stopBtn.textContent = "Stop";
 
-    const killBtn = document.createElement("button");
-    killBtn.className = "action-btn danger";
-    killBtn.textContent = "Kill";
-
     stopBtn.addEventListener("click", async () => {
       stopBtn.disabled = true;
-      killBtn.disabled = true;
       statusMessage.textContent = `Stop requested: ${container.name || container.id}`;
       try {
         await invokeAction(container.id, "stop");
@@ -130,30 +125,10 @@ const renderContainers = (containers) => {
         statusMessage.textContent = `Stop failed: ${error.message}`;
       } finally {
         stopBtn.disabled = false;
-        killBtn.disabled = false;
-      }
-    });
-
-    killBtn.addEventListener("click", async () => {
-      if (!window.confirm(`Kill container ${container.name || container.id}?`)) {
-        return;
-      }
-      stopBtn.disabled = true;
-      killBtn.disabled = true;
-      statusMessage.textContent = `Kill requested: ${container.name || container.id}`;
-      try {
-        await invokeAction(container.id, "kill");
-        await refresh();
-      } catch (error) {
-        statusMessage.textContent = `Kill failed: ${error.message}`;
-      } finally {
-        stopBtn.disabled = false;
-        killBtn.disabled = false;
       }
     });
 
     actions.appendChild(stopBtn);
-    actions.appendChild(killBtn);
 
     const logsBtn = document.createElement("button");
     logsBtn.className = "action-btn";

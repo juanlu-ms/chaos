@@ -26,6 +26,15 @@ class DemoHandler(http.server.SimpleHTTPRequestHandler):
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"Burned CPU for 2s")
+        elif self.path == '/ping':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            response_data = {
+                "status": "ok",
+                "timestamp": datetime.datetime.now().isoformat()
+            }
+            self.wfile.write(json.dumps(response_data).encode('utf-8'))
         else:
             self.send_response(200)
             self.end_headers()

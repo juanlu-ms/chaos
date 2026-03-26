@@ -3,6 +3,7 @@
     "target": {
         "id": "chaos-demo-1"
     },
+    "duration_s": 15,
     "perturbations": [
         {
             "type": "cpu_cap",
@@ -21,6 +22,14 @@
     "expectations": [
         {
             "type": "container_running"
+        },
+        {
+            "type": "http_status",
+            "parameters": {
+                "port": "8080",
+                "path": "/ping",
+                "expected_status": "200"
+            }
         }
     ]
 }

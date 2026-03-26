@@ -3,6 +3,7 @@
     "target": {
         "id": "chaos-demo-1"
     },
+    "duration_s": 10,
     "perturbations": [
         {
             "type": "network_delay",
@@ -14,6 +15,15 @@
     "expectations": [
         {
             "type": "container_running"
+        },
+        {
+            "type": "http_latency",
+            "parameters": {
+                "port": "8080",
+                "path": "/ping",
+                "min_latency_ms": "400",
+                "max_latency_ms": "2000"
+            }
         }
     ]
 }

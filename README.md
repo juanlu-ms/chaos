@@ -10,6 +10,23 @@ Unlike production cluster chaos orchestrators, CHAOS focuses on development-time
 - Recovery validation under injected degradation.
 - Real-time behavior visibility for the target process.
 
+## Core Features
+
+### Perturbations
+CHAOS supports injecting various faults into target containers:
+- **Resource Limits**: `cpu_cap`, `memory_cap`
+- **Network Faults**: `network_delay`, `network_cutoff`, `garbage_packet`
+- **Lifecycle**: `kill`
+
+### Observability & Validation
+The `ObservabilityEngine` provides real-time container state inspection and log fetching (`getLogs`).
+The `ValidationEngine` evaluates JSON manifests automatically against these expectations:
+- `container_running` / `container_not_running`
+- `log_contains` / `log_not_contains`
+
+### Web Dashboard
+A fully functional Web UI (`chaos serve`) provides real-time feature parity with the CLI, allowing users to run JSON manifests, view logs, and monitor container states directly from the browser.
+
 ## Architecture Overview
 
 CHAOS uses a hybrid architecture:

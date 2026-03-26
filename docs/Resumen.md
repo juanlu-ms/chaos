@@ -14,6 +14,25 @@ CHAOS busca identificar estos estados y verificar la capacidad de recuperación 
 
 ---
 
+## Funcionalidades Principales
+
+### Perturbaciones
+CHAOS soporta la inyección de varios fallos en los contenedores objetivo:
+- **Límites de Recursos**: `cpu_cap`, `memory_cap`
+- **Fallos de Red**: `network_delay`, `network_cutoff`, `garbage_packet`
+- **Ciclo de Vida**: `kill`
+
+### Observabilidad y Validación
+El `ObservabilityEngine` proporciona inspección en tiempo real y extracción de logs.
+El `ValidationEngine` evalúa manifiestos JSON automáticamente con las siguientes expectativas:
+- `container_running` / `container_not_running`
+- `log_contains` / `log_not_contains`
+
+### Dashboard Web
+Una interfaz web completa (`chaos serve`) proporciona paridad de funcionalidades con la CLI, permitiendo ejecutar escenarios JSON, ver logs y monitorear contenedores en el navegador.
+
+---
+
 ## Arquitectura Técnica
 
 El sistema está implementado en C++23 moderno siguiendo una arquitectura **híbrida por componentes**. Se compone de 3 elementos principales:

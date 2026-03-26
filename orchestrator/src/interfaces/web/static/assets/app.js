@@ -155,6 +155,12 @@ const renderContainers = (containers) => {
     actions.appendChild(stopBtn);
     actions.appendChild(killBtn);
 
+    const logsBtn = document.createElement("button");
+    logsBtn.className = "action-btn";
+    logsBtn.textContent = "Logs";
+    logsBtn.addEventListener("click", () => viewLogs(container));
+    actions.appendChild(logsBtn);
+
     item.appendChild(name);
     item.appendChild(meta);
     item.appendChild(state);
@@ -222,3 +228,73 @@ toggleAutoBtn.addEventListener("click", () => {
 
 refresh();
 startAutoRefresh();
+
+const logsPanel = document.getElementById("logs-panel");
+const logsContainerName = document.getElementById("logs-container-name");
+const logOutput = document.getElementById("log-output");
+const logsCloseBtn = document.getElementById("logs-close-btn");
+
+const viewLogs = async (container) => {
+  logsPanel.style.display = "";
+  logsContainerName.textContent = container.name || container.id;
+  logOutput.textContent = "Loading...";
+  logsPanel.scrollIntoView({ behavior: "smooth" });
+  try {
+    const response = await fetch(`/containers/${encodeURIComponent(container.id)}/logs`);
+    logOutput.textContent = response.ok ? (await response.text()) || "(empty)" : `Error: HTTP ${response.status}`;
+  } catch {
+    logOutput.textContent = "Failed to fetch logs.";
+  }
+};
+
+logsCloseBtn.addEventListener("click", () => {
+  logsPanel.style.display = "none";
+});
+
+const runBtn = document.getElementById("run-btn");
+const manifestInput = document.getElementById("manifest-input");
+const runResultChip = document.getElementById("run-result-chip");
+const runResults = document.getElementById("run-results");
+const resultList = document.getElementById("result-list");
+
+runBtn.addEventListener("click", async () => {
+  const body = manifestInput.value.trim();
+  if (!body) {
+    alert("Paste a manifest JSON first.");
+    return;
+  }
+  runBtn.disabled = true;
+  runResultChip.style.display = "none";
+  runResults.style.display = "none";
+  try {
+    const response = await fetch("/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    });
+    const payload = await response.json();
+    const passed = payload.passed === true;
+    runResultChip.textContent = passed ? "PASS" : "FAIL";
+    runResultChip.style.display = "";
+    runResultChip.style.color = passed ? "#36f9c4" : "#f87171";
+    runResultChip.style.background = passed ? "rgba(54,249,196,0.2)" : "rgba(248,113,113,0.2)";
+
+    resultList.innerHTML = "";
+    const items = payload.results || (payload.error ? [{ type: "error", passed: false, message: payload.error }] : []);
+    items.forEach((r) => {
+      const li = document.createElement("li");
+      li.className = `result-item ${r.passed ? "pass" : "fail"}`;
+      li.innerHTML = `<span class="result-icon">${r.passed ? "✓" : "✗"}</span>
+                      <span class="result-type">${r.type}</span>
+                      <span class="result-msg">${r.message || ""}</span>`;
+      resultList.appendChild(li);
+    });
+    runResults.style.display = "";
+  } catch (err) {
+    runResultChip.textContent = "ERROR";
+    runResultChip.style.display = "";
+    runResultChip.style.color = "#f87171";
+  } finally {
+    runBtn.disabled = false;
+  }
+});

@@ -56,6 +56,31 @@
         <div class="empty" id="container-empty">No containers available.</div>
         <div class="error" id="container-error">Could not load the list.</div>
       </article>
+
+      <article class="card logs" id="logs-panel" style="display:none">
+        <div class="card-head">
+          <h2>Container logs — <span id="logs-container-name"></span></h2>
+          <button class="btn ghost" id="logs-close-btn">✕ Close</button>
+        </div>
+        <pre class="log-output" id="log-output">Loading...</pre>
+      </article>
+    </section>
+
+    <section class="card run-panel">
+      <div class="card-head">
+        <h2>Run Chaos Scenario</h2>
+        <span class="chip" id="run-result-chip" style="display:none"></span>
+      </div>
+      <label for="manifest-input" class="run-label">Paste manifest JSON:</label>
+      <textarea id="manifest-input" class="manifest-textarea" rows="10"
+        placeholder='{"test_name":"my-test","target":{"id":"container-id"},"perturbations":[],"expectations":[]}'></textarea>
+      <div class="run-actions">
+        <button class="btn" id="run-btn">▶ Run Scenario</button>
+      </div>
+      <div id="run-results" class="run-results" style="display:none">
+        <h3>Results</h3>
+        <ul id="result-list" class="result-list"></ul>
+      </div>
     </section>
 
     <section class="card footer">

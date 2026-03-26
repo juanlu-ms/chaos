@@ -8,6 +8,9 @@
 #include <system_error>
 #include <utility>
 #include <vector>
+#include <chrono>
+#include <thread>
+#include <memory>
 
 #include "manifests/ManifestParser.hpp"
 #include "observability/ObservabilityEngine.hpp"
@@ -205,13 +208,35 @@ int CliParser::handleRun(const std::string& manifestPath) const {
         SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.id);
 
         chaos::orchestrator::perturbations::PerturbationFactory factory;
+        std::vector<std::unique_ptr<chaos::orchestrator::perturbations::IPerturbation>> active_perturbations;
+
+        // Structured cleanup guard to ensure perturbations are reverted
+        struct RevertGuard {
+            std::vector<std::unique_ptr<chaos::orchestrator::perturbations::IPerturbation>>& perts;
+            ~RevertGuard() {
+                for (auto it = perts.rbegin(); it != perts.rend(); ++it) {
+                    try {
+                        (*it)->revert();
+                    } catch (const std::exception& e) {
+                        SPDLOG_ERROR("Failed to revert perturbation: {}", e.what());
+                    }
+                }
+            }
+        } guard{active_perturbations};
+
         for (const auto& pert_spec : manifest.perturbations) {
             SPDLOG_INFO("Applying perturbation '{}'", pert_spec.type);
             auto perturbation = factory.create(m_engine, manifest.target, pert_spec);
             perturbation->apply();
+            active_perturbations.push_back(std::move(perturbation));
         }
 
         SPDLOG_INFO("All perturbations applied successfully.");
+
+        if (manifest.duration_s.has_value() && manifest.duration_s.value() > 0) {
+            SPDLOG_INFO("Waiting {}s for faults to inject...", manifest.duration_s.value());
+            std::this_thread::sleep_for(std::chrono::seconds(manifest.duration_s.value()));
+        }
 
         // Evaluate manifest expectations
         if (!manifest.expectations.empty()) {

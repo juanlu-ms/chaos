@@ -359,3 +359,37 @@ TEST(PerturbationTests, NetworkCutoffApplyCallsExecWithIptablesDropRules) {
     perturbations::NetworkCutoffPerturbation pert(mockEngine, "target", spec);
     EXPECT_NO_THROW(pert.apply());
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Revert Tests (Phase 7)
+// ═══════════════════════════════════════════════════════════════════════
+
+TEST(PerturbationTests, CpuCapRevertCallsUpdateResourcesWithZeroQuota) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"cpu_cap", {{"quota", "50000"}}};
+
+    testing::InSequence seq;
+    EXPECT_CALL(*mockEngine, updateResources(std::string_view("target"), 0, 50000, 100000)).Times(1);
+    EXPECT_CALL(*mockEngine, updateResources(std::string_view("target"), 0, 0, 0)).Times(1);
+    
+    perturbations::CpuCapPerturbation pert(mockEngine, "target", spec);
+    pert.apply();
+    EXPECT_NO_THROW(pert.revert());
+}
+
+TEST(PerturbationTests, NetworkCutoffRevertCallsExecWithDeleteRules) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"network_cutoff", {}};
+
+    testing::InSequence seq;
+    // apply() calls addRule(OUTPUT first, then INPUT) — each calls exec with "iptables -A ..."
+    // revertCommands_ is populated in same order, so revert() calls "iptables -D OUTPUT ..." then "iptables -D INPUT ..."
+    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -A OUTPUT -j DROP"))).WillOnce(Return(std::string{}));
+    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -A INPUT -j DROP"))).WillOnce(Return(std::string{}));
+    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -D OUTPUT -j DROP"))).WillOnce(Return(std::string{}));
+    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -D INPUT -j DROP"))).WillOnce(Return(std::string{}));
+        
+    perturbations::NetworkCutoffPerturbation pert(mockEngine, "target", spec);
+    pert.apply();
+    EXPECT_NO_THROW(pert.revert());
+}

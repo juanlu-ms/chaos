@@ -332,4 +332,39 @@ TEST_F(ManifestParserUnitTest, TargetMissingBothIdAndNameThrows) {
                  chaos::orchestrator::manifests::ManifestParserError);
 }
 
+/**
+ * @test Verifies that duration_s is parsed successfully.
+ */
+TEST_F(ManifestParserUnitTest, DurationSIsParsed) {
+    const auto file = createTempManifest(R"json(
+{
+  "test_name": "duration-test",
+  "target": { "id": "my-container" },
+  "perturbations": [],
+  "expectations": [],
+  "duration_s": 15
+}
+)json");
+
+    const auto manifest = ManifestParser::parseFromFile(file);
+    EXPECT_TRUE(manifest.duration_s.has_value());
+    EXPECT_EQ(manifest.duration_s.value(), 15u);
+}
+
+/**
+ * @test Verifies that duration_s absence does not throw.
+ */
+TEST_F(ManifestParserUnitTest, DurationOmissionParses) {
+    const auto file = createTempManifest(R"json(
+{
+  "test_name": "no-duration-test",
+  "target": { "id": "my-container" },
+  "perturbations": []
+}
+)json");
+
+    const auto manifest = ManifestParser::parseFromFile(file);
+    EXPECT_FALSE(manifest.duration_s.has_value());
+}
+
 }  // namespace

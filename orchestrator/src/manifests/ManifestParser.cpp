@@ -66,6 +66,11 @@ void from_json(const nlohmann::json& j, ChaosManifest& m) {
     if (j.contains("expectations")) {
         j.at("expectations").get_to(m.expectations);
     }
+    if (j.contains("duration_s")) {
+        uint32_t val;
+        j.at("duration_s").get_to(val);
+        m.duration_s = val;
+    }
 }
 
 ChaosManifest ManifestParser::parseFromFile(const std::string& filepath) {

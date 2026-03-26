@@ -5,6 +5,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include <optional>
+#include <cstdint>
+
 namespace chaos::orchestrator::manifests {
 
 struct TransparentStringHash {
@@ -42,6 +45,7 @@ struct ChaosManifest {
     Target target;
     std::vector<Perturbation> perturbations;
     std::vector<Expectation> expectations;
+    std::optional<uint32_t> duration_s;
 };
 
 }  // namespace chaos::orchestrator::manifests

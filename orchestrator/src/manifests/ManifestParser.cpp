@@ -2,10 +2,73 @@
 
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <string_view>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 #include "manifests/Manifest.hpp"
 
 namespace chaos::orchestrator::manifests {
+
+namespace {
+
+struct TransparentStringHash {
+    using is_transparent = void;
+
+    [[nodiscard]] std::size_t operator()(std::string_view value) const noexcept {
+        return std::hash<std::string_view>{}(value);
+    }
+};
+
+struct RequiredParameterRule {
+    std::string parameter;
+    std::string errorMessage;
+};
+
+using StringSet = std::unordered_set<std::string, TransparentStringHash, std::equal_to<>>;
+using RuleMap =
+    std::unordered_map<std::string, std::vector<RequiredParameterRule>, TransparentStringHash, std::equal_to<>>;
+
+const StringSet kSupportedPerturbations = {"kill",          "memory_cap",     "cpu_cap",
+                                           "network_delay", "network_cutoff", "garbage_packet"};
+
+const RuleMap kPerturbationRequiredParams = {
+    {"memory_cap", {{"limit_bytes", "Missing 'limit_bytes' parameter for memory_cap perturbation"}}},
+    {"cpu_cap",
+     {{"quota", "Missing 'quota' parameter for cpu_cap perturbation"},
+      {"period", "Missing 'period' parameter for cpu_cap perturbation"}}},
+    {"network_delay", {{"delay_ms", "Missing 'delay_ms' parameter for network_delay perturbation"}}}};
+
+const StringSet kSupportedExpectations = {"container_running", "container_not_running", "log_contains",
+                                          "log_not_contains",  "http_status",           "http_latency"};
+
+const RuleMap kExpectationRequiredParams = {
+    {"log_contains", {{"substring", "Missing 'substring' parameter for log expectation"}}},
+    {"log_not_contains", {{"substring", "Missing 'substring' parameter for log expectation"}}},
+    {"http_status",
+     {{"port", "Missing 'port' parameter for http_status expectation"},
+      {"path", "Missing 'path' parameter for http_status expectation"},
+      {"expected_status", "Missing 'expected_status' parameter for http_status expectation"}}},
+    {"http_latency",
+     {{"port", "Missing 'port' parameter for http_latency expectation"},
+      {"path", "Missing 'path' parameter for http_latency expectation"},
+      {"max_latency_ms", "Missing 'max_latency_ms' parameter for http_latency expectation"}}}};
+
+void validateRequiredParameters(const std::string& type, const nlohmann::json& parameters, const RuleMap& rules) {
+    const auto it = rules.find(type);
+    if (it == rules.end()) {
+        return;
+    }
+
+    for (const auto& rule : it->second) {
+        if (!parameters.contains(rule.parameter)) {
+            throw ManifestParserError(rule.errorMessage);
+        }
+    }
+}
+
+}  // namespace
 
 void from_json(const nlohmann::json& j, Target& t) {
     if (j.contains("id")) {
@@ -19,44 +82,28 @@ void from_json(const nlohmann::json& j, Target& t) {
 
 void from_json(const nlohmann::json& j, Perturbation& p) {
     j.at("type").get_to(p.type);
-    if (p.type != "kill" && p.type != "memory_cap" && p.type != "cpu_cap" && p.type != "network_delay" &&
-        p.type != "network_cutoff" && p.type != "garbage_packet") {
+    if (!kSupportedPerturbations.contains(p.type)) {
         throw ManifestParserError("Unsupported perturbation type: " + p.type);
     }
+
     if (j.contains("parameters")) {
         j.at("parameters").get_to(p.parameters);
     }
 
-    if (p.type == "memory_cap" && !p.parameters.contains("limit_bytes")) {
-        throw ManifestParserError("Missing 'limit_bytes' parameter for memory_cap perturbation");
-    }
-
-    if (p.type == "cpu_cap") {
-        if (!p.parameters.contains("quota")) {
-            throw ManifestParserError("Missing 'quota' parameter for cpu_cap perturbation");
-        }
-        if (!p.parameters.contains("period")) {
-            throw ManifestParserError("Missing 'period' parameter for cpu_cap perturbation");
-        }
-    }
-
-    if (p.type == "network_delay" && !p.parameters.contains("delay_ms")) {
-        throw ManifestParserError("Missing 'delay_ms' parameter for network_delay perturbation");
-    }
+    validateRequiredParameters(p.type, p.parameters, kPerturbationRequiredParams);
 }
 
 void from_json(const nlohmann::json& j, Expectation& e) {
     j.at("type").get_to(e.type);
-    if (e.type != "container_running" && e.type != "container_not_running" && e.type != "log_contains" &&
-        e.type != "log_not_contains") {
+    if (!kSupportedExpectations.contains(e.type)) {
         throw ManifestParserError("Unsupported expectation type: " + e.type);
     }
+
     if (j.contains("parameters")) {
         j.at("parameters").get_to(e.parameters);
     }
-    if ((e.type == "log_contains" || e.type == "log_not_contains") && !e.parameters.contains("substring")) {
-        throw ManifestParserError("Missing 'substring' parameter for log expectation");
-    }
+
+    validateRequiredParameters(e.type, e.parameters, kExpectationRequiredParams);
 }
 
 void from_json(const nlohmann::json& j, ChaosManifest& m) {

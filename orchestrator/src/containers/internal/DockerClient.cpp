@@ -146,8 +146,7 @@ std::string DockerClient::exec(const std::string_view containerId, const std::st
         request_(HttpMethod::POST, fmt::format("/containers/{}/exec", containerId), execConfig.dump());
     if (createResponse.status != 201) {
         SPDLOG_ERROR("Docker exec create failed with status {}: {}", createResponse.status, createResponse.body);
-        throw containers::ContainerEngineApiError(
-            fmt::format("Docker API returned status {}", createResponse.status));
+        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", createResponse.status));
     }
 
     auto createJson = parseResponse(createResponse);
@@ -224,7 +223,8 @@ std::string DockerClient::getLogs(const std::string_view containerId) {
     return response.body;
 }
 
-void DockerClient::updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota, int64_t cpu_period) {
+void DockerClient::updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota,
+                                   int64_t cpu_period) {
     if (containerId.empty()) {
         throw std::invalid_argument("Container ID must not be empty");
     }
@@ -244,9 +244,11 @@ void DockerClient::updateResources(const std::string_view containerId, int64_t m
     SPDLOG_DEBUG("Updating resources for container {}: {}", containerId, updateConfig.dump());
 
     const std::string endpoint = fmt::format("/containers/{}/update", containerId);
-    const auto response = request_(HttpMethod::POST, endpoint, updateConfig.dump());
 
-    if (response.status != 200) {
+    if (const auto response = request_(HttpMethod::POST, endpoint, updateConfig.dump()); response.status != 200) {
+        if (memory_bytes == 0 && cpu_quota == 0 && cpu_period == 0) {
+            SPDLOG_INFO("Reverting resources for container '{}'", containerId);
+        }
         throw containers::ContainerEngineApiError(
             fmt::format("Failed to update resources for container '{}': HTTP {}", containerId, response.status));
     }
@@ -270,7 +272,7 @@ std::string DockerClient::getContainerIp(const std::string_view containerId) {
     }
 
     auto jsonResponse = parseResponse(response);
-    
+
     if (jsonResponse.contains("NetworkSettings") && jsonResponse["NetworkSettings"].contains("Networks")) {
         auto& networks = jsonResponse["NetworkSettings"]["Networks"];
         if (networks.is_object() && !networks.empty()) {

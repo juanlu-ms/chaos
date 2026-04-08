@@ -33,6 +33,8 @@ struct ValidationResult {
  * - container_not_running
  * - log_contains
  * - log_not_contains
+ * - http_status
+ * - http_latency
  */
 class ValidationEngine {
 public:

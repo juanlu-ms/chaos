@@ -1,3 +1,8 @@
+/**
+ * @file GarbagePacketPerturbation.hpp
+ * @brief Perturbation that injects garbage packets into container traffic.
+ */
+
 #pragma once
 
 #include <string>

@@ -1,3 +1,8 @@
+/**
+ * @file IContainerEngine.hpp
+ * @brief Port for container engine operations and related exceptions.
+ */
+
 #pragma once
 
 #include <stdexcept>
@@ -9,21 +14,25 @@
 
 namespace chaos::orchestrator::containers {
 
+/** @brief Base exception for container engine errors. */
 class ContainerEngineError : public std::runtime_error {
 public:
     using std::runtime_error::runtime_error;
 };
 
+/** @brief Exception thrown for transport-level errors. */
 class ContainerEngineTransportError : public ContainerEngineError {
 public:
     using ContainerEngineError::ContainerEngineError;
 };
 
+/** @brief Exception thrown for API-level errors. */
 class ContainerEngineApiError : public ContainerEngineError {
 public:
     using ContainerEngineError::ContainerEngineError;
 };
 
+/** @brief Exception thrown for response parsing errors. */
 class ContainerEngineParseError : public ContainerEngineError {
 public:
     using ContainerEngineError::ContainerEngineError;

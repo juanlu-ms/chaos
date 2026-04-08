@@ -1,3 +1,8 @@
+/**
+ * @file PerturbationFactory.hpp
+ * @brief Concrete factory class to instantiate IPerturbation objects.
+ */
+
 #pragma once
 
 #include <memory>

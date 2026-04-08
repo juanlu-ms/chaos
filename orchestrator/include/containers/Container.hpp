@@ -1,3 +1,8 @@
+/**
+ * @file Container.hpp
+ * @brief Represents a Docker container summary.
+ */
+
 #pragma once
 
 #include <string>

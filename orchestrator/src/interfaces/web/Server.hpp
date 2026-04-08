@@ -1,3 +1,8 @@
+/**
+ * @file Server.hpp
+ * @brief HTTP server exposing the web API.
+ */
+
 #pragma once
 
 #include <httplib.h>

@@ -1,3 +1,8 @@
+/**
+ * @file DockerClient.hpp
+ * @brief Docker Engine adapter implementing the container engine port.
+ */
+
 #pragma once
 
 #include <functional>
@@ -116,11 +121,19 @@ public:
 
     /**
      * @brief Update container resources (CPU, Memory) via Docker Engine API.
+     * @param containerId Docker container ID.
+     * @param memory_bytes Max memory in bytes (0 to ignore).
+     * @param cpu_quota CPU quota in microseconds (0 to ignore).
+     * @param cpu_period CPU period in microseconds (0 to ignore).
+     * @throws std::exception On transport or API errors.
      */
     void updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota, int64_t cpu_period) override;
 
     /**
      * @brief Fetch the primary IP address of a running container.
+     * @param containerId Docker container ID.
+     * @return IPv4 address as a string.
+     * @throws std::exception On transport, API, or missing network info.
      */
     std::string getContainerIp(const std::string_view containerId) override;
 

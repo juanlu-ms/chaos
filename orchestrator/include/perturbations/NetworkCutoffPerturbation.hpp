@@ -1,3 +1,8 @@
+/**
+ * @file NetworkCutoffPerturbation.hpp
+ * @brief Perturbation that drops network traffic for a container.
+ */
+
 #pragma once
 
 #include <string>

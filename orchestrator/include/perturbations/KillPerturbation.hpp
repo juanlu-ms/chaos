@@ -1,3 +1,8 @@
+/**
+ * @file KillPerturbation.hpp
+ * @brief Perturbation that forcefully stops/kills a target container.
+ */
+
 #pragma once
 
 #include "perturbations/IPerturbation.hpp"
@@ -10,6 +15,11 @@ namespace chaos::orchestrator::perturbations {
  */
 class KillPerturbation final : public IPerturbation {
 public:
+    /**
+     * @brief Construct a KillPerturbation.
+     * @param engine Container engine instance.
+     * @param target_id Target container ID.
+     */
     explicit KillPerturbation(std::shared_ptr<containers::IContainerEngine> engine, std::string target_id);
     ~KillPerturbation() override = default;
 

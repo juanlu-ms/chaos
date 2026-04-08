@@ -1,3 +1,8 @@
+/**
+ * @file ManifestParser.hpp
+ * @brief Utilities to parse chaos manifests from JSON.
+ */
+
 #pragma once
 
 #include <stdexcept>
@@ -7,11 +12,13 @@
 
 namespace chaos::orchestrator::manifests {
 
+/** @brief Exception thrown when manifest parsing fails. */
 class ManifestParserError : public std::runtime_error {
 public:
     using std::runtime_error::runtime_error;
 };
 
+/** @brief Parser for chaos manifests. */
 class ManifestParser {
 public:
     /**

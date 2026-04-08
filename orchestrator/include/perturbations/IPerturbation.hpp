@@ -1,3 +1,8 @@
+/**
+ * @file IPerturbation.hpp
+ * @brief Interfaces for defining and creating perturbations.
+ */
+
 #pragma once
 
 #include <memory>

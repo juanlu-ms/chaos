@@ -1,3 +1,8 @@
+/**
+ * @file NetworkDelayPerturbation.hpp
+ * @brief Perturbation that restricts a target's network interface using tc.
+ */
+
 #pragma once
 
 #include "manifests/Manifest.hpp"
@@ -10,6 +15,12 @@ namespace chaos::orchestrator::perturbations {
  */
 class NetworkDelayPerturbation final : public IPerturbation {
 public:
+    /**
+     * @brief Construct a NetworkDelayPerturbation.
+     * @param engine Container engine instance.
+     * @param target_id Target container ID.
+     * @param spec Perturbation specification from manifest.
+     */
     explicit NetworkDelayPerturbation(std::shared_ptr<containers::IContainerEngine> engine, std::string target_id,
                                       const manifests::Perturbation& spec);
     ~NetworkDelayPerturbation() override = default;

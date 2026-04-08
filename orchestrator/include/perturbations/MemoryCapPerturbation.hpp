@@ -1,3 +1,8 @@
+/**
+ * @file MemoryCapPerturbation.hpp
+ * @brief Perturbation that restricts a target's memory using cgroups.
+ */
+
 #pragma once
 
 #include "manifests/Manifest.hpp"
@@ -10,6 +15,12 @@ namespace chaos::orchestrator::perturbations {
  */
 class MemoryCapPerturbation final : public IPerturbation {
 public:
+    /**
+     * @brief Construct a MemoryCapPerturbation.
+     * @param engine Container engine instance.
+     * @param target_id Target container ID.
+     * @param spec Perturbation specification from manifest.
+     */
     explicit MemoryCapPerturbation(std::shared_ptr<containers::IContainerEngine> engine, std::string target_id,
                                    const manifests::Perturbation& spec);
     ~MemoryCapPerturbation() override = default;

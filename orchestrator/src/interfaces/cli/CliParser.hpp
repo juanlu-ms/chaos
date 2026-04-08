@@ -1,3 +1,8 @@
+/**
+ * @file CliParser.hpp
+ * @brief Command-line interface adapter for the chaos orchestrator.
+ */
+
 #pragma once
 
 #include <containers/IContainerEngine.hpp>
@@ -70,6 +75,11 @@ private:
      */
     int handleRun(const std::string& manifestPath) const;
 
+    /**
+     * @brief Internal helper to dispatch the parsed command.
+     * @param args The arguments to parse.
+     * @return Exit code (0 on success, non-zero on error).
+     */
     int dispatchCommand(const std::vector<std::string>& args) const;
 };
 

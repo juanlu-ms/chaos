@@ -1,5 +1,7 @@
-/// @file ObservabilityEngine.hpp
-/// @brief Engine for inspecting container state and retrieving logs.
+/**
+ * @file ObservabilityEngine.hpp
+ * @brief Engine for inspecting container state and retrieving logs.
+ */
 
 #pragma once
 
@@ -19,6 +21,10 @@ namespace chaos::orchestrator::observability {
  */
 class ObservabilityEngine {
 public:
+    /**
+     * @brief Construct a new ObservabilityEngine.
+     * @param engine Container engine instance to wrap.
+     */
     explicit ObservabilityEngine(std::shared_ptr<containers::IContainerEngine> engine);
 
     /**

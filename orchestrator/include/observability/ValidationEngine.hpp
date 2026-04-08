@@ -1,5 +1,7 @@
-/// @file ValidationEngine.hpp
-/// @brief Evaluates manifest-defined expectations against observed container state.
+/**
+ * @file ValidationEngine.hpp
+ * @brief Evaluates manifest-defined expectations against observed container state.
+ */
 
 #pragma once
 
@@ -15,8 +17,11 @@ namespace chaos::orchestrator::observability {
  * @brief Result of evaluating a single expectation.
  */
 struct ValidationResult {
+    /** @brief True if the expectation was met. */
     bool passed;
+    /** @brief The type of expectation evaluated. */
     std::string expectationType;
+    /** @brief Explanatory message for the result. */
     std::string message;
 };
 
@@ -31,6 +36,10 @@ struct ValidationResult {
  */
 class ValidationEngine {
 public:
+    /**
+     * @brief Construct a new ValidationEngine.
+     * @param obs Observability engine for querying state.
+     */
     explicit ValidationEngine(ObservabilityEngine obs);
 
     /**

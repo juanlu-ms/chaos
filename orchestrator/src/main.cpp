@@ -1,3 +1,8 @@
+/**
+ * @file main.cpp
+ * @brief Entry point for the chaos orchestrator.
+ */
+
 #include <spdlog/spdlog.h>
 
 #include <containers/ContainerEngineFactory.hpp>
@@ -9,6 +14,8 @@ using chaos::orchestrator::interfaces::cli::CliParser;
 
 /**
  * @brief Orchestrator entry point.
+ * @param argc Argument count.
+ * @param argv Argument vector.
  * @return Exit code (0 on success, 1 on failure).
  */
 int main(int argc, char* argv[]) {

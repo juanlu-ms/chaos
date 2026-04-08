@@ -39,12 +39,18 @@ void CpuCapPerturbation::apply() {
         throw std::invalid_argument("Missing quota parameter");
     }
 
+    auto period_it = params_.find("period");
+    if (period_it == params_.end()) {
+        throw std::invalid_argument("Missing period parameter");
+    }
+
     const std::string& quota = limit_it->second;
+    const std::string& period = period_it->second;
 
     try {
-        engine_->updateResources(target_id_, 0, std::stoll(quota), 100000);
+        engine_->updateResources(target_id_, 0, std::stoll(quota), std::stoll(period));
         hasBeenApplied_ = true;
-        SPDLOG_INFO("CPU Cap Perturbation applied: quota={}us/100000us on target {}", quota, target_id_);
+        SPDLOG_INFO("CPU Cap Perturbation applied: quota={}us/{}us on target {}", quota, period, target_id_);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
                                 std::string("Failed to apply CPU cap: ") + e.what());

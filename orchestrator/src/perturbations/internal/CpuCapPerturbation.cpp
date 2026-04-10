@@ -15,6 +15,10 @@
 
 namespace chaos::orchestrator::perturbations {
 
+namespace {
+constexpr std::string_view kDefaultCpuPeriodUs = "100000";
+}
+
 CpuCapPerturbation::CpuCapPerturbation(std::shared_ptr<containers::IContainerEngine> engine, std::string target_id,
                                        const manifests::Perturbation& spec)
     : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
@@ -39,13 +43,10 @@ void CpuCapPerturbation::apply() {
         throw std::invalid_argument("Missing quota parameter");
     }
 
-    auto period_it = params_.find("period");
-    if (period_it == params_.end()) {
-        throw std::invalid_argument("Missing period parameter");
-    }
-
     const std::string& quota = limit_it->second;
-    const std::string& period = period_it->second;
+    const auto period_it = params_.find("period");
+    const std::string period =
+        (period_it == params_.end()) ? std::string{kDefaultCpuPeriodUs} : period_it->second;
 
     try {
         engine_->updateResources(target_id_, 0, std::stoll(quota), std::stoll(period));

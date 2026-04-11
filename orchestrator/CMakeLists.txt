@@ -18,7 +18,11 @@ set(ORCHESTRATOR_SOURCES
     src/perturbations/internal/NetworkCutoffPerturbation.cpp
     src/perturbations/internal/GarbagePacketPerturbation.cpp
     src/observability/ObservabilityEngine.cpp
-    src/observability/ValidationEngine.cpp
+    src/validation/ValidationFactory.cpp
+    src/validation/ValidationEngine.cpp
+    src/validation/internal/ContainerStateValidation.cpp
+    src/validation/internal/LogValidation.cpp
+    src/validation/internal/HttpValidation.cpp
 )
 
 add_library(orchestrator_core STATIC ${ORCHESTRATOR_SOURCES})

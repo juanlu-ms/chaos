@@ -14,6 +14,9 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -34,6 +37,9 @@ TuiApp::TuiApp(std::shared_ptr<containers::IContainerEngine> engine)
 int TuiApp::run() {
     using namespace ftxui;
 
+    // ── CWD hint shown next to the manifest input ─────────────────────────────
+    const std::string cwd = std::filesystem::current_path().string();
+
     // ── Shared State (guarded for background thread) ──────────────────────────
     std::mutex state_mutex;
     std::vector<containers::Container> containers;
@@ -42,16 +48,43 @@ int TuiApp::run() {
     std::string manifest_path;
     std::vector<std::string> output_lines;
     std::atomic<bool> run_in_progress{false};
+    std::string status_msg;  // transient status bar message (e.g. "Exported to...")
 
     auto screen = ScreenInteractive::Fullscreen();
 
-    // Helper: push a line to output and request a redraw from any thread
+    // Helper: push a line to output and trigger a redraw from any thread
     auto push_output = [&](std::string line) {
         {
             std::lock_guard<std::mutex> lock(state_mutex);
             output_lines.push_back(std::move(line));
         }
         screen.PostEvent(Event::Custom);
+    };
+
+    // Export output lines to a timestamped file in CWD
+    auto export_output = [&] {
+        std::lock_guard<std::mutex> lock(state_mutex);
+        if (output_lines.empty()) {
+            status_msg = "Nothing to export.";
+            return;
+        }
+        // Build a filename like chaos-output-20260413-212345.txt
+        const auto now = std::chrono::system_clock::now();
+        const auto t = std::chrono::system_clock::to_time_t(now);
+        char ts[32];
+        std::strftime(ts, sizeof(ts), "%Y%m%d-%H%M%S", std::localtime(&t));
+        const std::string filename =
+            fmt::format("{}/chaos-output-{}.txt", cwd, ts);
+
+        std::ofstream out(filename);
+        if (!out) {
+            status_msg = fmt::format("Export failed: could not write to {}", filename);
+            return;
+        }
+        for (const auto& line : output_lines) {
+            out << line << "\n";
+        }
+        status_msg = fmt::format("Exported → {}", filename);
     };
 
     auto refresh_containers = [&] {
@@ -62,7 +95,6 @@ int TuiApp::run() {
             for (const auto& c : fresh) {
                 const std::string display_id =
                     c.id.size() > 12 ? c.id.substr(0, 12) : c.id;
-                // Fixed-width columns to prevent overflow
                 labels.push_back(
                     fmt::format("{:<13} {:<22} {}", display_id, c.name, c.state));
             }
@@ -128,7 +160,8 @@ int TuiApp::run() {
         }
     });
 
-    auto manifest_input = Input(&manifest_path, "path/to/manifest.json");
+    // Manifest input: placeholder shows CWD so user knows what base path to use
+    auto manifest_input = Input(&manifest_path, cwd + "/examples/...");
 
     auto btn_run = Button("Run", [&] {
         if (run_in_progress.load()) {
@@ -140,15 +173,14 @@ int TuiApp::run() {
             return;
         }
 
-        // Snapshot path before handing off to thread
         const std::string path_snapshot = manifest_path;
 
-        // Launch in background thread so the UI stays responsive
         std::thread([&, path_snapshot] {
             run_in_progress.store(true);
             {
                 std::lock_guard<std::mutex> lock(state_mutex);
                 output_lines.clear();
+                status_msg.clear();
             }
             screen.PostEvent(Event::Custom);
 
@@ -163,7 +195,6 @@ int TuiApp::run() {
                 if (manifest.duration_s.has_value() && manifest.duration_s.value() > 0) {
                     const int secs = manifest.duration_s.value();
                     push_output(fmt::format("  ⏳ Waiting {}s for faults to propagate...", secs));
-                    // Sleep in 1-second ticks so the UI keeps ticking
                     for (int i = 0; i < secs; ++i) {
                         std::this_thread::sleep_for(std::chrono::seconds(1));
                         push_output(fmt::format("  ⏳ {}s / {}s", i + 1, secs));
@@ -186,6 +217,7 @@ int TuiApp::run() {
                 push_output(passed ? ">>> PASSED ✅" : ">>> FAILED ❌");
             } catch (const std::exception& ex) {
                 push_output(fmt::format("❌ Error: {}", ex.what()));
+                push_output(fmt::format("  (Working directory: {})", cwd));
             }
 
             run_in_progress.store(false);
@@ -200,16 +232,17 @@ int TuiApp::run() {
 
     // ── Renderer ─────────────────────────────────────────────────────────────
     auto renderer = Renderer(layout, [&] {
-        // Snapshot shared state under lock
         std::vector<std::string> snap_output;
         bool in_progress = false;
+        std::string snap_status;
         {
             std::lock_guard<std::mutex> lock(state_mutex);
             snap_output = output_lines;
             in_progress = run_in_progress.load();
+            snap_status = status_msg;
         }
 
-        // Build output elements — truncate long lines so they never overflow
+        // Build output elements
         Elements out_elems;
         out_elems.reserve(snap_output.size());
         for (const auto& line : snap_output) {
@@ -228,23 +261,26 @@ int TuiApp::run() {
                 : container_menu->Render() | vscroll_indicator | frame | flex;
         }
 
+        // Status bar content
+        const std::string status_text = snap_status.empty()
+            ? fmt::format(" CWD: {}  |  [e] Export output  |  [q/ESC] Quit", cwd)
+            : fmt::format(" {}", snap_status);
+
         return vbox({
                    // ── Title bar ──────────────────────────────────────────────
                    hbox({
                        text(" 🔥 Chaos Orchestrator TUI") | bold | flex,
-                       text(in_progress ? " ⏳ Running... " : " [q/ESC] Quit ") | dim,
+                       text(in_progress ? " ⏳ Running... " : " ") | dim,
                    }) | color(Color::White) | bgcolor(Color::Blue),
 
                    // ── Main split: containers | actions ──────────────────────
                    hbox({
-                       // Left panel: container list
                        vbox({
                            text(" CONTAINERS") | bold,
                            separator(),
                            container_panel,
                        }) | border | flex,
 
-                       // Right panel: action buttons
                        vbox({
                            text(" ACTIONS") | bold,
                            separator(),
@@ -262,19 +298,30 @@ int TuiApp::run() {
                        btn_run->Render(),
                    }) | border,
 
-                   // ── Output pane (dedicated, separate from containers) ──────
+                   // ── Output pane ────────────────────────────────────────────
                    vbox({
-                       text(" Output:") | bold,
+                       hbox({
+                           text(" Output:") | bold | flex,
+                           text(" [e] export ") | dim,
+                       }),
                        separator(),
                        vbox(std::move(out_elems)) | vscroll_indicator | frame | flex,
                    }) | border | size(HEIGHT, LESS_THAN, 14),
+
+                   // ── Status bar ─────────────────────────────────────────────
+                   text(status_text) | dim,
                });
     });
 
-    // Catch quit keys
+    // Global key handler
     auto final_renderer = CatchEvent(renderer, [&](Event event) -> bool {
         if (event == Event::Character('q') || event == Event::Escape) {
             screen.ExitLoopClosure()();
+            return true;
+        }
+        if (event == Event::Character('e')) {
+            export_output();
+            screen.PostEvent(Event::Custom);
             return true;
         }
         return false;

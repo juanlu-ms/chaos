@@ -10,6 +10,7 @@ set(ORCHESTRATOR_SOURCES
     src/interfaces/cli/CliParser.cpp
     src/interfaces/web/Server.cpp
     src/manifests/ManifestParser.cpp
+    src/perturbations/PerturbationEngine.cpp
     src/perturbations/PerturbationFactory.cpp
     src/perturbations/internal/KillPerturbation.cpp
     src/perturbations/internal/MemoryCapPerturbation.cpp

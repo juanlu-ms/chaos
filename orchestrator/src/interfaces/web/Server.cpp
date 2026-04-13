@@ -10,7 +10,7 @@
 
 #include "manifests/ManifestParser.hpp"
 #include "observability/ObservabilityEngine.hpp"
-#include "perturbations/PerturbationFactory.hpp"
+#include "perturbations/PerturbationEngine.hpp"
 #include "validation/ValidationEngine.hpp"
 
 using json = nlohmann::json;
@@ -162,11 +162,8 @@ void Server::setupRoutes() {
         }
         try {
             auto manifest = manifests::ManifestParser::parseFromJson(req.body);
-            perturbations::PerturbationFactory factory;
-            for (const auto& pert_spec : manifest.perturbations) {
-                auto p = factory.create(m_engine, manifest.target, pert_spec);
-                p->apply();
-            }
+            perturbations::PerturbationEngine pert_engine(m_engine);
+            pert_engine.applyAll(manifest);
 
             observability::ObservabilityEngine obs(m_engine);
             validation::ValidationEngine validator(std::move(obs));

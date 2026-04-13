@@ -6,13 +6,16 @@
 #include "interfaces/tui/TuiApp.hpp"
 
 #include <ftxui/component/component.hpp>
+#include <ftxui/component/event.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -31,32 +34,49 @@ TuiApp::TuiApp(std::shared_ptr<containers::IContainerEngine> engine)
 int TuiApp::run() {
     using namespace ftxui;
 
-    // ── State ────────────────────────────────────────────────────────────────
+    // ── Shared State (guarded for background thread) ──────────────────────────
+    std::mutex state_mutex;
     std::vector<containers::Container> containers;
     std::vector<std::string> container_labels;
     int selected = 0;
     std::string manifest_path;
     std::vector<std::string> output_lines;
+    std::atomic<bool> run_in_progress{false};
+
+    auto screen = ScreenInteractive::Fullscreen();
+
+    // Helper: push a line to output and request a redraw from any thread
+    auto push_output = [&](std::string line) {
+        {
+            std::lock_guard<std::mutex> lock(state_mutex);
+            output_lines.push_back(std::move(line));
+        }
+        screen.PostEvent(Event::Custom);
+    };
 
     auto refresh_containers = [&] {
         try {
-            containers = m_engine->listContainers();
-            container_labels.clear();
-            for (const auto& c : containers) {
+            auto fresh = m_engine->listContainers();
+            std::vector<std::string> labels;
+            labels.reserve(fresh.size());
+            for (const auto& c : fresh) {
                 const std::string display_id =
                     c.id.size() > 12 ? c.id.substr(0, 12) : c.id;
-                container_labels.push_back(
-                    fmt::format("{:<14} {:<28} {}", display_id, c.name, c.state));
+                // Fixed-width columns to prevent overflow
+                labels.push_back(
+                    fmt::format("{:<13} {:<22} {}", display_id, c.name, c.state));
+            }
+            std::lock_guard<std::mutex> lock(state_mutex);
+            containers = std::move(fresh);
+            container_labels = std::move(labels);
+            if (!container_labels.empty() &&
+                selected >= static_cast<int>(container_labels.size())) {
+                selected = static_cast<int>(container_labels.size()) - 1;
             }
         } catch (const std::exception& ex) {
-            output_lines.push_back(
-                fmt::format("ERROR listing containers: {}", ex.what()));
+            push_output(fmt::format("ERROR listing containers: {}", ex.what()));
         }
-        // Keep selection in range
-        if (!container_labels.empty() &&
-            selected >= static_cast<int>(container_labels.size())) {
-            selected = static_cast<int>(container_labels.size()) - 1;
-        }
+        screen.PostEvent(Event::Custom);
     };
 
     refresh_containers();
@@ -64,85 +84,113 @@ int TuiApp::run() {
     // ── Components ───────────────────────────────────────────────────────────
     auto container_menu = Menu(&container_labels, &selected);
 
-    auto btn_refresh = Button("  Refresh  ", [&] {
-        output_lines.clear();
+    auto btn_refresh = Button("Refresh", [&] {
         refresh_containers();
     });
 
-    auto btn_stop = Button("  Stop     ", [&] {
-        if (containers.empty() ||
-            selected < 0 ||
-            selected >= static_cast<int>(containers.size())) {
-            output_lines.push_back("No container selected.");
-            return;
+    auto btn_stop = Button("Stop", [&] {
+        containers::Container c;
+        {
+            std::lock_guard<std::mutex> lock(state_mutex);
+            if (containers.empty() || selected < 0 ||
+                selected >= static_cast<int>(containers.size())) {
+                output_lines.push_back("No container selected.");
+                return;
+            }
+            c = containers[static_cast<std::size_t>(selected)];
         }
         try {
-            const auto& c = containers[static_cast<std::size_t>(selected)];
             m_engine->stopContainer(c.id);
-            output_lines.push_back(fmt::format("✅ Stopped: {}", c.name));
+            push_output(fmt::format("✅ Stopped: {}", c.name));
             refresh_containers();
         } catch (const std::exception& ex) {
-            output_lines.push_back(fmt::format("❌ Stop failed: {}", ex.what()));
+            push_output(fmt::format("❌ Stop failed: {}", ex.what()));
         }
     });
 
-    auto btn_kill = Button("  Kill     ", [&] {
-        if (containers.empty() ||
-            selected < 0 ||
-            selected >= static_cast<int>(containers.size())) {
-            output_lines.push_back("No container selected.");
-            return;
+    auto btn_kill = Button("Kill", [&] {
+        containers::Container c;
+        {
+            std::lock_guard<std::mutex> lock(state_mutex);
+            if (containers.empty() || selected < 0 ||
+                selected >= static_cast<int>(containers.size())) {
+                output_lines.push_back("No container selected.");
+                return;
+            }
+            c = containers[static_cast<std::size_t>(selected)];
         }
         try {
-            const auto& c = containers[static_cast<std::size_t>(selected)];
             m_engine->killContainer(c.id);
-            output_lines.push_back(fmt::format("✅ Killed: {}", c.name));
+            push_output(fmt::format("✅ Killed: {}", c.name));
             refresh_containers();
         } catch (const std::exception& ex) {
-            output_lines.push_back(fmt::format("❌ Kill failed: {}", ex.what()));
+            push_output(fmt::format("❌ Kill failed: {}", ex.what()));
         }
     });
 
     auto manifest_input = Input(&manifest_path, "path/to/manifest.json");
 
-    auto btn_run = Button("  Run  ", [&] {
-        output_lines.clear();
-        if (manifest_path.empty()) {
-            output_lines.push_back("Please enter a manifest path.");
+    auto btn_run = Button("Run", [&] {
+        if (run_in_progress.load()) {
+            push_output("⚠ A run is already in progress.");
             return;
         }
-        try {
-            auto manifest = manifests::ManifestParser::parseFromFile(manifest_path);
-            output_lines.push_back(
-                fmt::format("▶ Running manifest: {}", manifest.test_name));
-
-            perturbations::PerturbationEngine pert(m_engine);
-            pert.applyAll(manifest);
-
-            if (manifest.duration_s.has_value() && manifest.duration_s.value() > 0) {
-                output_lines.push_back(
-                    fmt::format("  ⏳ Waiting {}s...", manifest.duration_s.value()));
-                std::this_thread::sleep_for(
-                    std::chrono::seconds(manifest.duration_s.value()));
-            }
-
-            observability::ObservabilityEngine obs(m_engine);
-            validation::ValidationEngine validator(std::move(obs));
-            const auto results =
-                validator.validate(manifest.target.id, manifest.expectations);
-
-            for (const auto& r : results) {
-                output_lines.push_back(fmt::format("  {} {}: {}",
-                    r.passed ? "✅" : "❌", r.expectationType, r.message));
-            }
-
-            const bool passed = std::all_of(
-                results.begin(), results.end(),
-                [](const auto& r) { return r.passed; });
-            output_lines.push_back(passed ? ">>> PASSED ✅" : ">>> FAILED ❌");
-        } catch (const std::exception& ex) {
-            output_lines.push_back(fmt::format("❌ Error: {}", ex.what()));
+        if (manifest_path.empty()) {
+            push_output("Please enter a manifest path.");
+            return;
         }
+
+        // Snapshot path before handing off to thread
+        const std::string path_snapshot = manifest_path;
+
+        // Launch in background thread so the UI stays responsive
+        std::thread([&, path_snapshot] {
+            run_in_progress.store(true);
+            {
+                std::lock_guard<std::mutex> lock(state_mutex);
+                output_lines.clear();
+            }
+            screen.PostEvent(Event::Custom);
+
+            try {
+                auto manifest = manifests::ManifestParser::parseFromFile(path_snapshot);
+                push_output(fmt::format("▶ Running: {}", manifest.test_name));
+
+                perturbations::PerturbationEngine pert(m_engine);
+                pert.applyAll(manifest);
+                push_output("  Perturbations applied.");
+
+                if (manifest.duration_s.has_value() && manifest.duration_s.value() > 0) {
+                    const int secs = manifest.duration_s.value();
+                    push_output(fmt::format("  ⏳ Waiting {}s for faults to propagate...", secs));
+                    // Sleep in 1-second ticks so the UI keeps ticking
+                    for (int i = 0; i < secs; ++i) {
+                        std::this_thread::sleep_for(std::chrono::seconds(1));
+                        push_output(fmt::format("  ⏳ {}s / {}s", i + 1, secs));
+                    }
+                }
+
+                observability::ObservabilityEngine obs(m_engine);
+                validation::ValidationEngine validator(std::move(obs));
+                const auto results =
+                    validator.validate(manifest.target.id, manifest.expectations);
+
+                for (const auto& r : results) {
+                    push_output(fmt::format("  {} {}: {}",
+                        r.passed ? "✅" : "❌", r.expectationType, r.message));
+                }
+
+                const bool passed = std::all_of(
+                    results.begin(), results.end(),
+                    [](const auto& r) { return r.passed; });
+                push_output(passed ? ">>> PASSED ✅" : ">>> FAILED ❌");
+            } catch (const std::exception& ex) {
+                push_output(fmt::format("❌ Error: {}", ex.what()));
+            }
+
+            run_in_progress.store(false);
+            screen.PostEvent(Event::Custom);
+        }).detach();
     });
 
     // ── Layout ───────────────────────────────────────────────────────────────
@@ -151,67 +199,76 @@ int TuiApp::run() {
     auto layout = Container::Vertical({container_menu, actions_col, manifest_row});
 
     // ── Renderer ─────────────────────────────────────────────────────────────
-    auto screen = ScreenInteractive::Fullscreen();
-
     auto renderer = Renderer(layout, [&] {
-        // Build output pane
+        // Snapshot shared state under lock
+        std::vector<std::string> snap_output;
+        bool in_progress = false;
+        {
+            std::lock_guard<std::mutex> lock(state_mutex);
+            snap_output = output_lines;
+            in_progress = run_in_progress.load();
+        }
+
+        // Build output elements — truncate long lines so they never overflow
         Elements out_elems;
-        for (const auto& line : output_lines) {
-            out_elems.push_back(text(line));
+        out_elems.reserve(snap_output.size());
+        for (const auto& line : snap_output) {
+            out_elems.push_back(text(line) | flex_shrink);
         }
         if (out_elems.empty()) {
             out_elems.push_back(text("(no output yet)") | dim);
         }
 
+        // Container list panel
+        Element container_panel;
+        {
+            std::lock_guard<std::mutex> lock(state_mutex);
+            container_panel = container_labels.empty()
+                ? text("  (no containers found)") | dim
+                : container_menu->Render() | vscroll_indicator | frame | flex;
+        }
+
         return vbox({
-                   // ── Title bar ──────────────────────────────────────────
+                   // ── Title bar ──────────────────────────────────────────────
                    hbox({
                        text(" 🔥 Chaos Orchestrator TUI") | bold | flex,
-                       text(" [q/ESC] Quit ") | dim,
+                       text(in_progress ? " ⏳ Running... " : " [q/ESC] Quit ") | dim,
                    }) | color(Color::White) | bgcolor(Color::Blue),
 
-                   separator(),
-
-                   // ── Main body: container list | actions ────────────────
+                   // ── Main split: containers | actions ──────────────────────
                    hbox({
+                       // Left panel: container list
                        vbox({
                            text(" CONTAINERS") | bold,
                            separator(),
-                           container_labels.empty()
-                               ? text("  (no containers found)") | dim
-                               : container_menu->Render() | frame | flex,
-                       }) | flex,
+                           container_panel,
+                       }) | border | flex,
 
-                       separator(),
-
+                       // Right panel: action buttons
                        vbox({
                            text(" ACTIONS") | bold,
                            separator(),
-                           btn_refresh->Render(),
-                           btn_stop->Render(),
-                           btn_kill->Render(),
-                       }) | size(WIDTH, EQUAL, 18),
+                           btn_refresh->Render() | hcenter,
+                           separator(),
+                           btn_stop->Render() | hcenter,
+                           btn_kill->Render() | hcenter,
+                       }) | border | size(WIDTH, EQUAL, 18),
                    }) | flex,
 
-                   separator(),
-
-                   // ── Manifest runner ────────────────────────────────────
+                   // ── Manifest runner row ────────────────────────────────────
                    hbox({
                        text(" Manifest: ") | bold,
                        manifest_input->Render() | flex,
                        btn_run->Render(),
-                   }),
+                   }) | border,
 
-                   separator(),
-
-                   // ── Output pane ────────────────────────────────────────
+                   // ── Output pane (dedicated, separate from containers) ──────
                    vbox({
                        text(" Output:") | bold,
                        separator(),
-                       vbox(std::move(out_elems)) | frame | flex,
-                   }) | size(HEIGHT, LESS_THAN, 12),
-               }) |
-               border;
+                       vbox(std::move(out_elems)) | vscroll_indicator | frame | flex,
+                   }) | border | size(HEIGHT, LESS_THAN, 14),
+               });
     });
 
     // Catch quit keys

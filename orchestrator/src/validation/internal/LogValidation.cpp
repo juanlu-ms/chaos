@@ -1,8 +1,8 @@
-#include "validation/internal/LogValidation.hpp"
+#include "validation/LogValidation.hpp"
 
 #include <fmt/format.h>
 
-namespace chaos::orchestrator::observability {
+namespace chaos::orchestrator::validation {
 
 ValidationResult LogContainsValidation::validate(const ValidationContext& ctx,
                                                  const manifests::Expectation& expectation) const {
@@ -28,4 +28,4 @@ ValidationResult LogNotContainsValidation::validate(const ValidationContext& ctx
     return result;
 }
 
-}  // namespace chaos::orchestrator::observability
+}  // namespace chaos::orchestrator::validation

@@ -1,21 +1,21 @@
 #include <spdlog/spdlog.h>
 
+#include <chrono>
 #include <interfaces/cli/CliParser.hpp>
 #include <interfaces/web/Server.hpp>
+#include <memory>
 #include <span>
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <thread>
 #include <utility>
 #include <vector>
-#include <chrono>
-#include <thread>
-#include <memory>
 
 #include "manifests/ManifestParser.hpp"
 #include "observability/ObservabilityEngine.hpp"
-#include "observability/ValidationEngine.hpp"
 #include "perturbations/PerturbationFactory.hpp"
+#include "validation/ValidationEngine.hpp"
 
 namespace chaos::orchestrator::interfaces::cli {
 
@@ -241,8 +241,8 @@ int CliParser::handleRun(const std::string& manifestPath) const {
         // Evaluate manifest expectations
         if (!manifest.expectations.empty()) {
             SPDLOG_INFO("Evaluating {} expectation(s)...", manifest.expectations.size());
-            observability::ObservabilityEngine obs(m_engine);
-            observability::ValidationEngine validator(std::move(obs));
+            chaos::orchestrator::observability::ObservabilityEngine obs(m_engine);
+            chaos::orchestrator::validation::ValidationEngine validator(std::move(obs));
             const auto results = validator.validate(manifest.target.id, manifest.expectations);
 
             bool anyFailed = false;

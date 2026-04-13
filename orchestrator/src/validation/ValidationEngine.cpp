@@ -1,18 +1,19 @@
 /// @file ValidationEngine.cpp
 /// @brief Evaluates manifest expectations against observed container state.
 
-#include "observability/ValidationEngine.hpp"
+#include "validation/ValidationEngine.hpp"
 
 #include <spdlog/spdlog.h>
 
 #include <string>
 #include <vector>
 
-#include "observability/ValidationFactory.hpp"
+#include "validation/ValidationFactory.hpp"
 
-namespace chaos::orchestrator::observability {
+namespace chaos::orchestrator::validation {
 
-ValidationEngine::ValidationEngine(ObservabilityEngine obs) : obs_(std::move(obs)) {}
+ValidationEngine::ValidationEngine(chaos::orchestrator::observability::ObservabilityEngine obs)
+    : obs_(std::move(obs)) {}
 
 std::vector<ValidationResult> ValidationEngine::validate(
     const std::string& containerId, const std::vector<manifests::Expectation>& expectations) const {
@@ -41,4 +42,4 @@ std::vector<ValidationResult> ValidationEngine::validate(
     return results;
 }
 
-}  // namespace chaos::orchestrator::observability
+}  // namespace chaos::orchestrator::validation

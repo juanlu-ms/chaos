@@ -10,8 +10,8 @@
 
 #include "manifests/ManifestParser.hpp"
 #include "observability/ObservabilityEngine.hpp"
-#include "observability/ValidationEngine.hpp"
 #include "perturbations/PerturbationFactory.hpp"
+#include "validation/ValidationEngine.hpp"
 
 using json = nlohmann::json;
 
@@ -171,8 +171,8 @@ void Server::setupRoutes() {
                 p->apply();
             }
 
-            observability::ObservabilityEngine obs(m_engine);
-            observability::ValidationEngine validator(std::move(obs));
+            chaos::orchestrator::observability::ObservabilityEngine obs(m_engine);
+            chaos::orchestrator::validation::ValidationEngine validator(std::move(obs));
             const auto results = validator.validate(manifest.target.id, manifest.expectations);
 
             bool passed = std::all_of(results.begin(), results.end(), [](const auto& r) { return r.passed; });
@@ -180,11 +180,7 @@ void Server::setupRoutes() {
             j["passed"] = passed;
             j["results"] = json::array();
             for (const auto& r : results) {
-                j["results"].push_back({
-                    {"type", r.expectationType},
-                    {"passed", r.passed},
-                    {"message", r.message}
-                });
+                j["results"].push_back({{"type", r.expectationType}, {"passed", r.passed}, {"message", r.message}});
             }
             res.status = passed ? 200 : 422;
             res.set_content(j.dump(4), "application/json");

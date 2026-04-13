@@ -5,9 +5,9 @@
 
 #pragma once
 
-#include "observability/IValidation.hpp"
+#include "IValidation.hpp"
 
-namespace chaos::orchestrator::observability {
+namespace chaos::orchestrator::validation {
 
 class LogContainsValidation final : public IValidation {
 public:
@@ -19,4 +19,4 @@ public:
     ValidationResult validate(const ValidationContext& ctx, const manifests::Expectation& expectation) const override;
 };
 
-}  // namespace chaos::orchestrator::observability
+}  // namespace chaos::orchestrator::validation

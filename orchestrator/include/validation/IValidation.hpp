@@ -7,17 +7,17 @@
 
 #include <string>
 
+#include "ValidationEngine.hpp"
 #include "manifests/Manifest.hpp"
 #include "observability/ObservabilityEngine.hpp"
-#include "observability/ValidationEngine.hpp"
 
-namespace chaos::orchestrator::observability {
+namespace chaos::orchestrator::validation {
 
 /**
  * @brief Shared context passed to concrete validation strategies.
  */
 struct ValidationContext {
-    const ObservabilityEngine& obs;
+    const chaos::orchestrator::observability::ObservabilityEngine& obs;
     const std::string& containerId;
     std::string& cachedLogs;
     bool& logsFetched;
@@ -49,4 +49,4 @@ public:
                                       const manifests::Expectation& expectation) const = 0;
 };
 
-}  // namespace chaos::orchestrator::observability
+}  // namespace chaos::orchestrator::validation

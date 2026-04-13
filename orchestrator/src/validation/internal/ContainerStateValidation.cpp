@@ -1,6 +1,6 @@
-#include "validation/internal/ContainerStateValidation.hpp"
+#include "validation/ContainerStateValidation.hpp"
 
-namespace chaos::orchestrator::observability {
+namespace chaos::orchestrator::validation {
 
 ValidationResult ContainerRunningValidation::validate(const ValidationContext& ctx,
                                                       const manifests::Expectation& expectation) const {
@@ -20,4 +20,4 @@ ValidationResult ContainerNotRunningValidation::validate(const ValidationContext
     return result;
 }
 
-}  // namespace chaos::orchestrator::observability
+}  // namespace chaos::orchestrator::validation

@@ -11,7 +11,7 @@
 #include "manifests/Manifest.hpp"
 #include "observability/ObservabilityEngine.hpp"
 
-namespace chaos::orchestrator::observability {
+namespace chaos::orchestrator::validation {
 
 /**
  * @brief Result of evaluating a single expectation.
@@ -42,7 +42,7 @@ public:
      * @brief Construct a new ValidationEngine.
      * @param obs Observability engine for querying state.
      */
-    explicit ValidationEngine(ObservabilityEngine obs);
+    explicit ValidationEngine(chaos::orchestrator::observability::ObservabilityEngine obs);
 
     /**
      * @brief Evaluate all expectations against the current container state.
@@ -54,7 +54,7 @@ public:
                                            const std::vector<manifests::Expectation>& expectations) const;
 
 private:
-    ObservabilityEngine obs_;
+    chaos::orchestrator::observability::ObservabilityEngine obs_;
 };
 
-}  // namespace chaos::orchestrator::observability
+}  // namespace chaos::orchestrator::validation

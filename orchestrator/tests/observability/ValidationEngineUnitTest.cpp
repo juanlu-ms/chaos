@@ -15,15 +15,15 @@
 #include "containers/Container.hpp"
 #include "manifests/Manifest.hpp"
 #include "observability/ObservabilityEngine.hpp"
-#include "observability/ValidationEngine.hpp"
+#include "validation/ValidationEngine.hpp"
 
 using namespace testing;
 using namespace chaos::orchestrator;
 
 namespace {
 
-observability::ValidationEngine makeEngine(std::shared_ptr<tests::MockContainerEngine> mock) {
-    return observability::ValidationEngine(observability::ObservabilityEngine(std::move(mock)));
+validation::ValidationEngine makeEngine(std::shared_ptr<tests::MockContainerEngine> mock) {
+    return validation::ValidationEngine(chaos::orchestrator::observability::ObservabilityEngine(std::move(mock)));
 }
 
 containers::Container makeContainer(std::string id, std::string state) {

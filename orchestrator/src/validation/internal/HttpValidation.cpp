@@ -1,4 +1,4 @@
-#include "validation/internal/HttpValidation.hpp"
+#include "validation/HttpValidation.hpp"
 
 #include <fmt/format.h>
 #include <httplib.h>
@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace chaos::orchestrator::observability {
+namespace chaos::orchestrator::validation {
 namespace validation_internal_detail {
 
 std::string getStringParamOrDefault(const manifests::Expectation& expectation, const std::string& key,
@@ -110,4 +110,4 @@ ValidationResult HttpLatencyValidation::validate(const ValidationContext& ctx,
     return result;
 }
 
-}  // namespace chaos::orchestrator::observability
+}  // namespace chaos::orchestrator::validation

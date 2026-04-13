@@ -1,12 +1,10 @@
-#include "observability/ValidationFactory.hpp"
+#include "validation/ValidationFactory.hpp"
 
-#include <stdexcept>
+#include "validation/ContainerStateValidation.hpp"
+#include "validation/HttpValidation.hpp"
+#include "validation/LogValidation.hpp"
 
-#include "validation/internal/ContainerStateValidation.hpp"
-#include "validation/internal/HttpValidation.hpp"
-#include "validation/internal/LogValidation.hpp"
-
-namespace chaos::orchestrator::observability {
+namespace chaos::orchestrator::validation {
 
 std::unique_ptr<IValidation> ValidationFactory::create(const manifests::Expectation& expectation) {
     if (expectation.type == "container_running") {
@@ -26,4 +24,4 @@ std::unique_ptr<IValidation> ValidationFactory::create(const manifests::Expectat
     throw std::invalid_argument("Unsupported expectation type or type not yet implemented: " + expectation.type);
 }
 
-}  // namespace chaos::orchestrator::observability
+}  // namespace chaos::orchestrator::validation

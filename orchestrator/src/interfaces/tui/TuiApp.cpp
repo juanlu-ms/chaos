@@ -36,7 +36,7 @@ int TuiApp::run() {
 
     const std::string cwd = std::filesystem::current_path().string();
 
-    // ── Shared State (guarded for background thread) ──────────────────────────
+    // ── Shared State ──────────────────────────────────────────────────────────
     std::mutex state_mutex;
     std::vector<containers::Container> containers;
     std::vector<std::string> container_labels;
@@ -45,12 +45,12 @@ int TuiApp::run() {
     std::vector<std::string> output_lines;
     std::atomic<bool> run_in_progress{false};
 
-    // ── Output scroll state ───────────────────────────────────────────────────
-    // scroll_offset = index of the first visible line.
-    // follow_tail = true  → always jump to the last line on new output (log mode).
-    // follow_tail = false → user has scrolled up manually; stop auto-following.
-    int scroll_offset = 0;
-    bool follow_tail = true;
+    // Wait progress: total_seconds == 0 means no active wait bar
+    std::atomic<int> wait_elapsed{0};
+    std::atomic<int> wait_total{0};
+
+    // Log scroll position: 0.0 = top, 1.0 = bottom
+    float log_scroll = 1.0F;
 
     auto screen = ScreenInteractive::Fullscreen();
 
@@ -59,6 +59,8 @@ int TuiApp::run() {
             std::lock_guard<std::mutex> lock(state_mutex);
             output_lines.push_back(std::move(line));
         }
+        // Auto-follow bottom when new output arrives
+        log_scroll = 1.0F;
         screen.PostEvent(Event::Custom);
     };
 
@@ -85,7 +87,7 @@ int TuiApp::run() {
 
     refresh_containers();
 
-    // ── Components ───────────────────────────────────────────────────────────
+    // ── Buttons ───────────────────────────────────────────────────────────────
     auto container_menu = Menu(&container_labels, &selected);
 
     auto btn_refresh = Button("Refresh", [&] { refresh_containers(); });
@@ -139,18 +141,17 @@ int TuiApp::run() {
             push_output("Please enter a manifest path.");
             return;
         }
-
         const std::string path_snapshot = manifest_path;
 
         std::thread([&, path_snapshot] {
             run_in_progress.store(true);
+            wait_elapsed.store(0);
+            wait_total.store(0);
             {
                 std::lock_guard<std::mutex> lock(state_mutex);
                 output_lines.clear();
             }
-            // Reset scroll to top / tail-follow for new run
-            scroll_offset = 0;
-            follow_tail = true;
+            log_scroll = 1.0F;
             screen.PostEvent(Event::Custom);
 
             try {
@@ -159,15 +160,20 @@ int TuiApp::run() {
 
                 perturbations::PerturbationEngine pert(m_engine);
                 pert.applyAll(manifest);
-                push_output("  Perturbations applied.");
+                push_output("  ✓ Perturbations applied.");
 
                 if (manifest.duration_s.has_value() && manifest.duration_s.value() > 0) {
-                    const unsigned int secs = manifest.duration_s.value();
-                    push_output(fmt::format("  ⏳ Waiting {}s for faults to propagate...", secs));
-                    for (unsigned int i = 0; i < secs; ++i) {
+                    const int secs = static_cast<int>(manifest.duration_s.value());
+                    wait_total.store(secs);
+                    wait_elapsed.store(0);
+                    screen.PostEvent(Event::Custom);
+                    for (int i = 0; i < secs; ++i) {
                         std::this_thread::sleep_for(std::chrono::seconds(1));
-                        push_output(fmt::format("  ⏳ {}s / {}s", i + 1, secs));
+                        wait_elapsed.store(i + 1);
+                        screen.PostEvent(Event::Custom);
                     }
+                    wait_total.store(0);  // hide bar when done
+                    push_output(fmt::format("  ✓ Waited {}s.", secs));
                 }
 
                 observability::ObservabilityEngine obs(m_engine);
@@ -177,7 +183,6 @@ int TuiApp::run() {
                 for (const auto& r : results) {
                     push_output(fmt::format("  {} {}: {}", r.passed ? "✅" : "❌", r.expectationType, r.message));
                 }
-
                 const bool passed = std::all_of(results.begin(), results.end(), [](const auto& r) { return r.passed; });
                 push_output(passed ? ">>> PASSED ✅" : ">>> FAILED ❌");
             } catch (const std::exception& ex) {
@@ -185,105 +190,100 @@ int TuiApp::run() {
                 push_output(fmt::format("  (Working directory: {})", cwd));
             }
 
+            wait_total.store(0);
             run_in_progress.store(false);
             screen.PostEvent(Event::Custom);
         }).detach();
     });
 
-    // ── Output scroller component ─────────────────────────────────────────────
-    // A proper CatchEvent-backed component so arrow/page keys actually work.
-    auto output_scroller = CatchEvent(
-        Renderer([&] {
-            std::vector<std::string> snap;
-            std::size_t total = 0;
-            {
-                std::lock_guard<std::mutex> lock(state_mutex);
-                snap = output_lines;
-                total = snap.size();
-            }
+    // ── Log content renderer ──────────────────────────────────────────────────
+    // Renders ALL lines plus an optional live progress bar.
+    // Wrapped in a scrollable shell below.
+    auto log_content = Renderer([&] {
+        std::vector<std::string> snap;
+        {
+            std::lock_guard<std::mutex> lock(state_mutex);
+            snap = output_lines;
+        }
 
-            // Tail-follow: pin to the last line when new output arrives
-            const int max_scroll = std::max(0, static_cast<int>(total) - 1);
-            if (follow_tail) {
-                scroll_offset = max_scroll;
-            } else {
-                scroll_offset = std::clamp(scroll_offset, 0, max_scroll);
-            }
+        Elements elems;
+        elems.reserve(snap.size() + 2);
+        for (const auto& line : snap) {
+            elems.push_back(text(line));
+        }
 
-            // Render lines from scroll_offset onward
-            Elements elems;
-            for (std::size_t i = static_cast<std::size_t>(scroll_offset); i < snap.size(); ++i) {
-                elems.push_back(text(snap[i]) | flex_shrink);
-            }
-            if (snap.empty()) {
-                elems.push_back(text("(no output yet)") | dim);
-            }
+        // Progress bar row — only visible during a timed wait
+        const int total = wait_total.load();
+        if (total > 0) {
+            const int elapsed = wait_elapsed.load();
+            const float ratio = static_cast<float>(elapsed) / static_cast<float>(total);
+            elems.push_back(hbox({
+                                text(fmt::format("  ⏳ Waiting  {}/{}s  ", elapsed, total)),
+                                gauge(ratio) | flex,
+                            }) |
+                            color(Color::Yellow));
+        }
 
-            // Show "lines above" hint when scrolled up
-            Element content = vbox(std::move(elems));
-            if (scroll_offset > 0) {
-                return vbox({
-                    text(fmt::format(" ↑ {} line(s) above — PgUp/↑ to scroll, End to follow", scroll_offset)) | dim,
-                    separator(),
-                    content | flex,
-                });
-            }
-            return content | flex;
-        }),
+        if (elems.empty()) {
+            elems.push_back(text("(no output yet)") | dim);
+        }
+
+        return vbox(std::move(elems));
+    });
+
+    // ── Scrollable shell ──────────────────────────────────────────────────────
+    // Uses focusPositionRelative(0, log_scroll) | frame — the canonical FTXUI
+    // pattern for a scrollable viewport controlled by a float position.
+    // CatchEvent intercepts ↑/↓/PgUp/PgDn/Home/End to move log_scroll.
+    auto log_scroller = CatchEvent(
+        Renderer(log_content,
+                 [&] { return log_content->Render() | focusPositionRelative(0, log_scroll) | frame | flex; }),
         [&](Event e) -> bool {
-            std::size_t total = 0;
-            {
-                std::lock_guard<std::mutex> lock(state_mutex);
-                total = output_lines.size();
-            }
-            const int max_scroll = std::max(0, static_cast<int>(total) - 1);
-
+            const float step = 0.05F;  // ~5% per arrow key
+            const float page = 0.25F;  // ~25% per page
             if (e == Event::ArrowDown) {
-                scroll_offset = std::min(scroll_offset + 1, max_scroll);
+                log_scroll = std::min(1.0F, log_scroll + step);
             } else if (e == Event::ArrowUp) {
-                scroll_offset = std::max(0, scroll_offset - 1);
+                log_scroll = std::max(0.0F, log_scroll - step);
             } else if (e == Event::PageDown) {
-                scroll_offset = std::min(scroll_offset + 10, max_scroll);
+                log_scroll = std::min(1.0F, log_scroll + page);
             } else if (e == Event::PageUp) {
-                scroll_offset = std::max(0, scroll_offset - 10);
+                log_scroll = std::max(0.0F, log_scroll - page);
             } else if (e == Event::Home) {
-                scroll_offset = 0;
+                log_scroll = 0.0F;
             } else if (e == Event::End) {
-                scroll_offset = max_scroll;
+                log_scroll = 1.0F;
             } else {
                 return false;
             }
-
-            // Stop auto-following when user scrolls up; resume at the end
-            follow_tail = (scroll_offset >= max_scroll);
             screen.PostEvent(Event::Custom);
             return true;
-        }
-    );
+        });
 
-    // ── Layout ───────────────────────────────────────────────────────────────
+    // ── Layout & top-level renderer ───────────────────────────────────────────
     auto actions_col = Container::Vertical({btn_refresh, btn_stop, btn_kill});
     auto manifest_row = Container::Horizontal({manifest_input, btn_run});
-    auto layout = Container::Vertical({container_menu, actions_col, manifest_row, output_scroller});
+    auto layout = Container::Vertical({container_menu, actions_col, manifest_row, log_scroller});
 
-    // ── Renderer ─────────────────────────────────────────────────────────────
     auto renderer = Renderer(layout, [&] {
         bool in_progress = run_in_progress.load();
 
         Element container_panel;
         {
-            std::lock_guard lock(state_mutex);
+            std::lock_guard<std::mutex> lock(state_mutex);
             container_panel = container_labels.empty() ? text("  (no containers found)") | dim
                                                        : container_menu->Render() | vscroll_indicator | frame | flex;
         }
 
         return vbox({
+            // Title bar
             hbox({
-                text(" 🔥 Chaos Orchestrator TUI") | bold | flex,
+                text("Chaos Orchestrator TUI") | bold | flex,
                 text(in_progress ? " ⏳ Running... " : " [q/ESC] Quit ") | dim,
             }) | color(Color::White) |
                 bgcolor(Color::Blue),
 
+            // Containers | Actions
             hbox({
                 vbox({
                     text(" CONTAINERS") | bold,
@@ -303,24 +303,30 @@ int TuiApp::run() {
                     size(WIDTH, EQUAL, 18),
             }) | flex,
 
+            // Manifest runner
             hbox({
                 text(" Manifest: ") | bold,
                 manifest_input->Render() | flex,
                 btn_run->Render(),
             }) | border,
 
+            // Output log (scrollable)
             vbox({
-                text(" Output:") | bold,
+                hbox({
+                    text(" Output:") | bold | flex,
+                    text(" Tab to focus · ↑↓ PgUp/PgDn Home/End to scroll ") | dim,
+                }),
                 separator(),
-                output_scroller->Render() | flex,
-            }) | border | size(HEIGHT, LESS_THAN, 14),
+                log_scroller->Render() | flex,
+            }) | border |
+                size(HEIGHT, LESS_THAN, 16),
 
             text(fmt::format(" CWD: {}", cwd)) | dim,
         });
     });
 
-    auto final_renderer = CatchEvent(renderer, [&](Event event) -> bool {
-        if (event == Event::Character('q') || event == Event::Escape) {
+    auto final_renderer = CatchEvent(renderer, [&](Event e) -> bool {
+        if (e == Event::Character('q') || e == Event::Escape) {
             screen.ExitLoopClosure()();
             return true;
         }

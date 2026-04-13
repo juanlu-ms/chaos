@@ -5,16 +5,16 @@
 
 #include "interfaces/tui/TuiApp.hpp"
 
-#include <ftxui/component/component.hpp>
-#include <ftxui/component/event.hpp>
-#include <ftxui/component/screen_interactive.hpp>
-#include <ftxui/dom/elements.hpp>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <filesystem>
+#include <ftxui/component/component.hpp>
+#include <ftxui/component/event.hpp>
+#include <ftxui/component/screen_interactive.hpp>
+#include <ftxui/dom/elements.hpp>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -29,8 +29,7 @@
 
 namespace chaos::orchestrator::interfaces::tui {
 
-TuiApp::TuiApp(std::shared_ptr<containers::IContainerEngine> engine)
-    : m_engine(std::move(engine)) {}
+TuiApp::TuiApp(std::shared_ptr<containers::IContainerEngine> engine) : m_engine(std::move(engine)) {}
 
 int TuiApp::run() {
     using namespace ftxui;
@@ -45,6 +44,13 @@ int TuiApp::run() {
     std::string manifest_path;
     std::vector<std::string> output_lines;
     std::atomic<bool> run_in_progress{false};
+
+    // ── Output scroll state ───────────────────────────────────────────────────
+    // scroll_offset = index of the first visible line.
+    // follow_tail = true  → always jump to the last line on new output (log mode).
+    // follow_tail = false → user has scrolled up manually; stop auto-following.
+    int scroll_offset = 0;
+    bool follow_tail = true;
 
     auto screen = ScreenInteractive::Fullscreen();
 
@@ -62,16 +68,13 @@ int TuiApp::run() {
             std::vector<std::string> labels;
             labels.reserve(fresh.size());
             for (const auto& c : fresh) {
-                const std::string display_id =
-                    c.id.size() > 12 ? c.id.substr(0, 12) : c.id;
-                labels.push_back(
-                    fmt::format("{:<13} {:<22} {}", display_id, c.name, c.state));
+                const std::string display_id = c.id.size() > 12 ? c.id.substr(0, 12) : c.id;
+                labels.push_back(fmt::format("{:<13} {:<22} {}", display_id, c.name, c.state));
             }
             std::lock_guard<std::mutex> lock(state_mutex);
             containers = std::move(fresh);
             container_labels = std::move(labels);
-            if (!container_labels.empty() &&
-                selected >= static_cast<int>(container_labels.size())) {
+            if (!container_labels.empty() && selected >= static_cast<int>(container_labels.size())) {
                 selected = static_cast<int>(container_labels.size()) - 1;
             }
         } catch (const std::exception& ex) {
@@ -85,16 +88,13 @@ int TuiApp::run() {
     // ── Components ───────────────────────────────────────────────────────────
     auto container_menu = Menu(&container_labels, &selected);
 
-    auto btn_refresh = Button("Refresh", [&] {
-        refresh_containers();
-    });
+    auto btn_refresh = Button("Refresh", [&] { refresh_containers(); });
 
     auto btn_stop = Button("Stop", [&] {
         containers::Container c;
         {
             std::lock_guard<std::mutex> lock(state_mutex);
-            if (containers.empty() || selected < 0 ||
-                selected >= static_cast<int>(containers.size())) {
+            if (containers.empty() || selected < 0 || selected >= static_cast<int>(containers.size())) {
                 output_lines.push_back("No container selected.");
                 return;
             }
@@ -113,8 +113,7 @@ int TuiApp::run() {
         containers::Container c;
         {
             std::lock_guard<std::mutex> lock(state_mutex);
-            if (containers.empty() || selected < 0 ||
-                selected >= static_cast<int>(containers.size())) {
+            if (containers.empty() || selected < 0 || selected >= static_cast<int>(containers.size())) {
                 output_lines.push_back("No container selected.");
                 return;
             }
@@ -149,6 +148,9 @@ int TuiApp::run() {
                 std::lock_guard<std::mutex> lock(state_mutex);
                 output_lines.clear();
             }
+            // Reset scroll to top / tail-follow for new run
+            scroll_offset = 0;
+            follow_tail = true;
             screen.PostEvent(Event::Custom);
 
             try {
@@ -160,9 +162,9 @@ int TuiApp::run() {
                 push_output("  Perturbations applied.");
 
                 if (manifest.duration_s.has_value() && manifest.duration_s.value() > 0) {
-                    const int secs = manifest.duration_s.value();
+                    const unsigned int secs = manifest.duration_s.value();
                     push_output(fmt::format("  ⏳ Waiting {}s for faults to propagate...", secs));
-                    for (int i = 0; i < secs; ++i) {
+                    for (unsigned int i = 0; i < secs; ++i) {
                         std::this_thread::sleep_for(std::chrono::seconds(1));
                         push_output(fmt::format("  ⏳ {}s / {}s", i + 1, secs));
                     }
@@ -170,17 +172,13 @@ int TuiApp::run() {
 
                 observability::ObservabilityEngine obs(m_engine);
                 validation::ValidationEngine validator(std::move(obs));
-                const auto results =
-                    validator.validate(manifest.target.id, manifest.expectations);
+                const auto results = validator.validate(manifest.target.id, manifest.expectations);
 
                 for (const auto& r : results) {
-                    push_output(fmt::format("  {} {}: {}",
-                        r.passed ? "✅" : "❌", r.expectationType, r.message));
+                    push_output(fmt::format("  {} {}: {}", r.passed ? "✅" : "❌", r.expectationType, r.message));
                 }
 
-                const bool passed = std::all_of(
-                    results.begin(), results.end(),
-                    [](const auto& r) { return r.passed; });
+                const bool passed = std::all_of(results.begin(), results.end(), [](const auto& r) { return r.passed; });
                 push_output(passed ? ">>> PASSED ✅" : ">>> FAILED ❌");
             } catch (const std::exception& ex) {
                 push_output(fmt::format("❌ Error: {}", ex.what()));
@@ -192,75 +190,133 @@ int TuiApp::run() {
         }).detach();
     });
 
+    // ── Output scroller component ─────────────────────────────────────────────
+    // A proper CatchEvent-backed component so arrow/page keys actually work.
+    auto output_scroller = CatchEvent(
+        Renderer([&] {
+            std::vector<std::string> snap;
+            std::size_t total = 0;
+            {
+                std::lock_guard<std::mutex> lock(state_mutex);
+                snap = output_lines;
+                total = snap.size();
+            }
+
+            // Tail-follow: pin to the last line when new output arrives
+            const int max_scroll = std::max(0, static_cast<int>(total) - 1);
+            if (follow_tail) {
+                scroll_offset = max_scroll;
+            } else {
+                scroll_offset = std::clamp(scroll_offset, 0, max_scroll);
+            }
+
+            // Render lines from scroll_offset onward
+            Elements elems;
+            for (std::size_t i = static_cast<std::size_t>(scroll_offset); i < snap.size(); ++i) {
+                elems.push_back(text(snap[i]) | flex_shrink);
+            }
+            if (snap.empty()) {
+                elems.push_back(text("(no output yet)") | dim);
+            }
+
+            // Show "lines above" hint when scrolled up
+            Element content = vbox(std::move(elems));
+            if (scroll_offset > 0) {
+                return vbox({
+                    text(fmt::format(" ↑ {} line(s) above — PgUp/↑ to scroll, End to follow", scroll_offset)) | dim,
+                    separator(),
+                    content | flex,
+                });
+            }
+            return content | flex;
+        }),
+        [&](Event e) -> bool {
+            std::size_t total = 0;
+            {
+                std::lock_guard<std::mutex> lock(state_mutex);
+                total = output_lines.size();
+            }
+            const int max_scroll = std::max(0, static_cast<int>(total) - 1);
+
+            if (e == Event::ArrowDown) {
+                scroll_offset = std::min(scroll_offset + 1, max_scroll);
+            } else if (e == Event::ArrowUp) {
+                scroll_offset = std::max(0, scroll_offset - 1);
+            } else if (e == Event::PageDown) {
+                scroll_offset = std::min(scroll_offset + 10, max_scroll);
+            } else if (e == Event::PageUp) {
+                scroll_offset = std::max(0, scroll_offset - 10);
+            } else if (e == Event::Home) {
+                scroll_offset = 0;
+            } else if (e == Event::End) {
+                scroll_offset = max_scroll;
+            } else {
+                return false;
+            }
+
+            // Stop auto-following when user scrolls up; resume at the end
+            follow_tail = (scroll_offset >= max_scroll);
+            screen.PostEvent(Event::Custom);
+            return true;
+        }
+    );
+
     // ── Layout ───────────────────────────────────────────────────────────────
     auto actions_col = Container::Vertical({btn_refresh, btn_stop, btn_kill});
     auto manifest_row = Container::Horizontal({manifest_input, btn_run});
-    auto layout = Container::Vertical({container_menu, actions_col, manifest_row});
+    auto layout = Container::Vertical({container_menu, actions_col, manifest_row, output_scroller});
 
     // ── Renderer ─────────────────────────────────────────────────────────────
     auto renderer = Renderer(layout, [&] {
-        std::vector<std::string> snap_output;
-        bool in_progress = false;
-        {
-            std::lock_guard<std::mutex> lock(state_mutex);
-            snap_output = output_lines;
-            in_progress = run_in_progress.load();
-        }
-
-        Elements out_elems;
-        out_elems.reserve(snap_output.size());
-        for (const auto& line : snap_output) {
-            out_elems.push_back(text(line) | flex_shrink);
-        }
-        if (out_elems.empty()) {
-            out_elems.push_back(text("(no output yet)") | dim);
-        }
+        bool in_progress = run_in_progress.load();
 
         Element container_panel;
         {
-            std::lock_guard<std::mutex> lock(state_mutex);
-            container_panel = container_labels.empty()
-                ? text("  (no containers found)") | dim
-                : container_menu->Render() | vscroll_indicator | frame | flex;
+            std::lock_guard lock(state_mutex);
+            container_panel = container_labels.empty() ? text("  (no containers found)") | dim
+                                                       : container_menu->Render() | vscroll_indicator | frame | flex;
         }
 
         return vbox({
-                   hbox({
-                       text(" 🔥 Chaos Orchestrator TUI") | bold | flex,
-                       text(in_progress ? " ⏳ Running... " : " [q/ESC] Quit ") | dim,
-                   }) | color(Color::White) | bgcolor(Color::Blue),
+            hbox({
+                text(" 🔥 Chaos Orchestrator TUI") | bold | flex,
+                text(in_progress ? " ⏳ Running... " : " [q/ESC] Quit ") | dim,
+            }) | color(Color::White) |
+                bgcolor(Color::Blue),
 
-                   hbox({
-                       vbox({
-                           text(" CONTAINERS") | bold,
-                           separator(),
-                           container_panel,
-                       }) | border | flex,
+            hbox({
+                vbox({
+                    text(" CONTAINERS") | bold,
+                    separator(),
+                    container_panel,
+                }) | border |
+                    flex,
 
-                       vbox({
-                           text(" ACTIONS") | bold,
-                           separator(),
-                           btn_refresh->Render() | hcenter,
-                           separator(),
-                           btn_stop->Render() | hcenter,
-                           btn_kill->Render() | hcenter,
-                       }) | border | size(WIDTH, EQUAL, 18),
-                   }) | flex,
+                vbox({
+                    text(" ACTIONS") | bold,
+                    separator(),
+                    btn_refresh->Render() | hcenter,
+                    separator(),
+                    btn_stop->Render() | hcenter,
+                    btn_kill->Render() | hcenter,
+                }) | border |
+                    size(WIDTH, EQUAL, 18),
+            }) | flex,
 
-                   hbox({
-                       text(" Manifest: ") | bold,
-                       manifest_input->Render() | flex,
-                       btn_run->Render(),
-                   }) | border,
+            hbox({
+                text(" Manifest: ") | bold,
+                manifest_input->Render() | flex,
+                btn_run->Render(),
+            }) | border,
 
-                   vbox({
-                       text(" Output:") | bold,
-                       separator(),
-                       vbox(std::move(out_elems)) | vscroll_indicator | frame | flex,
-                   }) | border | size(HEIGHT, LESS_THAN, 14),
+            vbox({
+                text(" Output:") | bold,
+                separator(),
+                output_scroller->Render() | flex,
+            }) | border | size(HEIGHT, LESS_THAN, 14),
 
-                   text(fmt::format(" CWD: {}", cwd)) | dim,
-               });
+            text(fmt::format(" CWD: {}", cwd)) | dim,
+        });
     });
 
     auto final_renderer = CatchEvent(renderer, [&](Event event) -> bool {

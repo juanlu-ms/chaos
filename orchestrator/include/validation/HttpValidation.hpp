@@ -11,12 +11,14 @@ namespace chaos::orchestrator::validation {
 
 class HttpStatusValidation final : public IValidation {
 public:
-    ValidationResult validate(const ValidationContext& ctx, const manifests::Expectation& expectation) const override;
+    ValidationResult validate(const shared::TargetState& targetState,
+                              const manifests::Expectation& expectation) const override;
 };
 
 class HttpLatencyValidation final : public IValidation {
 public:
-    ValidationResult validate(const ValidationContext& ctx, const manifests::Expectation& expectation) const override;
+    ValidationResult validate(const shared::TargetState& targetState,
+                              const manifests::Expectation& expectation) const override;
 };
 
 }  // namespace chaos::orchestrator::validation

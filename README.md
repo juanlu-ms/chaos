@@ -47,11 +47,17 @@ chaos/
 ├── orchestrator/
 │   ├── CMakeLists.txt
 │   ├── include/
-│   │   └── containers/
+│   │   ├── containers/
+│   │   ├── manifests/
+│   │   ├── observability/
+│   │   ├── perturbations/
+│   │   ├── shared/
+│   │   └── validation/
 │   ├── src/
 │   │   ├── main.cpp
 │   │   ├── interfaces/
 │   │   │   ├── cli/
+│   │   │   ├── tui/
 │   │   │   └── web/
 │   │   ├── containers/
 │   │   │   └── internal/
@@ -59,6 +65,8 @@ chaos/
 │   │   ├── perturbations/
 │   │   │   └── internal/
 │   │   ├── observability/
+│   │   │   └── internal/
+│   │   ├── validation/
 │   │   │   └── internal/
 │   └── tests/
 │       ├── containers/

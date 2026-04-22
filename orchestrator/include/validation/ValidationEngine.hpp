@@ -6,6 +6,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "manifests/Manifest.hpp"
@@ -40,21 +41,19 @@ class ValidationEngine {
 public:
     /**
      * @brief Construct a new ValidationEngine.
-     * @param obs Observability engine for querying state.
+     * @param targetState Reference to the target state for querying.
      */
-    explicit ValidationEngine(observability::ObservabilityEngine obs);
+    explicit ValidationEngine(const shared::TargetState& targetState);
 
     /**
      * @brief Evaluate all expectations against the current container state.
-     * @param containerId Target container ID.
      * @param expectations List of expectations from the manifest.
      * @return One ValidationResult per expectation, in order.
      */
-    std::vector<ValidationResult> validate(const std::string& containerId,
-                                           const std::vector<manifests::Expectation>& expectations) const;
+    std::vector<ValidationResult> validate(const std::vector<manifests::Expectation>& expectations) const;
 
 private:
-    observability::ObservabilityEngine obs_;
+    const shared::TargetState& targetState;
 };
 
 }  // namespace chaos::orchestrator::validation

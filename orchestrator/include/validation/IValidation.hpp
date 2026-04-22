@@ -14,28 +14,6 @@
 namespace chaos::orchestrator::validation {
 
 /**
- * @brief Shared context passed to concrete validation strategies.
- */
-struct ValidationContext {
-    const observability::ObservabilityEngine& obs;
-    const std::string& containerId;
-    std::string& cachedLogs;
-    bool& logsFetched;
-
-    /**
-     * @brief Lazily fetch and cache logs for the target container.
-     * @return Cached logs string.
-     */
-    const std::string& fetchLogs() const {
-        if (!logsFetched) {
-            cachedLogs = obs.getLogs(containerId);
-            logsFetched = true;
-        }
-        return cachedLogs;
-    }
-};
-
-/**
  * @brief Strategy interface for evaluating a single expectation.
  */
 class IValidation {
@@ -45,7 +23,7 @@ public:
     /**
      * @brief Evaluate the given expectation using the provided context.
      */
-    virtual ValidationResult validate(const ValidationContext& ctx,
+    virtual ValidationResult validate(const shared::TargetState& targetState,
                                       const manifests::Expectation& expectation) const = 0;
 };
 

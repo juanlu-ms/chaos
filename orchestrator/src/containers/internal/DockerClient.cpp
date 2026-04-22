@@ -5,15 +5,52 @@
 #include <spdlog/spdlog.h>
 #include <sys/socket.h>
 
+#include <cstdint>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
+
+#include "shared/ContainerStatus.hpp"
 
 namespace chaos::orchestrator::containers::internal {
 
 DockerClient::DockerClient(RequestFn requestFn) : request_(std::move(requestFn)) {}
 
-std::vector<containers::Container> DockerClient::listContainers() {
+std::shared_ptr<containers::IContainerEngine> DockerClient::create(const std::string& socketPath) {
+    SPDLOG_INFO("DockerClient: using socket {}", socketPath);
+    auto client = std::make_shared<httplib::Client>(socketPath);
+    client->set_address_family(AF_UNIX);
+    client->set_connection_timeout(5);
+    client->set_read_timeout(30);
+
+    auto requestFn = [client](HttpMethod method, std::string_view endpoint, std::string_view body) {
+        SPDLOG_DEBUG("DockerClient: request {} {}", method == HttpMethod::GET ? "GET" : "POST", endpoint);
+        httplib::Result response;
+        std::string endpointStr(endpoint);
+        switch (method) {
+            case HttpMethod::GET:
+                response = client->Get(endpointStr);
+                break;
+            case HttpMethod::POST:
+                if (body.empty()) {
+                    response = client->Post(endpointStr);
+                } else {
+                    response = client->Post(endpointStr, std::string(body), "application/json");
+                }
+                break;
+        }
+
+        if (!response) {
+            SPDLOG_ERROR("DockerClient: connection to Docker socket failed");
+            throw containers::ContainerEngineTransportError("Failed to connect to Docker socket");
+        }
+        return HttpResponse{.status = response->status, .body = response->body};
+    };
+
+    return std::make_shared<DockerClient>(std::move(requestFn));
+}
+
+std::vector<containers::Container> DockerClient::listContainers() const {
     SPDLOG_DEBUG("DockerClient: listing containers");
     const auto response = request_(HttpMethod::GET, "/containers/json", "");
     if (response.status != 200) {
@@ -47,7 +84,7 @@ std::vector<containers::Container> DockerClient::listContainers() {
     return containers;
 }
 
-void DockerClient::createContainer(const std::string_view image, const std::vector<std::string>& options) {
+void DockerClient::createContainer(const std::string_view image, const std::vector<std::string>& options) const {
     if (image.empty()) {
         throw std::invalid_argument("Image name cannot be empty");
     }
@@ -75,7 +112,7 @@ void DockerClient::createContainer(const std::string_view image, const std::vect
     SPDLOG_INFO("DockerClient: container created with id {}", jsonResponse["Id"].get<std::string>());
 }
 
-void DockerClient::startContainer(const std::string_view containerId) {
+void DockerClient::startContainer(const std::string_view containerId) const {
     if (containerId.empty()) {
         throw std::invalid_argument("Container ID cannot be empty");
     }
@@ -90,7 +127,7 @@ void DockerClient::startContainer(const std::string_view containerId) {
     SPDLOG_INFO("DockerClient: container {} started successfully", containerId);
 }
 
-void DockerClient::stopContainer(const std::string_view containerId) {
+void DockerClient::stopContainer(const std::string_view containerId) const {
     if (containerId.empty()) {
         throw std::invalid_argument("Container ID cannot be empty");
     }
@@ -108,7 +145,7 @@ void DockerClient::stopContainer(const std::string_view containerId) {
     SPDLOG_INFO("DockerClient: container {} stopped successfully", containerId);
 }
 
-void DockerClient::killContainer(const std::string_view containerId) {
+void DockerClient::killContainer(const std::string_view containerId) const {
     if (containerId.empty()) {
         throw std::invalid_argument("Container ID cannot be empty");
     }
@@ -127,7 +164,7 @@ void DockerClient::killContainer(const std::string_view containerId) {
     SPDLOG_INFO("DockerClient: container {} killed successfully", containerId);
 }
 
-std::string DockerClient::exec(const std::string_view containerId, const std::string_view command) {
+std::string DockerClient::exec(const std::string_view containerId, const std::string_view command) const {
     if (containerId.empty()) {
         throw std::invalid_argument("Container ID cannot be empty");
     }
@@ -170,61 +207,8 @@ std::string DockerClient::exec(const std::string_view containerId, const std::st
     return startResponse.body;
 }
 
-std::shared_ptr<containers::IContainerEngine> DockerClient::create(const std::string& socketPath) {
-    SPDLOG_INFO("DockerClient: using socket {}", socketPath);
-    auto client = std::make_shared<httplib::Client>(socketPath);
-    client->set_address_family(AF_UNIX);
-    client->set_connection_timeout(5);
-    client->set_read_timeout(30);
-
-    auto requestFn = [client](HttpMethod method, std::string_view endpoint, std::string_view body) {
-        SPDLOG_DEBUG("DockerClient: request {} {}", method == HttpMethod::GET ? "GET" : "POST", endpoint);
-        httplib::Result response;
-        std::string endpointStr(endpoint);
-        switch (method) {
-            case HttpMethod::GET:
-                response = client->Get(endpointStr);
-                break;
-            case HttpMethod::POST:
-                if (body.empty()) {
-                    response = client->Post(endpointStr);
-                } else {
-                    response = client->Post(endpointStr, std::string(body), "application/json");
-                }
-                break;
-        }
-
-        if (!response) {
-            SPDLOG_ERROR("DockerClient: connection to Docker socket failed");
-            throw containers::ContainerEngineTransportError("Failed to connect to Docker socket");
-        }
-        return HttpResponse{.status = response->status, .body = response->body};
-    };
-
-    return std::make_shared<DockerClient>(std::move(requestFn));
-}
-
-std::string DockerClient::getLogs(const std::string_view containerId) {
-    if (containerId.empty()) {
-        throw std::invalid_argument("Container ID must not be empty");
-    }
-
-    SPDLOG_DEBUG("Fetching logs for container: {}", containerId);
-
-    const std::string endpoint = fmt::format("/containers/{}/logs?stdout=1&stderr=1&timestamps=0", containerId);
-    const auto response = request_(HttpMethod::GET, endpoint, "");
-
-    if (response.status != 200) {
-        throw containers::ContainerEngineApiError(
-            fmt::format("Failed to get logs for container '{}': HTTP {}", containerId, response.status));
-    }
-
-    SPDLOG_INFO("Fetched logs for container '{}'", containerId);
-    return response.body;
-}
-
 void DockerClient::updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota,
-                                   int64_t cpu_period) {
+                                   int64_t cpu_period) const {
     if (containerId.empty()) {
         throw std::invalid_argument("Container ID must not be empty");
     }
@@ -256,7 +240,120 @@ void DockerClient::updateResources(const std::string_view containerId, int64_t m
     SPDLOG_INFO("Updated resources for container '{}'", containerId);
 }
 
-std::string DockerClient::getContainerIp(const std::string_view containerId) {
+shared::ContainerStatus DockerClient::getStatus(const std::string_view containerId) const {
+    if (containerId.empty()) {
+        throw std::invalid_argument("Container ID cannot be empty");
+    }
+
+    SPDLOG_DEBUG("DockerClient: getting status for container {}", containerId);
+
+    const std::string endpoint = fmt::format("/containers/{}/json", containerId);
+    const auto response = request_(HttpMethod::GET, endpoint, "");
+    if (response.status != 200) {
+        throw containers::ContainerEngineApiError(fmt::format("Failed to get status for container '{}': HTTP {} - {}",
+                                                              containerId, response.status, response.body));
+    }
+
+    if (auto jsonResponse = parseResponse(response);
+        jsonResponse.contains("State") && jsonResponse["State"].is_object() &&
+        jsonResponse["State"].contains("Status") && jsonResponse["State"]["Status"].is_string()) {
+        std::string stateStr = jsonResponse["State"]["Status"].get<std::string>();
+        SPDLOG_INFO("DockerClient: container {} status is {}", containerId, stateStr);
+        return shared::parseContainerStatus(stateStr);
+    }
+
+    throw containers::ContainerEngineParseError(
+        fmt::format("Docker inspect response missing State.Status for container '{}'", containerId));
+}
+
+std::string DockerClient::getLogs(const std::string_view containerId) const {
+    if (containerId.empty()) {
+        throw std::invalid_argument("Container ID must not be empty");
+    }
+
+    SPDLOG_DEBUG("Fetching logs for container: {}", containerId);
+
+    const std::string endpoint = fmt::format("/containers/{}/logs?stdout=1&stderr=1&timestamps=0", containerId);
+    const auto response = request_(HttpMethod::GET, endpoint, "");
+
+    if (response.status != 200) {
+        throw containers::ContainerEngineApiError(
+            fmt::format("Failed to get logs for container '{}': HTTP {}", containerId, response.status));
+    }
+
+    SPDLOG_INFO("Fetched logs for container '{}'", containerId);
+    return response.body;
+}
+
+double DockerClient::getContainerMemoryUsage(const std::string_view containerId) const {
+    if (containerId.empty()) {
+        throw std::invalid_argument("Container ID must not be empty");
+    }
+
+    SPDLOG_DEBUG("Fetching memory usage for container: {}", containerId);
+
+    const std::string endpoint = fmt::format("/containers/{}/stats?stream=false", containerId);
+    const auto response = request_(HttpMethod::GET, endpoint, "");
+
+    if (response.status != 200) {
+        throw containers::ContainerEngineApiError(
+            fmt::format("Failed to get memory stats for container '{}': HTTP {}", containerId, response.status));
+    }
+
+    auto jsonResponse = parseResponse(response);
+    if (jsonResponse.contains("memory_stats") && jsonResponse["memory_stats"].is_object() &&
+        jsonResponse["memory_stats"].contains("usage") && jsonResponse["memory_stats"]["usage"].is_number()) {
+        const double memoryUsageBytes = jsonResponse["memory_stats"]["usage"].get<double>();
+        const double memoryUsageMb = memoryUsageBytes / (1024 * 1024);
+        SPDLOG_INFO("Fetched memory usage for container '{}': {:.2f} MB", containerId, memoryUsageMb);
+        return memoryUsageMb;
+    }
+
+    throw containers::ContainerEngineParseError(
+        fmt::format("Docker stats response missing memory_stats.usage for container '{}'", containerId));
+}
+
+double DockerClient::getContainerCpuUsage(const std::string_view containerId) const {
+    if (containerId.empty()) {
+        throw std::invalid_argument("Container ID must not be empty");
+    }
+
+    SPDLOG_DEBUG("Fetching CPU usage for container: {}", containerId);
+
+    const std::string endpoint = fmt::format("/containers/{}/stats?stream=false", containerId);
+    const auto response = request_(HttpMethod::GET, endpoint, "");
+
+    if (response.status != 200) {
+        throw containers::ContainerEngineApiError(
+            fmt::format("Failed to get CPU stats for container '{}': HTTP {}", containerId, response.status));
+    }
+
+    if (auto jsonResponse = parseResponse(response);
+        jsonResponse.contains("cpu_stats") && jsonResponse["cpu_stats"].is_object() &&
+        jsonResponse["cpu_stats"].contains("cpu_usage") && jsonResponse["cpu_stats"]["cpu_usage"].is_object() &&
+        jsonResponse["cpu_stats"]["cpu_usage"].contains("total_usage") &&
+        jsonResponse["cpu_stats"]["cpu_usage"]["total_usage"].is_number() &&
+        jsonResponse["cpu_stats"].contains("system_cpu_usage") &&
+        jsonResponse["cpu_stats"]["system_cpu_usage"].is_number()) {
+        const auto cpu_delta = static_cast<int64_t>(jsonResponse["cpu_stats"]["cpu_usage"]["total_usage"]) -
+                               static_cast<int64_t>(jsonResponse["precpu_stats"]["cpu_usage"]["total_usage"]);
+        const auto system_cpu_delta = static_cast<int64_t>(jsonResponse["cpu_stats"]["system_cpu_usage"]) -
+                                      static_cast<int64_t>(jsonResponse["precpu_stats"]["system_cpu_usage"]);
+        const int number_cpus = jsonResponse["cpu_stats"]["online_cpus"];
+        const double cpuUsagePercent =
+            (system_cpu_delta > 0 && cpu_delta > 0)
+                ? (static_cast<double>(cpu_delta) / static_cast<double>(system_cpu_delta)) * number_cpus * 100.0
+                : 0.0;
+        SPDLOG_INFO("Fetched CPU usage for container '{}': {:.2f}%", containerId, cpuUsagePercent);
+        return cpuUsagePercent;
+    }
+
+    throw containers::ContainerEngineParseError(fmt::format(
+        "Docker stats response missing cpu_stats.cpu_usage.total_usage or system_cpu_usage for container '{}'",
+        containerId));
+}
+
+std::string DockerClient::getContainerIp(const std::string_view containerId) const {
     if (containerId.empty()) {
         throw std::invalid_argument("Container ID must not be empty");
     }
@@ -271,9 +368,8 @@ std::string DockerClient::getContainerIp(const std::string_view containerId) {
             fmt::format("Failed to inspect container '{}': HTTP {}", containerId, response.status));
     }
 
-    auto jsonResponse = parseResponse(response);
-
-    if (jsonResponse.contains("NetworkSettings") && jsonResponse["NetworkSettings"].contains("Networks")) {
+    if (auto jsonResponse = parseResponse(response);
+        jsonResponse.contains("NetworkSettings") && jsonResponse["NetworkSettings"].contains("Networks")) {
         auto& networks = jsonResponse["NetworkSettings"]["Networks"];
         if (networks.is_object() && !networks.empty()) {
             auto firstNetwork = networks.begin().value();

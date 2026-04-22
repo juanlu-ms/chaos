@@ -35,9 +35,7 @@ const StringSet kSupportedPerturbations = {"kill",          "memory_cap",     "c
 
 const RuleMap kPerturbationRequiredParams = {
     {"memory_cap", {{"limit_bytes", "Missing 'limit_bytes' parameter for memory_cap perturbation"}}},
-    {"cpu_cap",
-     {{"quota", "Missing 'quota' parameter for cpu_cap perturbation"},
-      {"period", "Missing 'period' parameter for cpu_cap perturbation"}}},
+    {"cpu_cap", {{"cpu_cores", "Missing 'cpu_cores' parameter for cpu_cap perturbation"}}},
     {"network_delay", {{"delay_ms", "Missing 'delay_ms' parameter for network_delay perturbation"}}}};
 
 const StringSet kSupportedExpectations = {"container_running", "container_not_running", "log_contains",

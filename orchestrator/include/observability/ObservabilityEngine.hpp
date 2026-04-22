@@ -7,8 +7,10 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "containers/IContainerEngine.hpp"
+#include "shared/TargetState.hpp"
 
 namespace chaos::orchestrator::observability {
 
@@ -28,30 +30,22 @@ public:
     explicit ObservabilityEngine(std::shared_ptr<containers::IContainerEngine> engine);
 
     /**
-     * @brief Check whether a container is currently in the running state.
+     * @brief Takes a complete snapshot of the container's current state.
+     * This is the main entry point for the Validation engine to get its evidence.
      * @param containerId Docker container ID or name.
-     * @return true if the container exists and its state is "running".
+     * @return A populated TargetState DTO with all observed metrics.
+     * @throws std::system_error On retrieval failure.
      */
-    bool isRunning(const std::string& containerId) const;
-
-    /**
-     * @brief Retrieve stdout/stderr logs for a container.
-     * @param containerId Docker container ID.
-     * @return Raw log text.
-     * @throws containers::ContainerEngineError On retrieval failure.
-     */
-    std::string getLogs(const std::string& containerId) const;
-
-    /**
-     * @brief Retrieve the IPv4 address for a container.
-     * @param containerId Docker container ID.
-     * @return IPv4 address as a string.
-     * @throws containers::ContainerEngineError On retrieval failure.
-     */
-    std::string getContainerIp(const std::string& containerId) const;
+    shared::TargetState observe(const std::string_view containerId) const;
 
 private:
     std::shared_ptr<containers::IContainerEngine> engine_;
+
+    shared::ContainerStatus getStatus(const std::string_view containerId) const;
+    std::string getLogs(const std::string_view containerId) const;
+    std::optional<double> getMemoryUsage(const std::string_view containerId) const;
+    std::optional<double> getCpuUsage(const std::string_view containerId) const;
+    std::optional<std::string> getContainerIp(const std::string_view containerId) const;
 };
 
 }  // namespace chaos::orchestrator::observability

@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "containers/IContainerEngine.hpp"
+#include "shared/ContainerStatus.hpp"
 
 namespace chaos::orchestrator::containers::internal {
 
@@ -68,7 +69,7 @@ public:
      * @return Vector of container summaries.
      * @throws std::exception On unexpected response formats.
      */
-    std::vector<containers::Container> listContainers() override;
+    std::vector<containers::Container> listContainers() const override;
 
     /**
      * @brief Create a new container with the specified image and options.
@@ -76,28 +77,28 @@ public:
      * @param options Additional options for container creation (e.g. env vars).
      * @throws std::exception On transport errors or non-OK responses.
      */
-    void createContainer(const std::string_view image, const std::vector<std::string>& options) override;
+    void createContainer(const std::string_view image, const std::vector<std::string>& options) const override;
 
     /**
      * @brief Start a container by ID.
      * @param containerId Docker container ID.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    void startContainer(const std::string_view containerId) override;
+    void startContainer(const std::string_view containerId) const override;
 
     /**
      * @brief Stop a container by ID.
      * @param containerId Docker container ID.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    void stopContainer(const std::string_view containerId) override;
+    void stopContainer(const std::string_view containerId) const override;
 
     /**
      * @brief Kill a container by ID.
      * @param containerId Docker container ID.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    void killContainer(const std::string_view containerId) override;
+    void killContainer(const std::string_view containerId) const override;
 
     /**
      * @brief Execute a command inside a running container.
@@ -106,7 +107,28 @@ public:
      * @return Output of the command execution.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    std::string exec(const std::string_view containerId, const std::string_view command) override;
+    std::string exec(const std::string_view containerId, const std::string_view command) const override;
+
+    /**
+     * @brief Update container resources (CPU, Memory) via Docker Engine API.
+     * @param containerId Docker container ID.
+     * @param memory_bytes Max memory in bytes (0 to ignore).
+     * @param cpu_quota CPU quota in microseconds (0 to ignore).
+     * @param cpu_period CPU period in microseconds (0 to ignore).
+     * @throws std::invalid_argument On empty containerId.
+     * @throws ContainerEngineApiError On non-200 HTTP response.
+     */
+    void updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota,
+                         int64_t cpu_period) const override;
+
+    /**
+     * @brief Get status of a container by ID.
+     * @param containerId Docker container ID.
+     * @return ContainerStatus enum value representing the container's state.
+     * @throws ContainerEngineApiError On non-OK HTTP responses.
+     * @throws ContainerEngineParseError On JSON parsing failures.
+     */
+    shared::ContainerStatus getStatus(const std::string_view containerId) const override;
 
     /**
      * @brief Fetch stdout/stderr logs from a container via Docker Engine API.
@@ -116,26 +138,37 @@ public:
      * @throws ContainerEngineApiError On non-200 HTTP response.
      * @throws ContainerEngineTransportError On connection failure.
      */
-    std::string getLogs(const std::string_view containerId) override;
+    std::string getLogs(const std::string_view containerId) const override;
 
     /**
-     * @brief Update container resources (CPU, Memory) via Docker Engine API.
+     * @brief Fetch the memory usage of a running container in MB.
      * @param containerId Docker container ID.
-     * @param memory_bytes Max memory in bytes (0 to ignore).
-     * @param cpu_quota CPU quota in microseconds (0 to ignore).
-     * @param cpu_period CPU period in microseconds (0 to ignore).
-     * @throws std::exception On transport or API errors.
+     * @return Memory usage in MB.
+     * @throws std::invalid_argument On empty containerId.
+     * @throws ContainerEngineApiError On non-200 HTTP response.
+     * @throws ContainerEngineParseError On unexpected response format.
      */
-    void updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota,
-                         int64_t cpu_period) override;
+    double getContainerMemoryUsage(const std::string_view containerId) const override;
+
+    /**
+     * @brief Fetch the CPU core limit configured for a running container.
+     * @param containerId Docker container ID.
+     * @return Configured CPU core limit (supports decimals, e.g. 0.5, 1.25, 2.0).
+     * @throws std::invalid_argument On empty containerId.
+     * @throws ContainerEngineApiError On non-200 HTTP response.
+     * @throws ContainerEngineParseError On unexpected response format.
+     */
+    double getContainerCpuUsage(const std::string_view containerId) const override;
 
     /**
      * @brief Fetch the primary IP address of a running container.
      * @param containerId Docker container ID.
      * @return IPv4 address as a string.
-     * @throws std::exception On transport, API, or missing network info.
+     * @throws std::invalid_argument On empty containerId.
+     * @throws ContainerEngineApiError On non-200 HTTP response.
+     * @throws ContainerEngineParseError On unexpected response format.
      */
-    std::string getContainerIp(const std::string_view containerId) override;
+    std::string getContainerIp(const std::string_view containerId) const override;
 
 private:
     /** @brief Function used to execute API requests. */
@@ -145,7 +178,8 @@ private:
      * @brief Parse HTTP response body as JSON and handle errors.
      * @param response HTTP response to parse.
      * @return Parsed JSON object.
-     * @throws std::exception On parsing failures.
+     * @throws ContainerEngineParseError If response body is empty or cannot be parsed as JSON.
+     * @throws ContainerEngineApiError If response status is not 200.
      */
     nlohmann::json parseResponse(const HttpResponse& response) const;
 };

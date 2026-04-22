@@ -22,10 +22,9 @@ Perturbations are the fault injection mechanisms applied to a target container. 
 ### 3. `cpu_cap`
 - **Description**: Throttles the CPU scheduling time available to the container.
 - **Parameters**:
-  - `quota` (integer): The amount of CPU time (in microseconds) the container can use per period.
-  - `period` (integer): The length of the CPU accounting period (in microseconds).
-- **Under the hood**: Uses the Docker Update API to natively restrict the CPU scheduling ratio.
-- **Effect**: Execution of the container is artificially paused or slowed down to strictly enforce the CPU ratio (quota/period). 
+  - `cpu_cores` (double): Maximum number of CPU cores the container is allowed to use (supports decimal values, e.g. `0.5`, `1.25`, `2.0`).
+- **Under the hood**: Uses the Docker Update API to enforce a CPU limit by deriving cgroup scheduling values from `cpu_cores` (the period is calculated from this value).
+- **Effect**: Execution of the container is artificially paused or slowed down to enforce the configured CPU core limit.
 
 ### 4. `network_delay`
 - **Description**: Introduces artificial latency to all outgoing network traffic.

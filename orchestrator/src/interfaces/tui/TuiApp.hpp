@@ -29,7 +29,7 @@ public:
      * @brief Runs the interactive TUI. Blocks until user exits.
      * @return 0 on clean exit.
      */
-    int run();
+    int run() const;
 
 private:
     std::shared_ptr<containers::IContainerEngine> m_engine;

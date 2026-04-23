@@ -3,11 +3,13 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(httplib CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
+find_package(ftxui CONFIG REQUIRED)
 
 set(ORCHESTRATOR_SOURCES
     src/containers/ContainerEngineFactory.cpp
     src/containers/internal/DockerClient.cpp
     src/interfaces/cli/CliParser.cpp
+    src/interfaces/tui/TuiApp.cpp
     src/interfaces/web/Server.cpp
     src/manifests/ManifestParser.cpp
     src/perturbations/PerturbationEngine.cpp
@@ -38,6 +40,9 @@ target_link_libraries(orchestrator_core PUBLIC
     httplib::httplib
     spdlog::spdlog
     fmt::fmt
+    ftxui::screen
+    ftxui::dom
+    ftxui::component
 )
 
 if(UNIX)

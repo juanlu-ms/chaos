@@ -42,7 +42,7 @@ public:
      * @brief Construct a new ValidationEngine.
      * @param obs Observability engine for querying state.
      */
-    explicit ValidationEngine(chaos::orchestrator::observability::ObservabilityEngine obs);
+    explicit ValidationEngine(observability::ObservabilityEngine obs);
 
     /**
      * @brief Evaluate all expectations against the current container state.
@@ -54,7 +54,7 @@ public:
                                            const std::vector<manifests::Expectation>& expectations) const;
 
 private:
-    chaos::orchestrator::observability::ObservabilityEngine obs_;
+    observability::ObservabilityEngine obs_;
 };
 
 }  // namespace chaos::orchestrator::validation

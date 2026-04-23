@@ -32,7 +32,7 @@ struct HttpResponse {
 /**
  * @brief Docker Engine adapter implementing the container engine port.
  */
-class DockerClient final : public chaos::orchestrator::containers::IContainerEngine {
+class DockerClient final : public containers::IContainerEngine {
 public:
     /**
      * @brief Function used to execute API requests.
@@ -61,15 +61,14 @@ public:
      * @param socketPath Path to Docker Engine Unix socket.
      * @return A container engine instance.
      */
-    static std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> create(
-        const std::string& socketPath = "/var/run/docker.sock");
+    static std::shared_ptr<containers::IContainerEngine> create(const std::string& socketPath = "/var/run/docker.sock");
 
     /**
      * @brief List containers from the Docker Engine.
      * @return Vector of container summaries.
      * @throws std::exception On unexpected response formats.
      */
-    std::vector<chaos::orchestrator::containers::Container> listContainers() override;
+    std::vector<containers::Container> listContainers() override;
 
     /**
      * @brief Create a new container with the specified image and options.
@@ -127,7 +126,8 @@ public:
      * @param cpu_period CPU period in microseconds (0 to ignore).
      * @throws std::exception On transport or API errors.
      */
-    void updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota, int64_t cpu_period) override;
+    void updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota,
+                         int64_t cpu_period) override;
 
     /**
      * @brief Fetch the primary IP address of a running container.

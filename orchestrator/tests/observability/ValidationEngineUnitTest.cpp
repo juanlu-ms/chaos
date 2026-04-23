@@ -23,7 +23,7 @@ using namespace chaos::orchestrator;
 namespace {
 
 validation::ValidationEngine makeEngine(std::shared_ptr<tests::MockContainerEngine> mock) {
-    return validation::ValidationEngine(chaos::orchestrator::observability::ObservabilityEngine(std::move(mock)));
+    return validation::ValidationEngine(observability::ObservabilityEngine(std::move(mock)));
 }
 
 containers::Container makeContainer(std::string id, std::string state) {

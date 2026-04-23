@@ -37,10 +37,7 @@ std::optional<std::filesystem::path> findWebRoot() {
 }
 }  // namespace
 
-Server::Server(std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> engine)
-    : m_engine(std::move(engine)) {
-    setupRoutes();
-}
+Server::Server(std::shared_ptr<containers::IContainerEngine> engine) : m_engine(std::move(engine)) { setupRoutes(); }
 
 void Server::listen(int port) {
     SPDLOG_INFO("chaos listening to http://127.0.0.1:{}", port);
@@ -171,8 +168,8 @@ void Server::setupRoutes() {
                 p->apply();
             }
 
-            chaos::orchestrator::observability::ObservabilityEngine obs(m_engine);
-            chaos::orchestrator::validation::ValidationEngine validator(std::move(obs));
+            observability::ObservabilityEngine obs(m_engine);
+            validation::ValidationEngine validator(std::move(obs));
             const auto results = validator.validate(manifest.target.id, manifest.expectations);
 
             bool passed = std::all_of(results.begin(), results.end(), [](const auto& r) { return r.passed; });

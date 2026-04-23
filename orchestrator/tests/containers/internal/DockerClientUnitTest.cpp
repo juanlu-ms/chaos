@@ -258,14 +258,14 @@ TEST(DockerClientUnitTest, CreateContainerSendsCorrectRequest) {
     bool wasCalled = false;
     std::string capturedBody;
 
-    auto adapter = DockerClient([&wasCalled, &capturedBody](HttpMethod method, std::string_view endpoint,
-                                                             std::string_view body) {
-        wasCalled = true;
-        EXPECT_EQ(method, HttpMethod::POST);
-        EXPECT_EQ(endpoint, "/containers/create");
-        capturedBody = std::string(body);
-        return HttpResponse{201, R"json({"Id":"newly-created-id","Warnings":[]})json"};
-    });
+    auto adapter =
+        DockerClient([&wasCalled, &capturedBody](HttpMethod method, std::string_view endpoint, std::string_view body) {
+            wasCalled = true;
+            EXPECT_EQ(method, HttpMethod::POST);
+            EXPECT_EQ(endpoint, "/containers/create");
+            capturedBody = std::string(body);
+            return HttpResponse{201, R"json({"Id":"newly-created-id","Warnings":[]})json"};
+        });
 
     adapter.createContainer("alpine:latest", {});
     EXPECT_TRUE(wasCalled);
@@ -280,11 +280,10 @@ TEST(DockerClientUnitTest, CreateContainerSendsCorrectRequest) {
 TEST(DockerClientUnitTest, CreateContainerIncludesEnvOptions) {
     std::string capturedBody;
 
-    auto adapter =
-        DockerClient([&capturedBody](HttpMethod, std::string_view, std::string_view body) {
-            capturedBody = std::string(body);
-            return HttpResponse{201, R"json({"Id":"test-id","Warnings":[]})json"};
-        });
+    auto adapter = DockerClient([&capturedBody](HttpMethod, std::string_view, std::string_view body) {
+        capturedBody = std::string(body);
+        return HttpResponse{201, R"json({"Id":"test-id","Warnings":[]})json"};
+    });
 
     adapter.createContainer("nginx:latest", {"FOO=bar", "BAZ=qux"});
 
@@ -339,7 +338,5 @@ TEST(DockerClientUnitTest, GetLogsPropagatesApiError) {
     DockerClient adapter([](HttpMethod, std::string_view, std::string_view) {
         return HttpResponse{.status = 404, .body = "not found"};
     });
-    EXPECT_THROW(adapter.getLogs("missing-container"),
-                 chaos::orchestrator::containers::ContainerEngineApiError);
+    EXPECT_THROW(adapter.getLogs("missing-container"), chaos::orchestrator::containers::ContainerEngineApiError);
 }
-

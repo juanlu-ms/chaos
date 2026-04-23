@@ -16,9 +16,9 @@ namespace chaos::orchestrator::tests {
 /**
  * @brief Mock implementation of IContainerEngine used by perturbation tests.
  */
-class MockContainerEngine : public chaos::orchestrator::containers::IContainerEngine {
+class MockContainerEngine : public containers::IContainerEngine {
 public:
-    MOCK_METHOD(std::vector<chaos::orchestrator::containers::Container>, listContainers, (), (override));
+    MOCK_METHOD(std::vector<containers::Container>, listContainers, (), (override));
     MOCK_METHOD(void, createContainer, (const std::string_view image, const std::vector<std::string>& options),
                 (override));
     MOCK_METHOD(void, startContainer, (const std::string_view containerId), (override));

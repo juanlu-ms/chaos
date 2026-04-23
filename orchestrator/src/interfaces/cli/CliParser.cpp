@@ -29,8 +29,7 @@ namespace {
 
 }  // namespace
 
-CliParser::CliParser(std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> engine)
-    : m_engine(std::move(engine)) {}
+CliParser::CliParser(std::shared_ptr<containers::IContainerEngine> engine) : m_engine(std::move(engine)) {}
 
 int CliParser::run(std::span<char*> argv) const {
     if (argv.size() < 2) {
@@ -192,7 +191,7 @@ int CliParser::handleKill(const std::string& containerId) const {
 
 int CliParser::handleServe(int port) const {
     try {
-        auto server = chaos::orchestrator::interfaces::web::Server(m_engine);
+        auto server = interfaces::web::Server(m_engine);
         server.listen(port);
     } catch (const std::system_error& ex) {
         SPDLOG_ERROR("Server error: {}", ex.what());
@@ -204,15 +203,15 @@ int CliParser::handleServe(int port) const {
 
 int CliParser::handleRun(const std::string& manifestPath) const {
     try {
-        auto manifest = chaos::orchestrator::manifests::ManifestParser::parseFromFile(manifestPath);
+        auto manifest = manifests::ManifestParser::parseFromFile(manifestPath);
         SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.id);
 
-        chaos::orchestrator::perturbations::PerturbationFactory factory;
-        std::vector<std::unique_ptr<chaos::orchestrator::perturbations::IPerturbation>> active_perturbations;
+        perturbations::PerturbationFactory factory;
+        std::vector<std::unique_ptr<perturbations::IPerturbation>> active_perturbations;
 
         // Structured cleanup guard to ensure perturbations are reverted
         struct RevertGuard {
-            std::vector<std::unique_ptr<chaos::orchestrator::perturbations::IPerturbation>>& perts;
+            std::vector<std::unique_ptr<perturbations::IPerturbation>>& perts;
             ~RevertGuard() {
                 for (auto it = perts.rbegin(); it != perts.rend(); ++it) {
                     try {
@@ -241,8 +240,8 @@ int CliParser::handleRun(const std::string& manifestPath) const {
         // Evaluate manifest expectations
         if (!manifest.expectations.empty()) {
             SPDLOG_INFO("Evaluating {} expectation(s)...", manifest.expectations.size());
-            chaos::orchestrator::observability::ObservabilityEngine obs(m_engine);
-            chaos::orchestrator::validation::ValidationEngine validator(std::move(obs));
+            observability::ObservabilityEngine obs(m_engine);
+            validation::ValidationEngine validator(std::move(obs));
             const auto results = validator.validate(manifest.target.id, manifest.expectations);
 
             bool anyFailed = false;

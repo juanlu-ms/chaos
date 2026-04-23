@@ -22,7 +22,7 @@ public:
      * @brief Construct the CLI adapter with a container engine.
      * @param engine Non-owning reference to the container engine port.
      */
-    explicit CliParser(std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> engine);
+    explicit CliParser(std::shared_ptr<containers::IContainerEngine> engine);
     ~CliParser() = default;
 
     CliParser(const CliParser&) = delete;
@@ -30,16 +30,16 @@ public:
 
     /**
      * @brief Parse arguments and execute the requested command.
-      * @param argv Argument values from main(), including executable at index 0.
+     * @param argv Argument values from main(), including executable at index 0.
      * @return Exit code (0 on success, non-zero on error).
      */
-     int run(std::span<char*> argv) const;
+    int run(std::span<char*> argv) const;
 
 private:
     /**
      * @brief The container engine instance.
      */
-    std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> m_engine;
+    std::shared_ptr<containers::IContainerEngine> m_engine;
 
     /**
      * @brief Print the usage message.

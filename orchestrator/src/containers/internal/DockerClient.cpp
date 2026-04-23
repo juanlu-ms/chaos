@@ -13,7 +13,7 @@ namespace chaos::orchestrator::containers::internal {
 
 DockerClient::DockerClient(RequestFn requestFn) : request_(std::move(requestFn)) {}
 
-std::vector<chaos::orchestrator::containers::Container> DockerClient::listContainers() {
+std::vector<containers::Container> DockerClient::listContainers() {
     SPDLOG_DEBUG("DockerClient: listing containers");
     const auto response = request_(HttpMethod::GET, "/containers/json", "");
     if (response.status != 200) {
@@ -23,11 +23,11 @@ std::vector<chaos::orchestrator::containers::Container> DockerClient::listContai
 
     auto jsonResponse = parseResponse(response);
 
-    std::vector<chaos::orchestrator::containers::Container> containers;
+    std::vector<containers::Container> containers;
     containers.reserve(jsonResponse.size());
 
     for (const auto& item : jsonResponse) {
-        chaos::orchestrator::containers::Container container;
+        containers::Container container;
         if (item.contains("Id") && item["Id"].is_string()) {
             container.id = item["Id"].get<std::string>();
         }
@@ -170,7 +170,7 @@ std::string DockerClient::exec(const std::string_view containerId, const std::st
     return startResponse.body;
 }
 
-std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> DockerClient::create(const std::string& socketPath) {
+std::shared_ptr<containers::IContainerEngine> DockerClient::create(const std::string& socketPath) {
     SPDLOG_INFO("DockerClient: using socket {}", socketPath);
     auto client = std::make_shared<httplib::Client>(socketPath);
     client->set_address_family(AF_UNIX);

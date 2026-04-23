@@ -12,8 +12,7 @@
 
 namespace chaos::orchestrator::validation {
 
-ValidationEngine::ValidationEngine(chaos::orchestrator::observability::ObservabilityEngine obs)
-    : obs_(std::move(obs)) {}
+ValidationEngine::ValidationEngine(observability::ObservabilityEngine obs) : obs_(std::move(obs)) {}
 
 std::vector<ValidationResult> ValidationEngine::validate(
     const std::string& containerId, const std::vector<manifests::Expectation>& expectations) const {

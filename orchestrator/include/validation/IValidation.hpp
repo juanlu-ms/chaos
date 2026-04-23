@@ -17,7 +17,7 @@ namespace chaos::orchestrator::validation {
  * @brief Shared context passed to concrete validation strategies.
  */
 struct ValidationContext {
-    const chaos::orchestrator::observability::ObservabilityEngine& obs;
+    const observability::ObservabilityEngine& obs;
     const std::string& containerId;
     std::string& cachedLogs;
     bool& logsFetched;

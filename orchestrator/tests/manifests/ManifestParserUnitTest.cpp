@@ -328,8 +328,7 @@ TEST_F(ManifestParserUnitTest, TargetMissingBothIdAndNameThrows) {
 }
 )json");
 
-    EXPECT_THROW((void)ManifestParser::parseFromFile(file),
-                 chaos::orchestrator::manifests::ManifestParserError);
+    EXPECT_THROW((void)ManifestParser::parseFromFile(file), chaos::orchestrator::manifests::ManifestParserError);
 }
 
 /**

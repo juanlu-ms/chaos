@@ -224,8 +224,8 @@ int CliParser::handleRun(const std::string& manifestPath) const {
         if (!manifest.expectations.empty()) {
             SPDLOG_INFO("Evaluating {} expectation(s)...", manifest.expectations.size());
             observability::ObservabilityEngine obs(m_engine);
-            validation::ValidationEngine validator(std::move(obs));
-            const auto results = validator.validate(manifest.target.id, manifest.expectations);
+            shared::TargetState targetState = obs.observe(manifest.target.id);
+            const auto results = validation::ValidationEngine::validate(targetState, manifest.expectations);
 
             bool anyFailed = false;
             for (const auto& result : results) {

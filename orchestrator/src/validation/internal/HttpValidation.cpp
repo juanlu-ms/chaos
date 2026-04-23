@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "containers/IContainerEngine.hpp"
+
 namespace chaos::orchestrator::validation {
 namespace validation_internal_detail {
 
@@ -21,13 +23,14 @@ int getIntParamOrDefault(const manifests::Expectation& expectation, const std::s
 
 }  // namespace validation_internal_detail
 
-ValidationResult HttpStatusValidation::validate(const ValidationContext& ctx,
+ValidationResult HttpStatusValidation::validate(const shared::TargetState& targetState,
                                                 const manifests::Expectation& expectation) const {
     ValidationResult result;
     result.expectationType = expectation.type;
 
     try {
-        const std::string ip = ctx.obs.getContainerIp(ctx.containerId);
+        std::string ip =
+            targetState.container_ip.value_or("Container IP is required for HTTP validation but was not available");
         const std::string port = validation_internal_detail::getStringParamOrDefault(expectation, "port", "8000");
         const std::string path = validation_internal_detail::getStringParamOrDefault(expectation, "path", "/ping");
         const int expectedStatus =
@@ -63,13 +66,14 @@ ValidationResult HttpStatusValidation::validate(const ValidationContext& ctx,
     return result;
 }
 
-ValidationResult HttpLatencyValidation::validate(const ValidationContext& ctx,
+ValidationResult HttpLatencyValidation::validate(const shared::TargetState& targetState,
                                                  const manifests::Expectation& expectation) const {
     ValidationResult result;
     result.expectationType = expectation.type;
 
     try {
-        const std::string ip = ctx.obs.getContainerIp(ctx.containerId);
+        const std::string ip =
+            targetState.container_ip.value_or("Container IP is required for HTTP validation but was not available");
         const std::string port = validation_internal_detail::getStringParamOrDefault(expectation, "port", "8000");
         const std::string path = validation_internal_detail::getStringParamOrDefault(expectation, "path", "/ping");
         const int maxLatencyMs = validation_internal_detail::getIntParamOrDefault(expectation, "max_latency_ms", 1000);

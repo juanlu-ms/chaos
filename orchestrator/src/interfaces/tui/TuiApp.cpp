@@ -152,8 +152,8 @@ void execute_run(const std::shared_ptr<containers::IContainerEngine>& engine, Sh
         wait_manifest_duration(manifest, state, screen, push_output, stop_token);
 
         observability::ObservabilityEngine obs(engine);
-        validation::ValidationEngine validator(std::move(obs));
-        const auto results = validator.validate(manifest.target.id, manifest.expectations);
+        shared::TargetState targetState = obs.observe(manifest.target.id);
+        const auto results = validation::ValidationEngine::validate(targetState, manifest.expectations);
 
         for (const auto& r : results) {
             push_output(fmt::format("  {} {}: {}", r.passed ? "✅" : "❌", r.expectationType, r.message));

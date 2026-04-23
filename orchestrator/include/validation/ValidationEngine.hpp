@@ -6,11 +6,10 @@
 #pragma once
 
 #include <string>
-#include <string_view>
 #include <vector>
 
 #include "manifests/Manifest.hpp"
-#include "observability/ObservabilityEngine.hpp"
+#include "shared/TargetState.hpp"
 
 namespace chaos::orchestrator::validation {
 
@@ -39,21 +38,16 @@ struct ValidationResult {
  */
 class ValidationEngine {
 public:
-    /**
-     * @brief Construct a new ValidationEngine.
-     * @param targetState Reference to the target state for querying.
-     */
-    explicit ValidationEngine(const shared::TargetState& targetState);
+    ValidationEngine();
 
     /**
      * @brief Evaluate all expectations against the current container state.
+     * @param targetState The observed state of the target container to validate against.
      * @param expectations List of expectations from the manifest.
      * @return One ValidationResult per expectation, in order.
      */
-    std::vector<ValidationResult> validate(const std::vector<manifests::Expectation>& expectations) const;
-
-private:
-    const shared::TargetState& targetState;
+    static std::vector<ValidationResult> validate(const shared::TargetState& targetState,
+                                                  const std::vector<manifests::Expectation>& expectations);
 };
 
 }  // namespace chaos::orchestrator::validation

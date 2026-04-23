@@ -166,10 +166,10 @@ void Server::setupRoutes() {
             pert_engine.applyAll(manifest);
 
             observability::ObservabilityEngine obs(m_engine);
-            validation::ValidationEngine validator(std::move(obs));
-            const auto results = validator.validate(manifest.target.id, manifest.expectations);
+            shared::TargetState targetState = obs.observe(manifest.target.id);
+            const auto results = validation::ValidationEngine::validate(targetState, manifest.expectations);
 
-            bool passed = std::all_of(results.begin(), results.end(), [](const auto& r) { return r.passed; });
+            bool passed = std::ranges::all_of(results, [](const auto& r) { return r.passed; });
             json j;
             j["passed"] = passed;
             j["results"] = json::array();

@@ -1,35 +1,34 @@
 {
-    "test_name": "Resource Exhaustion Demo",
-    "target": {
-        "id": "chaos-demo-1"
+  "test_name": "Resource Exhaustion Demo",
+  "target": {
+    "id": "chaos-demo-1"
+  },
+  "duration_s": 15,
+  "perturbations": [
+    {
+      "type": "cpu_cap",
+      "parameters": {
+        "cpu_cores": "0,1"
+      }
     },
-    "duration_s": 15,
-    "perturbations": [
-        {
-            "type": "cpu_cap",
-            "parameters": {
-                "quota": "10000",
-                "period": "100000"
-            }
-        },
-        {
-            "type": "memory_cap",
-            "parameters": {
-                "limit_bytes": "268435456"
-            }
-        }
-    ],
-    "expectations": [
-        {
-            "type": "container_running"
-        },
-        {
-            "type": "http_status",
-            "parameters": {
-                "port": "8080",
-                "path": "/ping",
-                "expected_status": "200"
-            }
-        }
-    ]
+    {
+      "type": "memory_cap",
+      "parameters": {
+        "limit_bytes": "268435456"
+      }
+    }
+  ],
+  "expectations": [
+    {
+      "type": "container_running"
+    },
+    {
+      "type": "http_status",
+      "parameters": {
+        "port": "8000",
+        "path": "/ping",
+        "expected_status": "200"
+      }
+    }
+  ]
 }

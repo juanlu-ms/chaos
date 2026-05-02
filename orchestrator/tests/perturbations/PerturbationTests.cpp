@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <stdexcept>
 
 #include "MockContainerEngine.hpp"
 #include "manifests/Manifest.hpp"
@@ -76,7 +77,7 @@ TEST(PerturbationTests, MemoryCapThrowsOnMissingParameter) {
     manifests::Perturbation spec{"memory_cap", {}};
 
     perturbations::MemoryCapPerturbation pert(mockEngine, target.id, spec);
-    EXPECT_THROW(pert.apply(), std::system_error);
+    EXPECT_THROW(pert.apply(), std::invalid_argument);
 }
 
 /**
@@ -108,7 +109,7 @@ TEST(PerturbationTests, NetworkDelayThrowsOnMissingParameter) {
  */
 TEST(PerturbationTests, CpuCapRevertIsNoOpWhenNotApplied) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
-    manifests::Perturbation spec{"cpu_cap", {{"quota", "50000"}}};
+    manifests::Perturbation spec{"cpu_cap", {{"cpu_cores", "2"}}};
 
     perturbations::CpuCapPerturbation pert(mockEngine, "test-container", spec);
     // Should not throw — revert is a no-op when not applied
@@ -133,11 +134,13 @@ TEST(PerturbationTests, MemoryCapRevertIsNoOpWhenNotApplied) {
  */
 TEST(PerturbationTests, CpuCapApplyIsSkippedWhenAlreadyApplied) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
-    manifests::Perturbation spec{"cpu_cap", {{"quota", "50000"}}};
+    manifests::Perturbation spec{"cpu_cap", {{"cpu_cores", "2"}}};
 
-    perturbations::CpuCapPerturbation pert(mockEngine, "", spec);
-    // Empty target: first apply throws, showing the quota check runs before guard
-    EXPECT_THROW(pert.apply(), std::invalid_argument);
+    EXPECT_CALL(*mockEngine, updateResources(std::string_view("target"), 0, 2, 100000)).Times(1);
+
+    perturbations::CpuCapPerturbation pert(mockEngine, "target", spec);
+    pert.apply();
+    pert.apply();
 }
 
 /**
@@ -148,7 +151,7 @@ TEST(PerturbationTests, MemoryCapThrowsOnMissingLimitBytes) {
     manifests::Perturbation spec{"memory_cap", {}};  // No limit_bytes
 
     perturbations::MemoryCapPerturbation pert(mockEngine, "test-container", spec);
-    EXPECT_THROW(pert.apply(), std::system_error);
+    EXPECT_THROW(pert.apply(), std::invalid_argument);
 }
 
 /**
@@ -156,7 +159,7 @@ TEST(PerturbationTests, MemoryCapThrowsOnMissingLimitBytes) {
  */
 TEST(PerturbationTests, CpuCapThrowsOnEmptyTargetId) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
-    manifests::Perturbation spec{"cpu_cap", {{"quota", "50000"}}};
+    manifests::Perturbation spec{"cpu_cap", {{"cpu_cores", "2"}}};
 
     perturbations::CpuCapPerturbation pert(mockEngine, "", spec);
     EXPECT_THROW(pert.apply(), std::invalid_argument);
@@ -243,7 +246,6 @@ TEST(PerturbationTests, GarbagePacketThrowsOnEmptyTargetId) {
     EXPECT_THROW(pert.apply(), std::invalid_argument);
 }
 
-
 /**
  * @test Verifies NetworkDelayPerturbation::apply calls exec with the correct tc netem command.
  *
@@ -287,9 +289,7 @@ TEST(PerturbationTests, NetworkDelayApplyIsSkippedWhenAlreadyApplied) {
     manifests::Perturbation spec{"network_delay", {{"delay_ms", "100"}}};
 
     // exec should be called only once despite two apply() calls
-    EXPECT_CALL(*mockEngine, exec(::testing::_, ::testing::_))
-        .Times(1)
-        .WillOnce(Return(std::string{}));
+    EXPECT_CALL(*mockEngine, exec(::testing::_, ::testing::_)).Times(1).WillOnce(Return(std::string{}));
 
     perturbations::NetworkDelayPerturbation pert(mockEngine, "target-c", spec);
     pert.apply();
@@ -320,15 +320,10 @@ TEST(PerturbationTests, NetworkDelayThrowsOnEmptyTargetId) {
     EXPECT_THROW(pert.apply(), std::invalid_argument);
 }
 
-
-// ═══════════════════════════════════════════════════════════════════════
-//  Docker-API Call Tests (Phase 2)
-// ═══════════════════════════════════════════════════════════════════════
-
-TEST(PerturbationTests, CpuCapApplyCallsUpdateResourcesWithCorrectQuota) {
+TEST(PerturbationTests, CpuCapApplyCallsUpdateResourcesWithCorrectCpuCores) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
-    manifests::Perturbation spec{"cpu_cap", {{"quota", "50000"}}};
-    EXPECT_CALL(*mockEngine, updateResources(std::string_view("target"), 0, 50000, 100000)).Times(1);
+    manifests::Perturbation spec{"cpu_cap", {{"cpu_cores", "2"}}};
+    EXPECT_CALL(*mockEngine, updateResources(std::string_view("target"), 0, 2, 100000)).Times(1);
     perturbations::CpuCapPerturbation pert(mockEngine, "target", spec);
     EXPECT_NO_THROW(pert.apply());
 }
@@ -346,7 +341,8 @@ TEST(PerturbationTests, GarbagePacketApplyCallsExecWithDefaultNetemCommand) {
     manifests::Perturbation spec{"garbage_packet", {}};
     EXPECT_CALL(*mockEngine,
                 exec(std::string_view("target"), std::string_view("tc qdisc add dev eth0 root netem corrupt 100")))
-        .Times(1).WillOnce(Return(std::string{}));
+        .Times(1)
+        .WillOnce(Return(std::string{}));
     perturbations::GarbagePacketPerturbation pert(mockEngine, "target", spec);
     EXPECT_NO_THROW(pert.apply());
 }
@@ -355,23 +351,20 @@ TEST(PerturbationTests, NetworkCutoffApplyCallsExecWithIptablesDropRules) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     manifests::Perturbation spec{"network_cutoff", {}};
     EXPECT_CALL(*mockEngine, exec(std::string_view("target"), ::testing::_))
-        .Times(2).WillRepeatedly(Return(std::string{}));
+        .Times(2)
+        .WillRepeatedly(Return(std::string{}));
     perturbations::NetworkCutoffPerturbation pert(mockEngine, "target", spec);
     EXPECT_NO_THROW(pert.apply());
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-//  Revert Tests (Phase 7)
-// ═══════════════════════════════════════════════════════════════════════
-
-TEST(PerturbationTests, CpuCapRevertCallsUpdateResourcesWithZeroQuota) {
+TEST(PerturbationTests, CpuCapRevertCallsUpdateResourcesWithZeroCpuCores) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
-    manifests::Perturbation spec{"cpu_cap", {{"quota", "50000"}}};
+    manifests::Perturbation spec{"cpu_cap", {{"cpu_cores", "2"}}};
 
     testing::InSequence seq;
-    EXPECT_CALL(*mockEngine, updateResources(std::string_view("target"), 0, 50000, 100000)).Times(1);
+    EXPECT_CALL(*mockEngine, updateResources(std::string_view("target"), 0, 2, 100000)).Times(1);
     EXPECT_CALL(*mockEngine, updateResources(std::string_view("target"), 0, 0, 0)).Times(1);
-    
+
     perturbations::CpuCapPerturbation pert(mockEngine, "target", spec);
     pert.apply();
     EXPECT_NO_THROW(pert.revert());
@@ -383,12 +376,17 @@ TEST(PerturbationTests, NetworkCutoffRevertCallsExecWithDeleteRules) {
 
     testing::InSequence seq;
     // apply() calls addRule(OUTPUT first, then INPUT) — each calls exec with "iptables -A ..."
-    // revertCommands_ is populated in same order, so revert() calls "iptables -D OUTPUT ..." then "iptables -D INPUT ..."
-    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -A OUTPUT -j DROP"))).WillOnce(Return(std::string{}));
-    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -A INPUT -j DROP"))).WillOnce(Return(std::string{}));
-    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -D OUTPUT -j DROP"))).WillOnce(Return(std::string{}));
-    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -D INPUT -j DROP"))).WillOnce(Return(std::string{}));
-        
+    // revertCommands_ is populated in same order, so revert() calls "iptables -D OUTPUT ..." then "iptables -D INPUT
+    // ..."
+    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -A OUTPUT -j DROP")))
+        .WillOnce(Return(std::string{}));
+    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -A INPUT -j DROP")))
+        .WillOnce(Return(std::string{}));
+    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -D OUTPUT -j DROP")))
+        .WillOnce(Return(std::string{}));
+    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -D INPUT -j DROP")))
+        .WillOnce(Return(std::string{}));
+
     perturbations::NetworkCutoffPerturbation pert(mockEngine, "target", spec);
     pert.apply();
     EXPECT_NO_THROW(pert.revert());

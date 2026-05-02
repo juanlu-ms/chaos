@@ -5,16 +5,13 @@
 #include <httplib.h>
 
 #include <chrono>
-#include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
 
-#include "MockContainerEngine.hpp"
-#include "containers/Container.hpp"
 #include "manifests/Manifest.hpp"
-#include "observability/ObservabilityEngine.hpp"
 #include "validation/ValidationEngine.hpp"
 
 using namespace testing;
@@ -22,128 +19,127 @@ using namespace chaos::orchestrator;
 
 namespace {
 
-validation::ValidationEngine makeEngine(std::shared_ptr<tests::MockContainerEngine> mock) {
-    return validation::ValidationEngine(observability::ObservabilityEngine(std::move(mock)));
-}
-
-containers::Container makeContainer(std::string id, std::string state) {
-    containers::Container c;
-    c.id = std::move(id);
-    c.state = std::move(state);
-    return c;
+shared::TargetState makeTargetState(std::string id, shared::ContainerStatus status) {
+    shared::TargetState state;
+    state.container_id = std::move(id);
+    state.status = status;
+    return state;
 }
 
 }  // namespace
 
+/**
+ * @test Verifies container_running passes when status is running.
+ */
 TEST(ValidationEngineTests, ContainerRunningPassesWhenRunning) {
-    auto mock = std::make_shared<tests::MockContainerEngine>();
-    EXPECT_CALL(*mock, listContainers())
-        .WillOnce(Return(std::vector<containers::Container>{makeContainer("ctr", "running")}));
-
-    auto engine = makeEngine(mock);
-    const auto results = engine.validate("ctr", {manifests::Expectation{"container_running", {}}});
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    const auto results = validation::ValidationEngine::validate(state,
+                                                                {manifests::Expectation{"container_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_TRUE(results[0].passed);
     EXPECT_EQ(results[0].expectationType, "container_running");
 }
 
+/**
+ * @test Verifies container_running fails when status is not running.
+ */
 TEST(ValidationEngineTests, ContainerRunningFailsWhenNotRunning) {
-    auto mock = std::make_shared<tests::MockContainerEngine>();
-    EXPECT_CALL(*mock, listContainers())
-        .WillOnce(Return(std::vector<containers::Container>{makeContainer("ctr", "exited")}));
-
-    auto engine = makeEngine(mock);
-    const auto results = engine.validate("ctr", {manifests::Expectation{"container_running", {}}});
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Exited);
+    const auto results = validation::ValidationEngine::validate(state,
+                                                                {manifests::Expectation{"container_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_FALSE(results[0].passed);
 }
 
+/**
+ * @test Verifies container_not_running passes when status is not running.
+ */
 TEST(ValidationEngineTests, ContainerNotRunningPassesWhenStopped) {
-    auto mock = std::make_shared<tests::MockContainerEngine>();
-    EXPECT_CALL(*mock, listContainers())
-        .WillOnce(Return(std::vector<containers::Container>{makeContainer("ctr", "exited")}));
-
-    auto engine = makeEngine(mock);
-    const auto results = engine.validate("ctr", {manifests::Expectation{"container_not_running", {}}});
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Exited);
+    const auto results = validation::ValidationEngine::validate(state,
+                                                                {manifests::Expectation{"container_not_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_TRUE(results[0].passed);
 }
 
+/**
+ * @test Verifies container_not_running fails when status is running.
+ */
 TEST(ValidationEngineTests, ContainerNotRunningFailsWhenRunning) {
-    auto mock = std::make_shared<tests::MockContainerEngine>();
-    EXPECT_CALL(*mock, listContainers())
-        .WillOnce(Return(std::vector<containers::Container>{makeContainer("ctr", "running")}));
-
-    auto engine = makeEngine(mock);
-    const auto results = engine.validate("ctr", {manifests::Expectation{"container_not_running", {}}});
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    const auto results = validation::ValidationEngine::validate(state,
+                                                                {manifests::Expectation{"container_not_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_FALSE(results[0].passed);
 }
 
+/**
+ * @test Verifies log_contains passes when substring is present.
+ */
 TEST(ValidationEngineTests, LogContainsPassesWhenSubstringPresent) {
-    auto mock = std::make_shared<tests::MockContainerEngine>();
-    EXPECT_CALL(*mock, getLogs(std::string_view("ctr"))).WillOnce(Return(std::string{"app started ok\n"}));
-
-    auto engine = makeEngine(mock);
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    state.recent_logs = {"app started ok\n"};
     manifests::Expectation exp{"log_contains", {{"substring", "started"}}};
-    const auto results = engine.validate("ctr", {exp});
+    const auto results = validation::ValidationEngine::validate(state, {exp});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_TRUE(results[0].passed);
 }
 
+/**
+ * @test Verifies log_contains fails when substring is absent.
+ */
 TEST(ValidationEngineTests, LogContainsFailsWhenSubstringAbsent) {
-    auto mock = std::make_shared<tests::MockContainerEngine>();
-    EXPECT_CALL(*mock, getLogs(std::string_view("ctr"))).WillOnce(Return(std::string{"crash\n"}));
-
-    auto engine = makeEngine(mock);
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    state.recent_logs = {"crash\n"};
     manifests::Expectation exp{"log_contains", {{"substring", "started"}}};
-    const auto results = engine.validate("ctr", {exp});
+    const auto results = validation::ValidationEngine::validate(state, {exp});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_FALSE(results[0].passed);
 }
 
+/**
+ * @test Verifies log_not_contains passes when substring is absent.
+ */
 TEST(ValidationEngineTests, LogNotContainsPassesWhenSubstringAbsent) {
-    auto mock = std::make_shared<tests::MockContainerEngine>();
-    EXPECT_CALL(*mock, getLogs(std::string_view("ctr"))).WillOnce(Return(std::string{"all good\n"}));
-
-    auto engine = makeEngine(mock);
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    state.recent_logs = {"all good\n"};
     manifests::Expectation exp{"log_not_contains", {{"substring", "panic"}}};
-    const auto results = engine.validate("ctr", {exp});
+    const auto results = validation::ValidationEngine::validate(state, {exp});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_TRUE(results[0].passed);
 }
 
+/**
+ * @test Verifies log_not_contains fails when substring is present.
+ */
 TEST(ValidationEngineTests, LogNotContainsFailsWhenSubstringPresent) {
-    auto mock = std::make_shared<tests::MockContainerEngine>();
-    EXPECT_CALL(*mock, getLogs(std::string_view("ctr"))).WillRepeatedly(Return(std::string{"panic: nil ptr\n"}));
-
-    auto engine = makeEngine(mock);
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    state.recent_logs = {"panic: nil ptr\n"};
     manifests::Expectation exp{"log_not_contains", {{"substring", "panic"}}};
-    const auto results = engine.validate("ctr", {exp});
+    const auto results = validation::ValidationEngine::validate(state, {exp});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_FALSE(results[0].passed);
 }
 
+/**
+ * @test Verifies validate returns results for all expectations in order.
+ */
 TEST(ValidationEngineTests, MixedExpectationsReturnsAllResults) {
-    auto mock = std::make_shared<tests::MockContainerEngine>();
-    EXPECT_CALL(*mock, listContainers())
-        .WillOnce(Return(std::vector<containers::Container>{makeContainer("ctr", "running")}));
-    EXPECT_CALL(*mock, getLogs(std::string_view("ctr"))).WillOnce(Return(std::string{"app started\n"}));
-
-    auto engine = makeEngine(mock);
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    state.recent_logs = {"app started\n"};
     const std::vector<manifests::Expectation> expectations = {
         {"container_running", {}},
         {"log_contains", {{"substring", "started"}}},
     };
-    const auto results = engine.validate("ctr", expectations);
+    const auto results = validation::ValidationEngine::validate(state, expectations);
 
     ASSERT_EQ(results.size(), 2u);
     EXPECT_TRUE(results[0].passed);
@@ -152,14 +148,18 @@ TEST(ValidationEngineTests, MixedExpectationsReturnsAllResults) {
     EXPECT_EQ(results[1].expectationType, "log_contains");
 }
 
+/**
+ * @test Verifies unknown expectation types throw std::invalid_argument.
+ */
 TEST(ValidationEngineTests, UnknownExpectationTypeThrowsInvalidArgument) {
-    auto mock = std::make_shared<tests::MockContainerEngine>();
-
-    auto engine = makeEngine(mock);
     manifests::Expectation exp{"unknown_type", {}};
-    EXPECT_THROW(static_cast<void>(engine.validate("ctr", {exp})), std::invalid_argument);
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    EXPECT_THROW(static_cast<void>(validation::ValidationEngine::validate(state, {exp})), std::invalid_argument);
 }
 
+/**
+ * @test Verifies http_status passes when the response status matches.
+ */
 TEST(ValidationEngineTests, HttpStatusPassesOnExpectedStatus) {
     httplib::Server svr;
     svr.Get("/ping", [](const httplib::Request&, httplib::Response& res) {
@@ -169,13 +169,11 @@ TEST(ValidationEngineTests, HttpStatusPassesOnExpectedStatus) {
     int port = svr.bind_to_any_port("127.0.0.1");
     std::jthread t([&svr]() { svr.listen_after_bind(); });
 
-    auto mock = std::make_shared<tests::MockContainerEngine>();
-    EXPECT_CALL(*mock, getContainerIp(std::string_view("ctr"))).WillOnce(Return("127.0.0.1"));
-
-    auto engine = makeEngine(mock);
     manifests::Expectation exp{"http_status",
                                {{"port", std::to_string(port)}, {"path", "/ping"}, {"expected_status", "200"}}};
-    const auto results = engine.validate("ctr", {exp});
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    state.container_ip = std::string{"127.0.0.1"};
+    const auto results = validation::ValidationEngine::validate(state, {exp});
 
     svr.stop();
 
@@ -183,6 +181,9 @@ TEST(ValidationEngineTests, HttpStatusPassesOnExpectedStatus) {
     EXPECT_TRUE(results[0].passed);
 }
 
+/**
+ * @test Verifies http_status fails when the response status mismatches.
+ */
 TEST(ValidationEngineTests, HttpStatusFailsOnUnexpectedStatus) {
     httplib::Server svr;
     svr.Get("/ping", [](const httplib::Request&, httplib::Response& res) {
@@ -192,13 +193,11 @@ TEST(ValidationEngineTests, HttpStatusFailsOnUnexpectedStatus) {
     int port = svr.bind_to_any_port("127.0.0.1");
     std::jthread t([&svr]() { svr.listen_after_bind(); });
 
-    auto mock = std::make_shared<tests::MockContainerEngine>();
-    EXPECT_CALL(*mock, getContainerIp(std::string_view("ctr"))).WillOnce(Return("127.0.0.1"));
-
-    auto engine = makeEngine(mock);
     manifests::Expectation exp{"http_status",
                                {{"port", std::to_string(port)}, {"path", "/ping"}, {"expected_status", "200"}}};
-    const auto results = engine.validate("ctr", {exp});
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    state.container_ip = std::string{"127.0.0.1"};
+    const auto results = validation::ValidationEngine::validate(state, {exp});
 
     svr.stop();
 
@@ -206,6 +205,9 @@ TEST(ValidationEngineTests, HttpStatusFailsOnUnexpectedStatus) {
     EXPECT_FALSE(results[0].passed);
 }
 
+/**
+ * @test Verifies http_latency checks both min and max bounds.
+ */
 TEST(ValidationEngineTests, HttpLatencyValidatesBounds) {
     httplib::Server svr;
     svr.Get("/ping", [](const httplib::Request&, httplib::Response& res) {
@@ -216,23 +218,85 @@ TEST(ValidationEngineTests, HttpLatencyValidatesBounds) {
     int port = svr.bind_to_any_port("127.0.0.1");
     std::jthread t([&svr]() { svr.listen_after_bind(); });
 
-    auto mock = std::make_shared<tests::MockContainerEngine>();
-    EXPECT_CALL(*mock, getContainerIp(std::string_view("ctr"))).WillRepeatedly(Return("127.0.0.1"));
-
-    auto engine = makeEngine(mock);
     manifests::Expectation exp_pass{
         "http_latency",
         {{"port", std::to_string(port)}, {"path", "/ping"}, {"min_latency_ms", "0"}, {"max_latency_ms", "500"}}};
-    const auto results_pass = engine.validate("ctr", {exp_pass});
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    state.container_ip = std::string{"127.0.0.1"};
+    const auto results_pass = validation::ValidationEngine::validate(state, {exp_pass});
     ASSERT_EQ(results_pass.size(), 1u);
     EXPECT_TRUE(results_pass[0].passed);
 
     manifests::Expectation exp_fail{
         "http_latency",
         {{"port", std::to_string(port)}, {"path", "/ping"}, {"min_latency_ms", "0"}, {"max_latency_ms", "10"}}};
-    const auto results_fail = engine.validate("ctr", {exp_fail});
+    const auto results_fail = validation::ValidationEngine::validate(state, {exp_fail});
     ASSERT_EQ(results_fail.size(), 1u);
     EXPECT_FALSE(results_fail[0].passed);
 
     svr.stop();
+}
+
+/**
+ * @test Verifies http_status fails when container IP is unavailable.
+ */
+TEST(ValidationEngineTests, HttpStatusFailsWhenIpMissing) {
+    manifests::Expectation exp{"http_status", {{"port", "8080"}, {"path", "/ping"}, {"expected_status", "200"}}};
+    shared::TargetState state;
+    state.container_id = "ctr";
+    state.container_ip = std::nullopt;
+    state.status = shared::ContainerStatus::Running;
+
+    const auto results = validation::ValidationEngine::validate(state, {exp});
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_FALSE(results[0].passed);
+}
+
+/**
+ * @test Verifies http_status fails for invalid port parameters.
+ */
+TEST(ValidationEngineTests, HttpStatusHandlesInvalidPortParameter) {
+    manifests::Expectation exp{"http_status", {{"port", "not-a-number"}, {"path", "/ping"}, {"expected_status", "200"}}};
+    shared::TargetState state;
+    state.container_id = "ctr";
+    state.container_ip = std::string{"127.0.0.1"};
+    state.status = shared::ContainerStatus::Running;
+
+    const auto results = validation::ValidationEngine::validate(state, {exp});
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_FALSE(results[0].passed);
+}
+
+/**
+ * @test Verifies http_latency fails for invalid latency parameters.
+ */
+TEST(ValidationEngineTests, HttpLatencyHandlesInvalidLatencyParameter) {
+    manifests::Expectation exp{"http_latency", {{"port", "8080"}, {"path", "/ping"}, {"max_latency_ms", "oops"}}};
+    shared::TargetState state;
+    state.container_id = "ctr";
+    state.container_ip = std::string{"127.0.0.1"};
+    state.status = shared::ContainerStatus::Running;
+
+    const auto results = validation::ValidationEngine::validate(state, {exp});
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_FALSE(results[0].passed);
+}
+
+/**
+ * @test Verifies http_latency fails when container IP is unavailable.
+ */
+TEST(ValidationEngineTests, HttpLatencyFailsWhenIpMissing) {
+    manifests::Expectation exp{"http_latency", {{"port", "8080"}, {"path", "/ping"}, {"max_latency_ms", "50"}}};
+    shared::TargetState state;
+    state.container_id = "ctr";
+    state.container_ip = std::nullopt;
+    state.status = shared::ContainerStatus::Running;
+
+    const auto results = validation::ValidationEngine::validate(state, {exp});
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_FALSE(results[0].passed);
 }

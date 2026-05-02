@@ -33,7 +33,7 @@ void MemoryCapPerturbation::apply() {
 
     auto limit_it = params_.find("limit_bytes");
     if (limit_it == params_.end()) {
-        throw std::system_error(std::make_error_code(std::errc::invalid_argument), "Missing limit_bytes parameter");
+        throw std::invalid_argument("Missing limit_bytes parameter");
     }
 
     const std::string& limit = limit_it->second;

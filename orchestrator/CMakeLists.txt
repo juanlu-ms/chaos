@@ -60,16 +60,20 @@ target_link_libraries(orchestrator_app PRIVATE orchestrator_core)
 set_target_properties(orchestrator_app PROPERTIES OUTPUT_NAME chaos)
 
 add_executable(orchestrator_unit_tests 
+    tests/containers/ContainerEngineFactoryUnitTest.cpp
     tests/containers/internal/DockerClientUnitTest.cpp
+    tests/interfaces/cli/CliParserUnitTest.cpp
     tests/manifests/ManifestParserUnitTest.cpp
-    tests/perturbations/PerturbationTests.cpp
     tests/observability/ObservabilityEngineUnitTest.cpp
     tests/observability/ValidationEngineUnitTest.cpp
+    tests/perturbations/PerturbationEngineUnitTest.cpp
+    tests/perturbations/PerturbationTests.cpp
 )
 
 target_include_directories(orchestrator_unit_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/perturbations
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
 target_link_libraries(orchestrator_unit_tests PRIVATE
     orchestrator_core

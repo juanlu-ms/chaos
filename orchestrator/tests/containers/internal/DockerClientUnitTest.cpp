@@ -49,12 +49,16 @@ TEST(DockerClientUnitTest, ParsesContainerList) {
             {"Names", nlohmann::json::array({"/mock-container"})},
             {"State", "running"},
         },
+        {
+            {"Id", "def456"}, {"Names", nlohmann::json::array({"/another-container"})},
+            // State field is intentionally missing to test default handling
+        },
     });
     auto adapter = makeAdapterForListContainers(mockResponse);
 
     const auto containers = adapter.listContainers();
 
-    ASSERT_EQ(containers.size(), 1U);
+    ASSERT_EQ(containers.size(), 2U);
     EXPECT_EQ(containers[0].id, "abc123");
     EXPECT_EQ(containers[0].name, "mock-container");
     EXPECT_EQ(containers[0].state, "running");
@@ -80,9 +84,9 @@ TEST(DockerClientUnitTest, ThrowsOnErrorInResponse) {
 }
 
 /**
- * @test Verifies tolerant handling of containers with missing fields.
+ * @test Verifies tolerant handling of containers with missing fields on listContainers.
  */
-TEST(DockerClientUnitTest, HandlesContainersWithMissingFields) {
+TEST(DockerClientUnitTest, ListHandlesContainersWithMissingFields) {
     const auto mockResponse = nlohmann::json::array({
         {{"Id", "abc123"}},
         {{"Names", nlohmann::json::array({"/only-name"})}},
@@ -100,9 +104,9 @@ TEST(DockerClientUnitTest, HandlesContainersWithMissingFields) {
 }
 
 /**
- * @test Verifies parsing of multiple containers with different states.
+ * @test Verifies parsing of multiple containers with different states on listContainers.
  */
-TEST(DockerClientUnitTest, ParsesMultipleContainers) {
+TEST(DockerClientUnitTest, ListParsesMultipleContainers) {
     const auto mockResponse = nlohmann::json::array({
         {{"Id", "aaa"}, {"Names", nlohmann::json::array({"/alpha"})}, {"State", "running"}},
         {{"Id", "bbb"}, {"Names", nlohmann::json::array({"/beta"})}, {"State", "exited"}},
@@ -123,7 +127,7 @@ TEST(DockerClientUnitTest, ParsesMultipleContainers) {
 /**
  * @test Verifies propagation of transport errors.
  */
-TEST(DockerClientUnitTest, PropagatesTransportErrors) {
+TEST(DockerClientUnitTest, ListPropagatesTransportErrors) {
     auto adapter = makeAdapterWithError("Connection refused");
 
     EXPECT_THROW(adapter.listContainers(), std::runtime_error);

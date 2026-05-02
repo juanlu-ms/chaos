@@ -19,12 +19,7 @@
 using chaos::orchestrator::manifests::ChaosManifest;
 using chaos::orchestrator::manifests::ManifestParser;
 
-namespace {
-
-class TempManifestFileError : public std::runtime_error {
-public:
-    using std::runtime_error::runtime_error;
-};
+namespace UnitTest {
 
 /**
  * @brief Fixture for manifest parser tests.
@@ -36,14 +31,14 @@ private:
 protected:
     std::string createTempManifest(const std::string& json) {
         static std::atomic<unsigned long long> counter{0};
-        const auto id = counter.fetch_add(1, std::memory_order_relaxed);
+        const auto id = counter.fetch_add(1);
         const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
         const auto filename = fmt::format("chaos_manifest_parser_{}_{}.json", now, id);
         const auto path = std::filesystem::temp_directory_path() / filename;
 
         std::ofstream output(path);
         if (!output.is_open()) {
-            throw TempManifestFileError("Cannot create temporary manifest file");
+            throw std::runtime_error("Cannot create temporary manifest file");
         }
         output << json;
         output.close();
@@ -67,28 +62,20 @@ TEST_F(ManifestParserUnitTest, ParsesMinimalValidManifest) {
     const auto file = createTempManifest(R"json(
 {
   "test_name": "minimal",
-  "target": { "id": "orders-api" },
-  "perturbations": [
-    { "type": "kill", "parameters": {} }
-  ],
-  "expectations": [
-    { "type": "container_not_running", "parameters": {} }
-  ]
+  "target": { "id": "1234" },
+  "perturbations": [],
+  "expectations": []
 }
 )json");
 
     const ChaosManifest manifest = ManifestParser::parseFromFile(file);
 
     EXPECT_EQ(manifest.test_name, "minimal");
-    EXPECT_EQ(manifest.target.id, "orders-api");
+    EXPECT_EQ(manifest.target.id, "1234");
 
-    ASSERT_EQ(manifest.perturbations.size(), 1U);
-    EXPECT_EQ(manifest.perturbations[0].type, "kill");
-    EXPECT_TRUE(manifest.perturbations[0].parameters.empty());
+    ASSERT_EQ(manifest.perturbations.size(), 0U);
 
-    ASSERT_EQ(manifest.expectations.size(), 1U);
-    EXPECT_EQ(manifest.expectations[0].type, "container_not_running");
-    EXPECT_TRUE(manifest.expectations[0].parameters.empty());
+    ASSERT_EQ(manifest.expectations.size(), 0U);
 }
 
 /**
@@ -99,40 +86,52 @@ TEST_F(ManifestParserUnitTest, ParsesAllSupportedPerturbationAndExpectationTypes
 {
   "test_name": "all-supported-types",
   "target": { "id": "payments-api" },
+  "duration_s": 30,
   "perturbations": [
     { "type": "kill", "parameters": {} },
     { "type": "memory_cap", "parameters": { "limit_bytes": "268435456" } },
-    { "type": "cpu_cap", "parameters": { "quota": "25000", "period": "100000" } },
+    { "type": "cpu_cap", "parameters": { "cpu_cores": "2" } },
     { "type": "network_delay", "parameters": { "delay_ms": "120" } }
   ],
   "expectations": [
     { "type": "container_running", "parameters": {} },
     { "type": "container_not_running", "parameters": {} },
     { "type": "log_contains", "parameters": { "substring": "ready" } },
-    { "type": "log_not_contains", "parameters": { "substring": "panic" } }
+    { "type": "log_not_contains", "parameters": { "substring": "panic" } },
+    { "type": "http_status", "parameters": { "port": "8080", "path": "/health", "expected_status": "200" } },
+    { "type": "http_latency", "parameters": { "port": "8080", "path": "/process", "max_latency_ms": "500" } }
   ]
 }
 )json");
 
     const ChaosManifest manifest = ManifestParser::parseFromFile(file);
 
+    ASSERT_EQ(manifest.duration_s, 30);
+
     ASSERT_EQ(manifest.perturbations.size(), 4U);
     EXPECT_EQ(manifest.perturbations[0].type, "kill");
     EXPECT_EQ(manifest.perturbations[1].type, "memory_cap");
     EXPECT_EQ(manifest.perturbations[1].parameters.at("limit_bytes"), "268435456");
     EXPECT_EQ(manifest.perturbations[2].type, "cpu_cap");
-    EXPECT_EQ(manifest.perturbations[2].parameters.at("quota"), "25000");
-    EXPECT_EQ(manifest.perturbations[2].parameters.at("period"), "100000");
+    EXPECT_EQ(manifest.perturbations[2].parameters.at("cpu_cores"), "2");
     EXPECT_EQ(manifest.perturbations[3].type, "network_delay");
     EXPECT_EQ(manifest.perturbations[3].parameters.at("delay_ms"), "120");
 
-    ASSERT_EQ(manifest.expectations.size(), 4U);
+    ASSERT_EQ(manifest.expectations.size(), 6U);
     EXPECT_EQ(manifest.expectations[0].type, "container_running");
     EXPECT_EQ(manifest.expectations[1].type, "container_not_running");
     EXPECT_EQ(manifest.expectations[2].type, "log_contains");
     EXPECT_EQ(manifest.expectations[2].parameters.at("substring"), "ready");
     EXPECT_EQ(manifest.expectations[3].type, "log_not_contains");
     EXPECT_EQ(manifest.expectations[3].parameters.at("substring"), "panic");
+    EXPECT_EQ(manifest.expectations[4].type, "http_status");
+    EXPECT_EQ(manifest.expectations[4].parameters.at("port"), "8080");
+    EXPECT_EQ(manifest.expectations[4].parameters.at("path"), "/health");
+    EXPECT_EQ(manifest.expectations[4].parameters.at("expected_status"), "200");
+    EXPECT_EQ(manifest.expectations[5].type, "http_latency");
+    EXPECT_EQ(manifest.expectations[5].parameters.at("port"), "8080");
+    EXPECT_EQ(manifest.expectations[5].parameters.at("path"), "/process");
+    EXPECT_EQ(manifest.expectations[5].parameters.at("max_latency_ms"), "500");
 }
 
 /**
@@ -194,7 +193,7 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenPerturbationTypeIsUnsupported) {
 {
   "test_name": "unknown-perturbation",
   "target": { "id": "orders-api" },
-  "perturbations": [ { "type": "disk_fill", "parameters": {} } ],
+  "perturbations": [ { "type": "unknown", "parameters": {} } ],
   "expectations": [ { "type": "container_not_running", "parameters": {} } ]
 }
 )json");
@@ -211,7 +210,7 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenExpectationTypeIsUnsupported) {
   "test_name": "unknown-expectation",
   "target": { "id": "orders-api" },
   "perturbations": [ { "type": "kill", "parameters": {} } ],
-  "expectations": [ { "type": "exit_code_equals", "parameters": { "code": "0" } } ]
+  "expectations": [ { "type": "unknown", "parameters": { "code": "0" } } ]
 }
 )json");
 
@@ -253,12 +252,12 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenMemoryCapHasNoLimitBytes) {
 /**
  * @test Verifies cpu_cap perturbation requires both quota and period parameters.
  */
-TEST_F(ManifestParserUnitTest, ThrowsWhenCpuCapHasMissingPeriod) {
+TEST_F(ManifestParserUnitTest, ThrowsWhenCpuCapHasMissingCpuCores) {
     const auto file = createTempManifest(R"json(
 {
   "test_name": "missing-cpu-period",
   "target": { "id": "orders-api" },
-  "perturbations": [ { "type": "cpu_cap", "parameters": { "quota": "25000" } } ],
+  "perturbations": [ { "type": "cpu_cap", "parameters": {} } ],
   "expectations": [ { "type": "container_running", "parameters": {} } ]
 }
 )json");
@@ -275,22 +274,6 @@ TEST_F(ManifestParserUnitTest, ThrowsWhenNetworkDelayHasNoDelayMs) {
   "test_name": "missing-network-delay",
   "target": { "id": "orders-api" },
   "perturbations": [ { "type": "network_delay", "parameters": {} } ],
-  "expectations": [ { "type": "container_running", "parameters": {} } ]
-}
-)json");
-
-    EXPECT_THROW((void)ManifestParser::parseFromFile(file), chaos::orchestrator::manifests::ManifestParserError);
-}
-
-/**
- * @test Verifies unsupported network_cap is rejected after unifying network type to network_delay.
- */
-TEST_F(ManifestParserUnitTest, ThrowsWhenLegacyNetworkCapTypeIsUsed) {
-    const auto file = createTempManifest(R"json(
-{
-  "test_name": "legacy-network-cap",
-  "target": { "id": "orders-api" },
-  "perturbations": [ { "type": "network_cap", "parameters": { "latency_ms": "120" } } ],
   "expectations": [ { "type": "container_running", "parameters": {} } ]
 }
 )json");
@@ -333,6 +316,8 @@ TEST_F(ManifestParserUnitTest, TargetMissingBothIdAndNameThrows) {
 
 /**
  * @test Verifies that duration_s is parsed successfully.
+ * TODO: Once duration_s is moved to a perturbation parameter, this test should be
+ * updated to verify correct parsing from the parameters map instead of the top-level manifest field.
  */
 TEST_F(ManifestParserUnitTest, DurationSIsParsed) {
     const auto file = createTempManifest(R"json(
@@ -351,6 +336,25 @@ TEST_F(ManifestParserUnitTest, DurationSIsParsed) {
 }
 
 /**
+ * @test Verifies that duration_s is parsed successfully.
+ * TODO: Once duration_s is moved to a perturbation parameter, this test should be
+ * updated to verify correct parsing from the parameters map instead of the top-level manifest field.
+ */
+TEST_F(ManifestParserUnitTest, ThrowsWhenDurationSIsNotAnInteger) {
+    const auto file = createTempManifest(R"json(
+{
+  "test_name": "duration-not-integer",
+  "target": { "id": "my-container" },
+  "perturbations": [],
+  "expectations": [],
+  "duration_s": "not-an-integer"
+}
+)json");
+
+    EXPECT_THROW((void)ManifestParser::parseFromFile(file), chaos::orchestrator::manifests::ManifestParserError);
+}
+
+/**
  * @test Verifies that duration_s absence does not throw.
  */
 TEST_F(ManifestParserUnitTest, DurationOmissionParses) {
@@ -366,4 +370,4 @@ TEST_F(ManifestParserUnitTest, DurationOmissionParses) {
     EXPECT_FALSE(manifest.duration_s.has_value());
 }
 
-}  // namespace
+}  // namespace UnitTest

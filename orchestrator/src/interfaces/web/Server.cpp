@@ -1,16 +1,20 @@
 #include <spdlog/spdlog.h>
 
+#include <chrono>
 #include <filesystem>
 #include <interfaces/web/Server.hpp>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
 #include "manifests/ManifestParser.hpp"
 #include "observability/ObservabilityEngine.hpp"
 #include "perturbations/PerturbationEngine.hpp"
+#include "perturbations/PerturbationFactory.hpp"
+#include "shared/StateBroadcaster.hpp"
 #include "validation/ValidationEngine.hpp"
 
 using json = nlohmann::json;
@@ -162,12 +166,38 @@ void Server::setupRoutes() {
         }
         try {
             auto manifest = manifests::ManifestParser::parseFromJson(req.body);
-            perturbations::PerturbationEngine pert_engine(m_engine);
-            pert_engine.applyAll(manifest);
+            SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.id);
+
+            perturbations::PerturbationFactory factory;
+            std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbation_instances;
+            for (const auto& spec : manifest.perturbations) {
+                perturbation_instances.push_back(factory.create(m_engine, manifest.target, spec));
+            }
+
+            perturbations::PerturbationEngine pert_engine;
+            const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
+            pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration);
 
             observability::ObservabilityEngine obs(m_engine);
-            shared::TargetState targetState = obs.observe(manifest.target.id);
-            const auto results = validation::ValidationEngine::validate(targetState, manifest.expectations);
+            shared::TargetState lastKnownState;
+            shared::StateBroadcaster broadcaster;
+
+            if (duration.count() > 0) {
+                SPDLOG_INFO("Injecting faults for {}s. Monitoring real-time state...", duration.count());
+                auto start_time = std::chrono::steady_clock::now();
+                while (std::chrono::steady_clock::now() - start_time < duration) {
+                    lastKnownState = obs.observe(manifest.target.id);
+                    broadcaster.broadcast(lastKnownState);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                }
+            } else {
+                lastKnownState = obs.observe(manifest.target.id);
+                broadcaster.broadcast(lastKnownState);
+            }
+
+            pert_engine.waitForTeardown();
+
+            const auto results = validation::ValidationEngine::validate(lastKnownState, manifest.expectations);
 
             bool passed = std::ranges::all_of(results, [](const auto& r) { return r.passed; });
             json j;

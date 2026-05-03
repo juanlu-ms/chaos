@@ -92,8 +92,8 @@
   "testPresets": [
     {
       "name": "test",
-      "configurePreset": "dev-linux-gcc",
-      "configuration": "Debug",
+      "configurePreset": "release-linux-gcc",
+      "configuration": "Release",
       "output": {
         "outputOnFailure": true
       },
@@ -103,9 +103,9 @@
       }
     },
     {
-      "name": "test-release",
-      "configurePreset": "release-linux-gcc",
-      "configuration": "Release",
+      "name": "test-debug",
+      "configurePreset": "dev-linux-gcc",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },

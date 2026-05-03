@@ -23,6 +23,16 @@ The `ObservabilityEngine` provides real-time container state inspection and log 
 The `ValidationEngine` evaluates JSON manifests automatically against these expectations:
 - `container_running` / `container_not_running`
 - `log_contains` / `log_not_contains`
+- `http_status` / `http_latency`
+
+### Concurrent Perturbations
+Perturbations execute asynchronously using `std::async` for concurrent fault injection. The `PerturbationEngine` acts as a thread scheduler, running multiple perturbations in parallel with thread-safe state tracking.
+
+### Active State Polling
+During perturbation runs, the system actively polls target state and broadcasts updates via `StateBroadcaster`, enabling real-time observability integration for TUI or Web dashboards.
+
+### Graceful Interruption
+SIGINT (Ctrl+C) triggers immediate cancellation of running perturbations, with automatic rollback/reversion of all applied faults before the tool exits.
 
 ### Web Dashboard
 A fully functional Web UI (`chaos serve`) provides real-time feature parity with the CLI, allowing users to run JSON manifests, view logs, and monitor container states directly from the browser.

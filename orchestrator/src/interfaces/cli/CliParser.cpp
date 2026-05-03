@@ -241,69 +241,16 @@ int CliParser::handleServe(int port) const {
 
 int CliParser::handleRun(const std::string& manifestPath) const {
     try {
-        auto manifest = manifests::ManifestParser::parseFromFile(manifestPath);
+        auto manifest = parseManifest(manifestPath);
         SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.id);
 
-        // Build perturbations and schedule them asynchronously
-        perturbations::PerturbationFactory factory;
-        std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbation_instances;
-        perturbation_instances.reserve(manifest.perturbations.size());
-        for (const auto& spec : manifest.perturbations) {
-            perturbation_instances.push_back(factory.create(m_engine, manifest.target, spec));
-        }
-
-        perturbations::PerturbationEngine pert_engine;
+        auto perturbation_instances = buildPerturbations(manifest);
         const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
-        pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration);
 
-        observability::ObservabilityEngine obs(m_engine);
-        shared::TargetState lastKnownState{};
-        shared::StateBroadcaster broadcaster;
+        auto finalState = runPerturbationsLoop(std::move(perturbation_instances), manifest.target.id, duration);
 
-        // Register interrupt handler and reset interrupt state
-        g_interrupt_requested = 0;
-        const SignalHandler previous_handler = std::signal(SIGINT, signalHandler);
-        const SignalHandlerGuard signal_guard(previous_handler);
-
-        // Poll target state during the perturbation window.
-        if (duration.count() == 0) {
-            lastKnownState = obs.observe(manifest.target.id);
-            broadcaster.broadcast(lastKnownState);
-        } else {
-            const auto end_time = std::chrono::steady_clock::now() + duration;
-            while (std::chrono::steady_clock::now() < end_time && g_interrupt_requested == 0) {
-                lastKnownState = obs.observe(manifest.target.id);
-                broadcaster.broadcast(lastKnownState);
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            }
-        }
-
-        // Cancel perturbations when interrupted
-        if (g_interrupt_requested != 0) {
-            SPDLOG_WARN("Interrupt received; canceling perturbations.");
-            pert_engine.cancel();
-        }
-
-        // Wait for perturbations to teardown before validation
-        pert_engine.waitForTeardown();
-
-        // Evaluate manifest expectations against the last observed state
-        if (!manifest.expectations.empty()) {
-            SPDLOG_INFO("Evaluating {} expectation(s)...", manifest.expectations.size());
-            const auto results = validation::ValidationEngine::validate(lastKnownState, manifest.expectations);
-
-            bool anyFailed = false;
-            for (const auto& result : results) {
-                if (!result.passed) {
-                    anyFailed = true;
-                }
-            }
-
-            if (anyFailed) {
-                SPDLOG_ERROR("Chaos run FAILED: one or more expectations were not met.");
-                return 1;
-            }
-            SPDLOG_INFO("Chaos run PASSED: all expectations met.");
+        if (!validateExpectations(manifest, finalState)) {
+            return 1;
         }
     } catch (const manifests::ManifestParserError& ex) {
         SPDLOG_ERROR("Failed to run manifest: {}", ex.what());
@@ -319,6 +266,79 @@ int CliParser::handleRun(const std::string& manifestPath) const {
         return 1;
     }
     return 0;
+}
+
+manifests::ChaosManifest CliParser::parseManifest(const std::string& path) const {
+    return manifests::ManifestParser::parseFromFile(path);
+}
+
+std::vector<std::unique_ptr<perturbations::IPerturbation>>
+CliParser::buildPerturbations(const manifests::ChaosManifest& manifest) const {
+    perturbations::PerturbationFactory factory;
+    std::vector<std::unique_ptr<perturbations::IPerturbation>> instances;
+    instances.reserve(manifest.perturbations.size());
+    for (const auto& spec : manifest.perturbations) {
+        instances.push_back(factory.create(m_engine, manifest.target, spec));
+    }
+    return instances;
+}
+
+shared::TargetState CliParser::runPerturbationsLoop(
+    std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations,
+    const std::string& targetId,
+    std::chrono::seconds duration) const {
+
+    perturbations::PerturbationEngine pert_engine;
+    pert_engine.scheduleAllAsync(std::move(perturbations), duration);
+
+    observability::ObservabilityEngine obs(m_engine);
+    shared::TargetState lastKnownState{};
+    shared::StateBroadcaster broadcaster;
+
+    g_interrupt_requested = 0;
+    const SignalHandler previous_handler = std::signal(SIGINT, signalHandler);
+    const SignalHandlerGuard signal_guard(previous_handler);
+
+    if (duration.count() == 0) {
+        lastKnownState = obs.observe(targetId);
+        broadcaster.broadcast(lastKnownState);
+    } else {
+        const auto end_time = std::chrono::steady_clock::now() + duration;
+        while (std::chrono::steady_clock::now() < end_time && g_interrupt_requested == 0) {
+            lastKnownState = obs.observe(targetId);
+            broadcaster.broadcast(lastKnownState);
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+    }
+
+    if (g_interrupt_requested != 0) {
+        SPDLOG_WARN("Interrupt received; canceling perturbations.");
+        pert_engine.cancel();
+    }
+
+    pert_engine.waitForTeardown();
+    return lastKnownState;
+}
+
+bool CliParser::validateExpectations(
+    const manifests::ChaosManifest& manifest,
+    const shared::TargetState& finalState) const {
+
+    if (manifest.expectations.empty()) {
+        return true;
+    }
+
+    SPDLOG_INFO("Evaluating {} expectation(s)...", manifest.expectations.size());
+    const auto results = validation::ValidationEngine::validate(finalState, manifest.expectations);
+
+    for (const auto& result : results) {
+        if (!result.passed) {
+            SPDLOG_ERROR("Chaos run FAILED: one or more expectations were not met.");
+            return false;
+        }
+    }
+    SPDLOG_INFO("Chaos run PASSED: all expectations met.");
+    return true;
 }
 
 int CliParser::handleTui() const {

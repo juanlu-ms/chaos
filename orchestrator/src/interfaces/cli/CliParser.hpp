@@ -6,7 +6,11 @@
 #pragma once
 
 #include <containers/IContainerEngine.hpp>
+#include <chrono>
+#include <manifests/ManifestParser.hpp>
 #include <memory>
+#include <perturbations/PerturbationFactory.hpp>
+#include <shared/StateBroadcaster.hpp>
 #include <span>
 #include <string>
 #include <vector>
@@ -79,6 +83,20 @@ private:
      * @return Exit code (0 on clean exit).
      */
     int handleTui() const;
+
+    [[nodiscard]] manifests::ChaosManifest parseManifest(const std::string& path) const;
+
+    [[nodiscard]] std::vector<std::unique_ptr<perturbations::IPerturbation>>
+    buildPerturbations(const manifests::ChaosManifest& manifest) const;
+
+    [[nodiscard]] shared::TargetState runPerturbationsLoop(
+        std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations,
+        const std::string& targetId,
+        std::chrono::seconds duration) const;
+
+    [[nodiscard]] bool validateExpectations(
+        const manifests::ChaosManifest& manifest,
+        const shared::TargetState& finalState) const;
 
     /**
      * @brief Internal helper to dispatch the parsed command.

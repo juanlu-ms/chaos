@@ -1,6 +1,7 @@
 #include <spdlog/spdlog.h>
 
 #include <chrono>
+#include <csignal>
 #include <interfaces/cli/CliParser.hpp>
 #include <interfaces/web/Server.hpp>
 #include <memory>
@@ -16,6 +17,8 @@
 #include "manifests/ManifestParser.hpp"
 #include "observability/ObservabilityEngine.hpp"
 #include "perturbations/PerturbationEngine.hpp"
+#include "perturbations/PerturbationFactory.hpp"
+#include "shared/StateBroadcaster.hpp"
 #include "validation/ValidationEngine.hpp"
 
 namespace chaos::orchestrator::interfaces::cli {
@@ -26,6 +29,35 @@ namespace {
 
 [[nodiscard]] bool isHelpCommand(const std::string_view command) {
     return command == "help" || command == "--help" || command == "-h";
+}
+
+volatile std::sig_atomic_t g_interrupt_requested = 0;
+
+using SignalHandler = void (*)(int);
+
+// Restores the previous SIGINT handler on scope exit.
+class SignalHandlerGuard {
+public:
+    explicit SignalHandlerGuard(SignalHandler previous) : previous_(previous) {}
+
+    ~SignalHandlerGuard() {
+        if (previous_ != SIG_ERR) {
+            std::signal(SIGINT, previous_);
+        }
+    }
+
+    SignalHandlerGuard(const SignalHandlerGuard&) = delete;
+    SignalHandlerGuard& operator=(const SignalHandlerGuard&) = delete;
+
+private:
+    SignalHandler previous_;
+};
+
+// Signal handler to request interrupt-driven cancellation.
+void signalHandler(int signal_number) {
+    if (signal_number == SIGINT) {
+        g_interrupt_requested = 1;
+    }
 }
 
 }  // namespace
@@ -212,20 +244,53 @@ int CliParser::handleRun(const std::string& manifestPath) const {
         auto manifest = manifests::ManifestParser::parseFromFile(manifestPath);
         SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.id);
 
-        perturbations::PerturbationEngine pert_engine(m_engine);
-        pert_engine.applyAll(manifest);
-
-        if (manifest.duration_s.has_value() && manifest.duration_s.value() > 0) {
-            SPDLOG_INFO("Waiting {}s for faults to inject...", manifest.duration_s.value());
-            std::this_thread::sleep_for(std::chrono::seconds(manifest.duration_s.value()));
+        // Build perturbations and schedule them asynchronously
+        perturbations::PerturbationFactory factory;
+        std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbation_instances;
+        perturbation_instances.reserve(manifest.perturbations.size());
+        for (const auto& spec : manifest.perturbations) {
+            perturbation_instances.push_back(factory.create(m_engine, manifest.target, spec));
         }
 
-        // Evaluate manifest expectations
+        perturbations::PerturbationEngine pert_engine;
+        const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
+        pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration);
+
+        observability::ObservabilityEngine obs(m_engine);
+        shared::TargetState lastKnownState{};
+        shared::StateBroadcaster broadcaster;
+
+        // Register interrupt handler and reset interrupt state
+        g_interrupt_requested = 0;
+        const SignalHandler previous_handler = std::signal(SIGINT, signalHandler);
+        const SignalHandlerGuard signal_guard(previous_handler);
+
+        // Poll target state during the perturbation window.
+        if (duration.count() == 0) {
+            lastKnownState = obs.observe(manifest.target.id);
+            broadcaster.broadcast(lastKnownState);
+        } else {
+            const auto end_time = std::chrono::steady_clock::now() + duration;
+            while (std::chrono::steady_clock::now() < end_time && g_interrupt_requested == 0) {
+                lastKnownState = obs.observe(manifest.target.id);
+                broadcaster.broadcast(lastKnownState);
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            }
+        }
+
+        // Cancel perturbations when interrupted
+        if (g_interrupt_requested != 0) {
+            SPDLOG_WARN("Interrupt received; canceling perturbations.");
+            pert_engine.cancel();
+        }
+
+        // Wait for perturbations to teardown before validation
+        pert_engine.waitForTeardown();
+
+        // Evaluate manifest expectations against the last observed state
         if (!manifest.expectations.empty()) {
             SPDLOG_INFO("Evaluating {} expectation(s)...", manifest.expectations.size());
-            observability::ObservabilityEngine obs(m_engine);
-            shared::TargetState targetState = obs.observe(manifest.target.id);
-            const auto results = validation::ValidationEngine::validate(targetState, manifest.expectations);
+            const auto results = validation::ValidationEngine::validate(lastKnownState, manifest.expectations);
 
             bool anyFailed = false;
             for (const auto& result : results) {

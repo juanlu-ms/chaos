@@ -167,7 +167,7 @@ void execute_run(const std::shared_ptr<containers::IContainerEngine>& engine, Sh
             while (std::chrono::steady_clock::now() - start_time < duration && !stop_token.stop_requested()) {
                 lastKnownState = obs.observe(manifest.target.id);
                 broadcaster.broadcast(lastKnownState);
-                push_output(fmt::format("  📊 State: {} - {}", lastKnownState.status, lastKnownState.container_id));
+                push_output(fmt::format("  📊 State: {} - {}", shared::toString(lastKnownState.status), lastKnownState.container_id));
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
             }
         } else {

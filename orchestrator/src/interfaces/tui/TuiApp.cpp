@@ -26,6 +26,8 @@
 #include "manifests/ManifestParser.hpp"
 #include "observability/ObservabilityEngine.hpp"
 #include "perturbations/PerturbationEngine.hpp"
+#include "perturbations/PerturbationFactory.hpp"
+#include "shared/StateBroadcaster.hpp"
 #include "validation/ValidationEngine.hpp"
 
 namespace chaos::orchestrator::interfaces::tui {
@@ -145,13 +147,38 @@ void execute_run(const std::shared_ptr<containers::IContainerEngine>& engine, Sh
         const auto manifest = manifests::ManifestParser::parseFromFile(request.manifest_path);
         push_output(fmt::format("▶ Running: {}", manifest.test_name));
 
-        perturbations::PerturbationEngine pert(engine);
-        pert.applyAll(manifest);
-        push_output("  ✓ Perturbations applied.");
+        perturbations::PerturbationFactory factory;
+        std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbation_instances;
+        for (const auto& spec : manifest.perturbations) {
+            perturbation_instances.push_back(factory.create(engine, manifest.target, spec));
+        }
 
-        wait_manifest_duration(manifest, state, screen, push_output, stop_token);
+        perturbations::PerturbationEngine pert_engine;
+        const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
+        pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration);
 
         observability::ObservabilityEngine obs(engine);
+        shared::TargetState lastKnownState;
+        shared::StateBroadcaster broadcaster;
+
+        if (duration.count() > 0) {
+            push_output(fmt::format("  Injecting faults for {}s...", duration.count()));
+            auto start_time = std::chrono::steady_clock::now();
+            while (std::chrono::steady_clock::now() - start_time < duration && !stop_token.stop_requested()) {
+                lastKnownState = obs.observe(manifest.target.id);
+                broadcaster.broadcast(lastKnownState);
+                push_output(fmt::format("  📊 State: {} - {}", lastKnownState.status, lastKnownState.container_id));
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            }
+        } else {
+            lastKnownState = obs.observe(manifest.target.id);
+            broadcaster.broadcast(lastKnownState);
+        }
+
+        push_output("  Waiting for perturbations to revert...");
+        pert_engine.waitForTeardown();
+        push_output("  ✓ Perturbations reverted.");
+
         shared::TargetState targetState = obs.observe(manifest.target.id);
         const auto results = validation::ValidationEngine::validate(targetState, manifest.expectations);
 

@@ -5,11 +5,13 @@
 
 #pragma once
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <future>
 #include <memory>
+#include <mutex>
 #include <vector>
-
-#include "containers/IContainerEngine.hpp"
-#include "manifests/Manifest.hpp"
 #include "perturbations/IPerturbation.hpp"
 
 namespace chaos::orchestrator::perturbations {
@@ -20,14 +22,10 @@ namespace chaos::orchestrator::perturbations {
  */
 class PerturbationEngine {
 public:
-    /**
-     * @brief Construct a new PerturbationEngine.
-     * @param engine Container engine instance to wrap.
-     */
-    explicit PerturbationEngine(std::shared_ptr<containers::IContainerEngine> engine);
+    PerturbationEngine() = default;
 
     /**
-     * @brief Reverts any active perturbations (RAII).
+     * @brief Cancel and wait for any scheduled perturbations.
      */
     ~PerturbationEngine();
 
@@ -36,22 +34,30 @@ public:
     PerturbationEngine& operator=(const PerturbationEngine&) = delete;
 
     /**
-     * @brief Instantiates and applies all perturbations defined in a manifest.
-     *
-     * @param manifest The chaos manifestation containing the target and perturbation specs.
-     * @throws std::exception on failure to instantiate or apply perturbations.
+     * @brief Schedule perturbations to run asynchronously.
+     * @param perturbations Perturbations to apply and later revert.
+     * @param duration Duration to wait before reverting unless canceled.
      */
-    void applyAll(const manifests::ChaosManifest& manifest);
+    void scheduleAllAsync(std::vector<std::unique_ptr<IPerturbation>> perturbations,
+                          std::chrono::seconds duration);
 
     /**
-     * @brief Reverts all active perturbations.
-     * Reverts are executed in reverse order of application.
+     * @brief Request cancellation of any running perturbations.
+     * @note Safe to call multiple times from any thread.
      */
-    void revertAll();
+    void cancel();
+
+    /**
+     * @brief Wait for all active tasks to complete and clear tracking.
+     */
+    void waitForTeardown();
 
 private:
-    std::shared_ptr<containers::IContainerEngine> engine_;
-    std::vector<std::unique_ptr<IPerturbation>> active_perturbations_;
+    std::vector<std::future<void>> active_tasks_;
+    std::mutex tasks_mutex_;
+    std::mutex cancel_mutex_;
+    std::condition_variable cancel_cv_;
+    std::atomic<bool> cancel_requested_{false};
 };
 
 }  // namespace chaos::orchestrator::perturbations

@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>

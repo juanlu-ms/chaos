@@ -7,44 +7,78 @@
 
 #include <spdlog/spdlog.h>
 
-#include <ranges>
-
-#include "perturbations/PerturbationFactory.hpp"
+#include <future>
+#include <utility>
 
 namespace chaos::orchestrator::perturbations {
 
-PerturbationEngine::PerturbationEngine(std::shared_ptr<containers::IContainerEngine> engine)
-    : engine_(std::move(engine)) {}
-
-PerturbationEngine::~PerturbationEngine() { revertAll(); }
-
-void PerturbationEngine::applyAll(const manifests::ChaosManifest& manifest) {
-    PerturbationFactory factory;
-
-    for (const auto& pert_spec : manifest.perturbations) {
-        SPDLOG_INFO("Applying perturbation '{}'", pert_spec.type);
-        auto perturbation = factory.create(engine_, manifest.target, pert_spec);
-        perturbation->apply();
-        // Only track successfully applied perturbations
-        active_perturbations_.push_back(std::move(perturbation));
-    }
-
-    SPDLOG_INFO("All perturbations applied successfully.");
+PerturbationEngine::~PerturbationEngine() {
+    cancel();
+    waitForTeardown();
 }
 
-void PerturbationEngine::revertAll() {
-    // Note: Reverse iteration because undoing state implies LIFO teardown
-    for (auto const& active_perturbation : std::ranges::reverse_view(active_perturbations_)) {
+void PerturbationEngine::scheduleAllAsync(std::vector<std::unique_ptr<IPerturbation>> perturbations,
+                                          std::chrono::seconds duration) {
+    {
+        std::lock_guard<std::mutex> lock(cancel_mutex_);
+        cancel_requested_.store(false);
+    }
+
+    std::lock_guard<std::mutex> tasks_lock(tasks_mutex_);
+    active_tasks_.reserve(active_tasks_.size() + perturbations.size());
+
+    for (auto& perturbation : perturbations) {
+        active_tasks_.emplace_back(
+            std::async(std::launch::async, [this, duration, perturbation = std::move(perturbation)]() mutable {
+                try {
+                    perturbation->apply();
+                    std::unique_lock<std::mutex> lock(cancel_mutex_);
+                    cancel_cv_.wait_for(lock, duration, [this]() { return cancel_requested_.load(); });
+                    perturbation->revert();
+                } catch (const std::exception& e) {
+                    SPDLOG_ERROR("Perturbation task failed: {}", e.what());
+                } catch (...) {
+                    SPDLOG_ERROR("Perturbation task failed: unknown error");
+                }
+            }));
+    }
+}
+
+void PerturbationEngine::cancel() {
+    bool expected = false;
+    if (!cancel_requested_.compare_exchange_strong(expected, true)) {
+        return;
+    }
+
+    cancel_cv_.notify_all();
+}
+
+void PerturbationEngine::waitForTeardown() {
+    std::vector<std::future<void>> tasks;
+    {
+        std::lock_guard<std::mutex> lock(tasks_mutex_);
+        tasks.swap(active_tasks_);
+    }
+
+    bool had_errors = false;
+    for (auto& task : tasks) {
+        if (!task.valid()) {
+            continue;
+        }
         try {
-            active_perturbation->revert();
+            task.get();
         } catch (const std::exception& e) {
-            // Note: During teardown, log exceptions but continue destroying context where possible.
-            SPDLOG_ERROR("Failed to revert perturbation: {}", e.what());
+            had_errors = true;
+            SPDLOG_ERROR("Perturbation task teardown failed: {}", e.what());
+        } catch (...) {
+            had_errors = true;
+            SPDLOG_ERROR("Perturbation task teardown failed: unknown error");
         }
     }
 
-    // Clear list tracking since everything that can be, has been reverted.
-    active_perturbations_.clear();
+    if (!had_errors) {
+        SPDLOG_INFO("Perturbation tasks torn down successfully.");
+    }
 }
 
 }  // namespace chaos::orchestrator::perturbations

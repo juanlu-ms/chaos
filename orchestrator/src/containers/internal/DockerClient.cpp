@@ -207,8 +207,7 @@ std::string DockerClient::exec(const std::string_view containerId, const std::st
     return startResponse.body;
 }
 
-void DockerClient::updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota,
-                                   int64_t cpu_period) const {
+void DockerClient::updateMemoryLimit(const std::string_view containerId, int64_t memory_bytes) const {
     if (containerId.empty()) {
         throw std::invalid_argument("Container ID must not be empty");
     }
@@ -218,26 +217,44 @@ void DockerClient::updateResources(const std::string_view containerId, int64_t m
         updateConfig["Memory"] = memory_bytes;
         updateConfig["MemorySwap"] = memory_bytes;
     }
+
+    SPDLOG_DEBUG("Updating memory limit for container {}: {}", containerId, updateConfig.dump());
+
+    const std::string endpoint = fmt::format("/containers/{}/update", containerId);
+
+    if (const auto response = request_(HttpMethod::POST, endpoint, updateConfig.dump()); response.status != 200) {
+        throw containers::ContainerEngineApiError(
+            fmt::format("Failed to update memory limit for container '{}': HTTP {}", containerId, response.status));
+    }
+
+    SPDLOG_INFO("Updated memory limit for container '{}'", containerId);
+}
+
+void DockerClient::updateCpuQuota(const std::string_view containerId, int64_t cpu_quota, int64_t cpu_period) const {
+    if (containerId.empty()) {
+        throw std::invalid_argument("Container ID must not be empty");
+    }
+
+    nlohmann::json updateConfig = nlohmann::json::object();
     if (cpu_quota >= 0) {
         updateConfig["CpuQuota"] = cpu_quota;
+    } else if (cpu_quota == -1) {
+        updateConfig["CpuQuota"] = -1;
     }
     if (cpu_period > 0) {
         updateConfig["CpuPeriod"] = cpu_period;
     }
 
-    SPDLOG_DEBUG("Updating resources for container {}: {}", containerId, updateConfig.dump());
+    SPDLOG_DEBUG("Updating CPU quota for container {}: {}", containerId, updateConfig.dump());
 
     const std::string endpoint = fmt::format("/containers/{}/update", containerId);
 
     if (const auto response = request_(HttpMethod::POST, endpoint, updateConfig.dump()); response.status != 200) {
-        if (memory_bytes == 0 && cpu_quota == 0 && cpu_period == 0) {
-            SPDLOG_INFO("Reverting resources for container '{}'", containerId);
-        }
         throw containers::ContainerEngineApiError(
-            fmt::format("Failed to update resources for container '{}': HTTP {}", containerId, response.status));
+            fmt::format("Failed to update CPU quota for container '{}': HTTP {}", containerId, response.status));
     }
 
-    SPDLOG_INFO("Updated resources for container '{}'", containerId);
+    SPDLOG_INFO("Updated CPU quota for container '{}'", containerId);
 }
 
 shared::ContainerStatus DockerClient::getStatus(const std::string_view containerId) const {

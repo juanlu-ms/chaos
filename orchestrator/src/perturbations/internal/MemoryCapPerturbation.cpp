@@ -39,7 +39,7 @@ void MemoryCapPerturbation::apply() {
     const std::string& limit = limit_it->second;
 
     try {
-        engine_->updateResources(target_id_, std::stoll(limit), 0, 0);
+        engine_->updateMemoryLimit(target_id_, std::stoll(limit));
         hasBeenApplied_ = true;
         SPDLOG_INFO("Memory Cap Perturbation applied: limit_bytes={} on target {}", limit, target_id_);
     } catch (const containers::ContainerEngineError& e) {
@@ -62,7 +62,7 @@ void MemoryCapPerturbation::revert() {
     }
 
     try {
-        engine_->updateResources(target_id_, 0, 0, 0);
+        engine_->updateMemoryLimit(target_id_, 0);
         hasBeenApplied_ = false;
         SPDLOG_INFO("Memory Cap Perturbation reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {

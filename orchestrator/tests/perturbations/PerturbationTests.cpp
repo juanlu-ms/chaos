@@ -136,7 +136,7 @@ TEST(PerturbationTests, CpuCapApplyIsSkippedWhenAlreadyApplied) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     manifests::Perturbation spec{"cpu_cap", {{"cpu_cores", "2"}}};
 
-    EXPECT_CALL(*mockEngine, updateResources(std::string_view("target"), 0, 2, 100000)).Times(1);
+    EXPECT_CALL(*mockEngine, updateCpuQuota(std::string_view("target"), 200000, 100000)).Times(1);
 
     perturbations::CpuCapPerturbation pert(mockEngine, "target", spec);
     pert.apply();
@@ -323,7 +323,7 @@ TEST(PerturbationTests, NetworkDelayThrowsOnEmptyTargetId) {
 TEST(PerturbationTests, CpuCapApplyCallsUpdateResourcesWithCorrectCpuCores) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     manifests::Perturbation spec{"cpu_cap", {{"cpu_cores", "2"}}};
-    EXPECT_CALL(*mockEngine, updateResources(std::string_view("target"), 0, 2, 100000)).Times(1);
+    EXPECT_CALL(*mockEngine, updateCpuQuota(std::string_view("target"), 200000, 100000)).Times(1);
     perturbations::CpuCapPerturbation pert(mockEngine, "target", spec);
     EXPECT_NO_THROW(pert.apply());
 }
@@ -331,7 +331,7 @@ TEST(PerturbationTests, CpuCapApplyCallsUpdateResourcesWithCorrectCpuCores) {
 TEST(PerturbationTests, MemoryCapApplyCallsUpdateResourcesWithCorrectLimit) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     manifests::Perturbation spec{"memory_cap", {{"limit_bytes", "104857600"}}};
-    EXPECT_CALL(*mockEngine, updateResources(std::string_view("target"), 104857600, 0, 0)).Times(1);
+    EXPECT_CALL(*mockEngine, updateMemoryLimit(std::string_view("target"), 104857600)).Times(1);
     perturbations::MemoryCapPerturbation pert(mockEngine, "target", spec);
     EXPECT_NO_THROW(pert.apply());
 }
@@ -362,8 +362,8 @@ TEST(PerturbationTests, CpuCapRevertCallsUpdateResourcesWithZeroCpuCores) {
     manifests::Perturbation spec{"cpu_cap", {{"cpu_cores", "2"}}};
 
     testing::InSequence seq;
-    EXPECT_CALL(*mockEngine, updateResources(std::string_view("target"), 0, 2, 100000)).Times(1);
-    EXPECT_CALL(*mockEngine, updateResources(std::string_view("target"), 0, 0, 0)).Times(1);
+    EXPECT_CALL(*mockEngine, updateCpuQuota(std::string_view("target"), 200000, 100000)).Times(1);
+    EXPECT_CALL(*mockEngine, updateCpuQuota(std::string_view("target"), -1, 100000)).Times(1);
 
     perturbations::CpuCapPerturbation pert(mockEngine, "target", spec);
     pert.apply();

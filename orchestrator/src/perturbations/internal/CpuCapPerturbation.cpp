@@ -59,7 +59,7 @@ void CpuCapPerturbation::apply() {
     auto cpu_quota = static_cast<int64_t>(cpu_limit * kCpuPeriod);
 
     try {
-        engine_->updateResources(target_id_, 0, cpu_quota, kCpuPeriod);
+        engine_->updateCpuQuota(target_id_, cpu_quota, kCpuPeriod);
         hasBeenApplied_ = true;
         SPDLOG_INFO("CPU Cap Perturbation applied: quota={}us/{}us on target {}", cpu_quota, kCpuPeriod, target_id_);
     } catch (const containers::ContainerEngineError& e) {
@@ -83,7 +83,7 @@ void CpuCapPerturbation::revert() {
 
     try {
         SPDLOG_INFO("Reverting CPU cap for target '{}'", target_id_);
-        engine_->updateResources(target_id_, 0, kDefaultCpuQuota, kCpuPeriod);
+        engine_->updateCpuQuota(target_id_, kDefaultCpuQuota, kCpuPeriod);
         hasBeenApplied_ = false;
         SPDLOG_INFO("CPU Cap Perturbation reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {

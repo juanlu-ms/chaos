@@ -110,16 +110,23 @@ public:
     virtual std::string getLogs(const std::string_view containerId) const = 0;
 
     /**
-     * @brief Update container resources like CPU and memory.
+     * @brief Update the memory limit of a container.
      * @param containerId ID of the target container.
      * @param memory_bytes Max memory in bytes (0 to ignore/reset).
-     * @param cpu_quota CPU quota in microseconds (0 to ignore/reset).
+     * @throws std::invalid_argument On empty containerId.
+     * @throws ContainerEngineApiError On non-200 HTTP response.
+     */
+    virtual void updateMemoryLimit(const std::string_view containerId, int64_t memory_bytes) const = 0;
+
+    /**
+     * @brief Update the CPU quota and period of a container.
+     * @param containerId ID of the target container.
+     * @param cpu_quota CPU quota in microseconds (0 to ignore, -1 to reset/unlimited).
      * @param cpu_period CPU period in microseconds (0 to ignore).
      * @throws std::invalid_argument On empty containerId.
      * @throws ContainerEngineApiError On non-200 HTTP response.
      */
-    virtual void updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota,
-                                 int64_t cpu_period) const = 0;
+    virtual void updateCpuQuota(const std::string_view containerId, int64_t cpu_quota, int64_t cpu_period) const = 0;
 
     /**
      * @brief Fetch the memory usage of a running container in MB.

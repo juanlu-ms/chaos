@@ -110,16 +110,23 @@ public:
     std::string exec(const std::string_view containerId, const std::string_view command) const override;
 
     /**
-     * @brief Update container resources (CPU, Memory) via Docker Engine API.
+     * @brief Update the memory limit of a container via Docker Engine API.
      * @param containerId Docker container ID.
      * @param memory_bytes Max memory in bytes (0 to ignore).
-     * @param cpu_quota CPU quota in microseconds (0 to ignore).
+     * @throws std::invalid_argument On empty containerId.
+     * @throws ContainerEngineApiError On non-200 HTTP response.
+     */
+    void updateMemoryLimit(const std::string_view containerId, int64_t memory_bytes) const override;
+
+    /**
+     * @brief Update the CPU quota and period of a container via Docker Engine API.
+     * @param containerId Docker container ID.
+     * @param cpu_quota CPU quota in microseconds (0 to ignore, -1 to reset/unlimited).
      * @param cpu_period CPU period in microseconds (0 to ignore).
      * @throws std::invalid_argument On empty containerId.
      * @throws ContainerEngineApiError On non-200 HTTP response.
      */
-    void updateResources(const std::string_view containerId, int64_t memory_bytes, int64_t cpu_quota,
-                         int64_t cpu_period) const override;
+    void updateCpuQuota(const std::string_view containerId, int64_t cpu_quota, int64_t cpu_period) const override;
 
     /**
      * @brief Get status of a container by ID.

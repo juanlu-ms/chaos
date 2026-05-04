@@ -16,8 +16,9 @@
 namespace chaos::orchestrator::perturbations {
 
 namespace {
-constexpr std::string kCpuPeriod = "100000";
-}
+constexpr int64_t kCpuPeriod = 100000;
+constexpr int64_t kDefaultCpuQuota = -1;
+}  // namespace
 
 CpuCapPerturbation::CpuCapPerturbation(std::shared_ptr<containers::IContainerEngine> engine, std::string target_id,
                                        const manifests::Perturbation& spec)
@@ -44,12 +45,23 @@ void CpuCapPerturbation::apply() {
         throw std::invalid_argument("Missing cpu_cores parameter");
     }
 
-    const std::string& core_limit = limit_it->second;
+    double cpu_limit = 0.0;
+    try {
+        cpu_limit = std::stod(limit_it->second);
+    } catch (const std::exception&) {
+        throw std::invalid_argument("cpu_cores must be a valid number");
+    }
+
+    if (cpu_limit <= 0.0) {
+        throw std::invalid_argument("cpu_cores must be greater than 0");
+    }
+
+    auto cpu_quota = static_cast<int64_t>(cpu_limit * kCpuPeriod);
 
     try {
-        engine_->updateResources(target_id_, 0, std::stoll(core_limit), std::stoll(kCpuPeriod));
+        engine_->updateResources(target_id_, 0, cpu_quota, kCpuPeriod);
         hasBeenApplied_ = true;
-        SPDLOG_INFO("CPU Cap Perturbation applied: quota={}us/{}us on target {}", core_limit, kCpuPeriod, target_id_);
+        SPDLOG_INFO("CPU Cap Perturbation applied: quota={}us/{}us on target {}", cpu_quota, kCpuPeriod, target_id_);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
                                 std::string("Failed to apply CPU cap: ") + e.what());
@@ -70,7 +82,8 @@ void CpuCapPerturbation::revert() {
     }
 
     try {
-        engine_->updateResources(target_id_, 0, 0, 0);
+        SPDLOG_INFO("Reverting CPU cap for target '{}'", target_id_);
+        engine_->updateResources(target_id_, 0, kDefaultCpuQuota, kCpuPeriod);
         hasBeenApplied_ = false;
         SPDLOG_INFO("CPU Cap Perturbation reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {

@@ -404,6 +404,21 @@ std::string DockerClient::getContainerIp(const std::string_view containerId) con
         fmt::format("Could not find IPAddress in inspect response for container '{}'", containerId));
 }
 
+SystemInfo DockerClient::getSystemInfo() const {
+    const auto response = request_(HttpMethod::GET, "/info", "");
+    if (response.status != 200) {
+        throw containers::ContainerEngineApiError(
+            fmt::format("Docker API error {} on GET /info", response.status));
+    }
+    auto jsonResponse = parseResponse(response);
+
+    SystemInfo info;
+    if (jsonResponse.contains("MemTotal") && jsonResponse["MemTotal"].is_number()) {
+        info.memTotal = jsonResponse["MemTotal"].get<int64_t>();
+    }
+    return info;
+}
+
 nlohmann::json DockerClient::parseResponse(const HttpResponse& response) const {
     if (response.body.empty()) {
         SPDLOG_ERROR("Docker API response body is empty");

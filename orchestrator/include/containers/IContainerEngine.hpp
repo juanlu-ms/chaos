@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "Container.hpp"
+#include "SystemInfo.hpp"
 #include "shared/ContainerStatus.hpp"
 
 namespace chaos::orchestrator::containers {
@@ -51,7 +52,7 @@ public:
      * @return Vector of container summaries.
      * @throws ContainerEngineError On transport, API or parsing failures.
      */
-    virtual std::vector<Container> listContainers() const = 0;
+    [[nodiscard]] virtual std::vector<Container> listContainers() const = 0;
 
     /**
      * @brief Create a new container with the specified image and options.
@@ -89,7 +90,7 @@ public:
      * @return Output of the command execution.
      * @throws ContainerEngineError On transport errors or non-OK responses.
      */
-    virtual std::string exec(const std::string_view containerId, const std::string_view command) const = 0;
+    [[nodiscard]] virtual std::string exec(const std::string_view containerId, const std::string_view command) const = 0;
 
     /**
      * @brief Get status of a container by ID.
@@ -98,7 +99,7 @@ public:
      * @throws ContainerEngineApiError On non-OK HTTP responses.
      * @throws ContainerEngineParseError On JSON parsing failures.
      */
-    virtual shared::ContainerStatus getStatus(const std::string_view containerId) const = 0;
+    [[nodiscard]] virtual shared::ContainerStatus getStatus(const std::string_view containerId) const = 0;
 
     /**
      * @brief Fetch stdout/stderr logs for a container.
@@ -107,7 +108,7 @@ public:
      * @throws ContainerEngineApiError On non-200 HTTP response.
      * @throws ContainerEngineParseError On JSON parsing failures.
      */
-    virtual std::string getLogs(const std::string_view containerId) const = 0;
+    [[nodiscard]] virtual std::string getLogs(const std::string_view containerId) const = 0;
 
     /**
      * @brief Update the memory limit of a container.
@@ -136,7 +137,7 @@ public:
      * @throws ContainerEngineApiError On non-200 HTTP response.
      * @throws ContainerEngineParseError On unexpected response format.
      */
-    virtual double getContainerMemoryUsage(const std::string_view containerId) const = 0;
+    [[nodiscard]] virtual double getContainerMemoryUsage(const std::string_view containerId) const = 0;
 
     /**
      * @brief Fetch the CPU core limit configured for a running container.
@@ -146,7 +147,7 @@ public:
      * @throws ContainerEngineApiError On non-200 HTTP response.
      * @throws ContainerEngineParseError On unexpected response format.
      */
-    virtual double getContainerCpuUsage(const std::string_view containerId) const = 0;
+    [[nodiscard]] virtual double getContainerCpuUsage(const std::string_view containerId) const = 0;
 
     /**
      * @brief Fetch the primary IP address of a running container.
@@ -156,7 +157,15 @@ public:
      * @throws ContainerEngineApiError On non-200 HTTP response.
      * @throws ContainerEngineParseError On unexpected response format.
      */
-    virtual std::string getContainerIp(const std::string_view containerId) const = 0;
+    [[nodiscard]] virtual std::string getContainerIp(const std::string_view containerId) const = 0;
+
+    /**
+     * @brief Retrieve system-level information from the container engine.
+     * @return SystemInfo containing total memory and other host-level details.
+     * @throws ContainerEngineApiError On non-200 HTTP response.
+     * @throws ContainerEngineParseError On JSON parsing failures.
+     */
+    [[nodiscard]] virtual SystemInfo getSystemInfo() const = 0;
 };
 
 }  // namespace chaos::orchestrator::containers

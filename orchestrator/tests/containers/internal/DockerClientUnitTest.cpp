@@ -344,3 +344,34 @@ TEST(DockerClientUnitTest, GetLogsPropagatesApiError) {
     });
     EXPECT_THROW(adapter.getLogs("missing-container"), chaos::orchestrator::containers::ContainerEngineApiError);
 }
+
+/**
+ * @test Verifies getSystemInfo calls GET /info and extracts MemTotal.
+ */
+TEST(DockerClientUnitTest, GetSystemInfoCallsCorrectEndpoint) {
+    const nlohmann::json mockResponse = {
+        {"MemTotal", 8388608000},
+        {"NCPU", 4},
+        {"ServerVersion", "24.0.0"},
+    };
+
+    DockerClient adapter([&mockResponse](HttpMethod method, std::string_view endpoint, std::string_view body) {
+        EXPECT_EQ(method, HttpMethod::GET);
+        EXPECT_EQ(endpoint, "/info");
+        EXPECT_TRUE(body.empty());
+        return HttpResponse{.status = 200, .body = mockResponse.dump()};
+    });
+
+    auto sysInfo = adapter.getSystemInfo();
+    EXPECT_EQ(sysInfo.memTotal, 8388608000);
+}
+
+/**
+ * @test Verifies getSystemInfo throws ContainerEngineApiError on non-200 response.
+ */
+TEST(DockerClientUnitTest, GetSystemInfoPropagatesApiError) {
+    DockerClient adapter([](HttpMethod, std::string_view, std::string_view) {
+        return HttpResponse{.status = 500, .body = "Internal server error"};
+    });
+    EXPECT_THROW(adapter.getSystemInfo(), chaos::orchestrator::containers::ContainerEngineApiError);
+}

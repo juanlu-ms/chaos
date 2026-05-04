@@ -34,6 +34,7 @@ public:
     MOCK_METHOD(double, getContainerMemoryUsage, (const std::string_view containerId), (const, override));
     MOCK_METHOD(double, getContainerCpuUsage, (const std::string_view containerId), (const, override));
     MOCK_METHOD(std::string, getContainerIp, (const std::string_view containerId), (const, override));
+    MOCK_METHOD(containers::SystemInfo, getSystemInfo, (), (const, override));
 };
 
 }  // namespace chaos::orchestrator::tests

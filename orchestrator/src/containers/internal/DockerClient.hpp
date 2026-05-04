@@ -69,7 +69,7 @@ public:
      * @return Vector of container summaries.
      * @throws std::exception On unexpected response formats.
      */
-    std::vector<containers::Container> listContainers() const override;
+    [[nodiscard]] std::vector<containers::Container> listContainers() const override;
 
     /**
      * @brief Create a new container with the specified image and options.
@@ -107,7 +107,7 @@ public:
      * @return Output of the command execution.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    std::string exec(const std::string_view containerId, const std::string_view command) const override;
+    [[nodiscard]] std::string exec(const std::string_view containerId, const std::string_view command) const override;
 
     /**
      * @brief Update the memory limit of a container via Docker Engine API.
@@ -135,7 +135,7 @@ public:
      * @throws ContainerEngineApiError On non-OK HTTP responses.
      * @throws ContainerEngineParseError On JSON parsing failures.
      */
-    shared::ContainerStatus getStatus(const std::string_view containerId) const override;
+    [[nodiscard]] shared::ContainerStatus getStatus(const std::string_view containerId) const override;
 
     /**
      * @brief Fetch stdout/stderr logs from a container via Docker Engine API.
@@ -145,7 +145,7 @@ public:
      * @throws ContainerEngineApiError On non-200 HTTP response.
      * @throws ContainerEngineTransportError On connection failure.
      */
-    std::string getLogs(const std::string_view containerId) const override;
+    [[nodiscard]] std::string getLogs(const std::string_view containerId) const override;
 
     /**
      * @brief Fetch the memory usage of a running container in MB.
@@ -155,7 +155,7 @@ public:
      * @throws ContainerEngineApiError On non-200 HTTP response.
      * @throws ContainerEngineParseError On unexpected response format.
      */
-    double getContainerMemoryUsage(const std::string_view containerId) const override;
+    [[nodiscard]] double getContainerMemoryUsage(const std::string_view containerId) const override;
 
     /**
      * @brief Fetch the CPU core limit configured for a running container.
@@ -165,7 +165,7 @@ public:
      * @throws ContainerEngineApiError On non-200 HTTP response.
      * @throws ContainerEngineParseError On unexpected response format.
      */
-    double getContainerCpuUsage(const std::string_view containerId) const override;
+    [[nodiscard]] double getContainerCpuUsage(const std::string_view containerId) const override;
 
     /**
      * @brief Fetch the primary IP address of a running container.
@@ -175,7 +175,15 @@ public:
      * @throws ContainerEngineApiError On non-200 HTTP response.
      * @throws ContainerEngineParseError On unexpected response format.
      */
-    std::string getContainerIp(const std::string_view containerId) const override;
+    [[nodiscard]] std::string getContainerIp(const std::string_view containerId) const override;
+
+    /**
+     * @brief Retrieve system-level information from the Docker Engine.
+     * @return SystemInfo containing total memory and other host information.
+     * @throws ContainerEngineApiError On non-200 HTTP response.
+     * @throws ContainerEngineParseError On JSON parsing failures.
+     */
+    [[nodiscard]] SystemInfo getSystemInfo() const override;
 
 private:
     /** @brief Function used to execute API requests. */

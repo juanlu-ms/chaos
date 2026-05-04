@@ -300,8 +300,8 @@ double DockerClient::getContainerMemoryUsage(const std::string_view containerId)
             fmt::format("Failed to get memory stats for container '{}': HTTP {}", containerId, response.status));
     }
 
-    auto jsonResponse = parseResponse(response);
-    if (jsonResponse.contains("memory_stats") && jsonResponse["memory_stats"].is_object() &&
+    if (auto jsonResponse = parseResponse(response);
+        jsonResponse.contains("memory_stats") && jsonResponse["memory_stats"].is_object() &&
         jsonResponse["memory_stats"].contains("usage") && jsonResponse["memory_stats"]["usage"].is_number()) {
         const double memoryUsageBytes = jsonResponse["memory_stats"]["usage"].get<double>();
         const double memoryUsageMb = memoryUsageBytes / (1024 * 1024);

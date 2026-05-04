@@ -62,7 +62,8 @@ void MemoryCapPerturbation::revert() {
     }
 
     try {
-        engine_->updateMemoryLimit(target_id_, 0);
+        auto sysInfo = engine_->getSystemInfo();
+        engine_->updateMemoryLimit(target_id_, sysInfo.memTotal);
         hasBeenApplied_ = false;
         SPDLOG_INFO("Memory Cap Perturbation reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {

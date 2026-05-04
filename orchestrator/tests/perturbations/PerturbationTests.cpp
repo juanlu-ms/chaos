@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 #include "MockContainerEngine.hpp"
+#include "containers/SystemInfo.hpp"
 #include "manifests/Manifest.hpp"
 #include "perturbations/CpuCapPerturbation.hpp"
 #include "perturbations/GarbagePacketPerturbation.hpp"
@@ -390,4 +391,23 @@ TEST(PerturbationTests, NetworkCutoffRevertCallsExecWithDeleteRules) {
     perturbations::NetworkCutoffPerturbation pert(mockEngine, "target", spec);
     pert.apply();
     EXPECT_NO_THROW(pert.revert());
+}
+
+/**
+ * @test Verifies MemoryCapPerturbation::revert restores memory to total system memory.
+ */
+TEST(PerturbationTests, MemoryCapRevertUsesTotalSystemMemory) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"memory_cap", {{"limit_bytes", "104857600"}}};
+
+    containers::SystemInfo sysInfo{8589934592};  // 8 GiB
+
+    testing::InSequence seq;
+    EXPECT_CALL(*mockEngine, updateMemoryLimit(std::string_view("target"), 104857600)).Times(1);
+    EXPECT_CALL(*mockEngine, getSystemInfo()).Times(1).WillOnce(Return(sysInfo));
+    EXPECT_CALL(*mockEngine, updateMemoryLimit(std::string_view("target"), 8589934592)).Times(1);
+
+    perturbations::MemoryCapPerturbation pert(mockEngine, "target", spec);
+    pert.apply();
+    pert.revert();
 }

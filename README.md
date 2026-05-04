@@ -91,23 +91,12 @@ chaos/
 └── docs/
 ```
 
-## Local Build (portable)
+## Standard Build & Test Commands
 
-To avoid exporting `VCPKG_ROOT` manually, use:
+For direct CMake control, use these exact commands:
 
-- `bash scripts/cmake-local.sh all`
-
-The script auto-detects `vcpkg` in this order:
-
-1. `VCPKG_ROOT` (if already set and valid)
-2. `./vcpkg`
-3. `/vcpkg`
-
-You can run a single stage too:
-
-- `bash scripts/cmake-local.sh configure`
-- `bash scripts/cmake-local.sh build`
-- `bash scripts/cmake-local.sh test`
+- Build: `cmake --build --preset debug-clang -- -j$(nproc)`
+- Test: `ctest --test-dir build/debug-clang --output-on-failure`
 
 ## Run the Orchestrator (CLI)
 

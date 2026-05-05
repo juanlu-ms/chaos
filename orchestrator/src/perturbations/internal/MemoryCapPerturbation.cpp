@@ -16,11 +16,6 @@ MemoryCapPerturbation::MemoryCapPerturbation(std::shared_ptr<containers::IContai
                                              std::string target_id, const manifests::Perturbation& spec)
     : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
 
-/**
- * @brief Applies the memory cap by invoking the Docker Update API.
- *
- * The "limit_bytes" parameter should be specified in bytes (e.g. "104857600" for 100MB).
- */
 void MemoryCapPerturbation::apply() {
     if (hasBeenApplied_) {
         SPDLOG_WARN("Memory Cap Perturbation already applied to target {}, skipping", target_id_);
@@ -48,9 +43,6 @@ void MemoryCapPerturbation::apply() {
     }
 }
 
-/**
- * @brief Reverts the memory cap by invoking the Docker Update API with 0 limit.
- */
 void MemoryCapPerturbation::revert() {
     if (!hasBeenApplied_) {
         SPDLOG_WARN("Memory Cap Perturbation was not applied, skipping revert");

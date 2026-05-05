@@ -19,16 +19,6 @@ NetworkDelayPerturbation::NetworkDelayPerturbation(std::shared_ptr<containers::I
                                                    std::string target_id, const manifests::Perturbation& spec)
     : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
 
-/**
- * @brief Applies a tc netem delay inside the container via IContainerEngine::exec.
- *
- * Uses the container engine abstraction (Docker API exec) rather than shelling
- * out with std::system — this keeps the class testable and consistent with the
- * rest of the perturbation architecture.
- *
- * @throws std::invalid_argument If target ID or delay_ms parameter is missing.
- * @throws std::system_error On IContainerEngine exec failure.
- */
 void NetworkDelayPerturbation::apply() {
     if (hasBeenApplied_) {
         SPDLOG_WARN("Network Delay Perturbation already applied to target {}, skipping", target_id_);
@@ -56,11 +46,6 @@ void NetworkDelayPerturbation::apply() {
     }
 }
 
-/**
- * @brief Reverts the tc netem delay by deleting the root qdisc via IContainerEngine::exec.
- *
- * @throws std::system_error On IContainerEngine exec failure.
- */
 void NetworkDelayPerturbation::revert() {
     if (!hasBeenApplied_) {
         SPDLOG_WARN("Network Delay Perturbation was not applied, skipping revert");

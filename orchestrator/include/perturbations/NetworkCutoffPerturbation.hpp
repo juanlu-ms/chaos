@@ -49,19 +49,14 @@ public:
     void revert() override;
 
 private:
-    /** @brief The container engine used to interact with the target. */
     std::shared_ptr<containers::IContainerEngine> engine_;
 
-    /** @brief Target ID for the network cutoff perturbation. */
     std::string target_id_;
 
-    /** @brief Parameters for the network cutoff (e.g., dst_ip, dst_port, src_port). */
     manifests::Parameters params_;
 
-    /** @brief Applied iptables rules to revert (stored as -D equivalents). */
     std::vector<std::string> revertCommands_;
 
-    /** @brief Flag indicating whether the perturbation has been applied. */
     bool hasBeenApplied_ = false;
 };
 

@@ -20,20 +20,6 @@ GarbagePacketPerturbation::GarbagePacketPerturbation(std::shared_ptr<containers:
                                                      std::string target_id, const manifests::Perturbation& spec)
     : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
 
-/**
- * @brief Applies tc netem rules inside the container via IContainerEngine::exec.
- *
- * Builds a composite netem qdisc rule including any combination of:
- * - corrupt: random bit corruption ("corrupt_pct", e.g. "5%")
- * - loss: packet loss ("loss_pct", e.g. "10%")
- * - duplicate: packet duplication ("duplicate_pct", e.g. "3%")
- *
- * Defaults to "corrupt 100" if no parameter is specified.
- * Interface defaults to "eth0" unless "iface" parameter is specified.
- *
- * @throws std::invalid_argument If target ID is empty.
- * @throws std::system_error On IContainerEngine exec failure.
- */
 void GarbagePacketPerturbation::apply() {
     if (hasBeenApplied_) {
         SPDLOG_WARN("Garbage Packet Perturbation already applied to target {}, skipping", target_id_);
@@ -82,14 +68,6 @@ void GarbagePacketPerturbation::apply() {
     }
 }
 
-/**
- * @brief Reverts tc netem rules by deleting the root qdisc via IContainerEngine::exec.
- *
- * Deletes the root qdisc from the configured interface (eth0 by default),
- * which restores normal packet flow.
- *
- * @throws std::system_error On IContainerEngine exec failure.
- */
 void GarbagePacketPerturbation::revert() {
     if (!hasBeenApplied_) {
         SPDLOG_WARN("Garbage Packet Perturbation was not applied, skipping revert");

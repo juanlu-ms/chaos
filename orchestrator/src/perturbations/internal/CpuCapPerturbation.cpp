@@ -24,12 +24,6 @@ CpuCapPerturbation::CpuCapPerturbation(std::shared_ptr<containers::IContainerEng
                                        const manifests::Perturbation& spec)
     : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
 
-/**
- * @brief Applies the CPU cap by invoking the Docker Update API.
- *
- * The "cpu_cores" parameter represents the maximum number of CPU cores allowed
- * for the target container and supports decimal values (e.g. "0.5", "1.25", "2.0").
- */
 void CpuCapPerturbation::apply() {
     if (hasBeenApplied_) {
         SPDLOG_WARN("CPU Cap Perturbation already applied to target {}, skipping", target_id_);
@@ -68,9 +62,6 @@ void CpuCapPerturbation::apply() {
     }
 }
 
-/**
- * @brief Reverts the CPU cap by invoking the Docker Update API with 0 quota.
- */
 void CpuCapPerturbation::revert() {
     if (!hasBeenApplied_) {
         SPDLOG_WARN("CPU Cap Perturbation was not applied, skipping revert");

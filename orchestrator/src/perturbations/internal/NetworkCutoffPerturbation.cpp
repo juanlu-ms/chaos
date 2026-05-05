@@ -18,20 +18,6 @@ NetworkCutoffPerturbation::NetworkCutoffPerturbation(std::shared_ptr<containers:
                                                      std::string target_id, const manifests::Perturbation& spec)
     : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
 
-/**
- * @brief Applies iptables DROP rules inside the container via IContainerEngine::exec.
- *
- * Strategy: Execute iptables commands directly inside the target container.
- * - If "dst_ip" param: block `OUTPUT -d <ip>`
- * - If "dst_port" param: block `OUTPUT -p tcp --dport <port>`
- * - If "src_port" param: block `INPUT -p tcp --dport <port>`
- * - If no filter params: block all traffic (OUTPUT + INPUT chains to DROP)
- *
- * All applied rules are tracked so they can be removed precisely on revert.
- *
- * @throws std::invalid_argument If target ID is empty.
- * @throws std::system_error On IContainerEngine exec failure.
- */
 void NetworkCutoffPerturbation::apply() {
     if (hasBeenApplied_) {
         SPDLOG_WARN("Network Cutoff Perturbation already applied to target {}, skipping", target_id_);
@@ -53,8 +39,7 @@ void NetworkCutoffPerturbation::apply() {
 
         auto it = params_.find("dst_ip");
         if (it != params_.end()) {
-            addRule("-A OUTPUT -d " + it->second + " -j DROP",
-                    "-D OUTPUT -d " + it->second + " -j DROP");
+            addRule("-A OUTPUT -d " + it->second + " -j DROP", "-D OUTPUT -d " + it->second + " -j DROP");
         }
 
         it = params_.find("dst_port");
@@ -84,15 +69,6 @@ void NetworkCutoffPerturbation::apply() {
     }
 }
 
-/**
- * @brief Reverts applied iptables rules by executing the inverse commands via IContainerEngine::exec.
- *
- * Removes exactly the rules that were created during apply(), preserving any
- * other iptables rules that may have existed before, allowing the container
- * to reconnect normally.
- *
- * @throws std::system_error On IContainerEngine exec failure.
- */
 void NetworkCutoffPerturbation::revert() {
     if (!hasBeenApplied_) {
         SPDLOG_WARN("Network Cutoff Perturbation was not applied, skipping revert");

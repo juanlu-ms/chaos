@@ -20,7 +20,7 @@ namespace chaos::orchestrator::containers::internal {
 /**
  * @brief Supported HTTP methods for Docker Engine API calls.
  */
-enum class HttpMethod : std::int8_t { GET, POST };
+enum class HttpMethod : std::int8_t { GET, POST, REMOVE };
 
 /**
  * @brief Raw HTTP response from Docker Engine API.
@@ -75,9 +75,11 @@ public:
      * @brief Create a new container with the specified image and options.
      * @param image Container image to use (e.g. "nginx:latest").
      * @param options Additional options for container creation (e.g. env vars).
+     * @return The ID of the newly created container.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    void createContainer(const std::string_view image, const std::vector<std::string>& options) const override;
+    [[nodiscard]] std::string createContainer(const std::string_view image,
+                                              const std::vector<std::string>& options) const override;
 
     /**
      * @brief Start a container by ID.
@@ -99,6 +101,13 @@ public:
      * @throws std::exception On transport errors or non-OK responses.
      */
     void killContainer(const std::string_view containerId) const override;
+
+    /**
+     * @brief Remove a container by ID.
+     * @param containerId Docker container ID.
+     * @throws std::exception On transport errors or non-OK responses.
+     */
+    void removeContainer(const std::string_view containerId) const override;
 
     /**
      * @brief Execute a command inside a running container.

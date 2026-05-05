@@ -24,19 +24,27 @@ std::shared_ptr<containers::IContainerEngine> DockerClient::create(const std::st
     client->set_read_timeout(30);
 
     auto requestFn = [client](HttpMethod method, std::string_view endpoint, std::string_view body) {
-        SPDLOG_DEBUG("DockerClient: request {} {}", method == HttpMethod::GET ? "GET" : "POST", endpoint);
+        SPDLOG_DEBUG("DockerClient: request {} {}",
+                     method == HttpMethod::GET    ? "GET"
+                     : method == HttpMethod::POST ? "POST"
+                                                  : "REMOVE",
+                     endpoint);
         httplib::Result response;
         std::string endpointStr(endpoint);
         switch (method) {
-            case HttpMethod::GET:
+            using enum chaos::orchestrator::containers::internal::HttpMethod;
+            case GET:
                 response = client->Get(endpointStr);
                 break;
-            case HttpMethod::POST:
+            case POST:
                 if (body.empty()) {
                     response = client->Post(endpointStr);
                 } else {
                     response = client->Post(endpointStr, std::string(body), "application/json");
                 }
+                break;
+            case REMOVE:
+                response = client->Delete(endpointStr);
                 break;
         }
 
@@ -84,7 +92,7 @@ std::vector<containers::Container> DockerClient::listContainers() const {
     return containers;
 }
 
-void DockerClient::createContainer(const std::string_view image, const std::vector<std::string>& options) const {
+std::string DockerClient::createContainer(const std::string_view image, const std::vector<std::string>& options) const {
     if (image.empty()) {
         throw std::invalid_argument("Image name cannot be empty");
     }
@@ -110,6 +118,7 @@ void DockerClient::createContainer(const std::string_view image, const std::vect
     }
 
     SPDLOG_INFO("DockerClient: container created with id {}", jsonResponse["Id"].get<std::string>());
+    return jsonResponse["Id"].get<std::string>();
 }
 
 void DockerClient::startContainer(const std::string_view containerId) const {
@@ -162,6 +171,22 @@ void DockerClient::killContainer(const std::string_view containerId) const {
     }
 
     SPDLOG_INFO("DockerClient: container {} killed successfully", containerId);
+}
+
+void DockerClient::removeContainer(const std::string_view containerId) const {
+    if (containerId.empty()) {
+        throw std::invalid_argument("Container ID cannot be empty");
+    }
+    SPDLOG_DEBUG("DockerClient: removing container {}", containerId);
+
+    if (const auto response =
+            request_(HttpMethod::REMOVE, fmt::format("/containers/{}?force=true&v=true", containerId), "");
+        response.status != 204) {
+        SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
+        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", response.status));
+    }
+
+    SPDLOG_INFO("DockerClient: container {} removed successfully", containerId);
 }
 
 std::string DockerClient::exec(const std::string_view containerId, const std::string_view command) const {
@@ -407,8 +432,7 @@ std::string DockerClient::getContainerIp(const std::string_view containerId) con
 SystemInfo DockerClient::getSystemInfo() const {
     const auto response = request_(HttpMethod::GET, "/info", "");
     if (response.status != 200) {
-        throw containers::ContainerEngineApiError(
-            fmt::format("Docker API error {} on GET /info", response.status));
+        throw containers::ContainerEngineApiError(fmt::format("Docker API error {} on GET /info", response.status));
     }
     auto jsonResponse = parseResponse(response);
 

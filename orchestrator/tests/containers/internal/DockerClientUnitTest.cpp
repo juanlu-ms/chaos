@@ -271,7 +271,8 @@ TEST(DockerClientUnitTest, CreateContainerSendsCorrectRequest) {
             return HttpResponse{201, R"json({"Id":"newly-created-id","Warnings":[]})json"};
         });
 
-    adapter.createContainer("alpine:latest", {});
+    const auto containerId = adapter.createContainer("alpine:latest", {});
+    EXPECT_EQ(containerId, "newly-created-id");
     EXPECT_TRUE(wasCalled);
 
     const auto payload = nlohmann::json::parse(capturedBody);
@@ -289,7 +290,8 @@ TEST(DockerClientUnitTest, CreateContainerIncludesEnvOptions) {
         return HttpResponse{201, R"json({"Id":"test-id","Warnings":[]})json"};
     });
 
-    adapter.createContainer("nginx:latest", {"FOO=bar", "BAZ=qux"});
+    const auto containerId = adapter.createContainer("nginx:latest", {"FOO=bar", "BAZ=qux"});
+    EXPECT_EQ(containerId, "test-id");
 
     const auto payload = nlohmann::json::parse(capturedBody);
     ASSERT_TRUE(payload.at("Env").is_array());
@@ -302,7 +304,7 @@ TEST(DockerClientUnitTest, CreateContainerIncludesEnvOptions) {
  */
 TEST(DockerClientUnitTest, CreateContainerRejectsEmptyImage) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::array());
-    EXPECT_THROW(adapter.createContainer("", {}), std::invalid_argument);
+    EXPECT_THROW({ adapter.createContainer("", {}); }, std::invalid_argument);
 }
 
 /**
@@ -310,7 +312,7 @@ TEST(DockerClientUnitTest, CreateContainerRejectsEmptyImage) {
  */
 TEST(DockerClientUnitTest, CreateContainerPropagatesApiError) {
     auto adapter = makeAdapterWithError("Docker daemon unavailable");
-    EXPECT_THROW(adapter.createContainer("alpine:latest", {}), std::runtime_error);
+    EXPECT_THROW({ adapter.createContainer("alpine:latest", {}); }, std::runtime_error);
 }
 
 /**
@@ -373,5 +375,5 @@ TEST(DockerClientUnitTest, GetSystemInfoPropagatesApiError) {
     DockerClient adapter([](HttpMethod, std::string_view, std::string_view) {
         return HttpResponse{.status = 500, .body = "Internal server error"};
     });
-    EXPECT_THROW(adapter.getSystemInfo(), chaos::orchestrator::containers::ContainerEngineApiError);
+    EXPECT_THROW({ adapter.getSystemInfo(); }, chaos::orchestrator::containers::ContainerEngineApiError);
 }

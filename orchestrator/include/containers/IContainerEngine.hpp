@@ -58,9 +58,11 @@ public:
      * @brief Create a new container with the specified image and options.
      * @param image Container image to use (e.g. "nginx:latest").
      * @param options Additional options for container creation (e.g. env vars).
+     * @return The ID of the newly created container.
      * @throws ContainerEngineError On transport errors or non-OK responses.
      */
-    virtual void createContainer(const std::string_view image, const std::vector<std::string>& options) const = 0;
+    [[nodiscard]] virtual std::string createContainer(const std::string_view image,
+                                                       const std::vector<std::string>& options) const = 0;
 
     /**
      * @brief Start a container by ID.
@@ -82,6 +84,13 @@ public:
      * @throws ContainerEngineError On transport errors or non-OK responses.
      */
     virtual void killContainer(const std::string_view containerId) const = 0;
+
+    /**
+     * @brief Remove a container by ID.
+     * @param containerId Docker container ID.
+     * @throws ContainerEngineError On transport errors or non-OK responses.
+     */
+    virtual void removeContainer(const std::string_view containerId) const = 0;
 
     /**
      * @brief Execute a command inside a running container.

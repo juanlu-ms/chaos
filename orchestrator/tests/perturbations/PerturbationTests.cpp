@@ -36,6 +36,22 @@ TEST(PerturbationTests, KillPerturbationCallsKillContainer) {
 }
 
 /**
+ * @test Verifies KillPerturbation::revert delegates to startContainer after apply.
+ */
+TEST(PerturbationTests, KillPerturbationRevertCallsStartContainer) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Target target{"test-container"};
+
+    testing::InSequence seq;
+    EXPECT_CALL(*mockEngine, killContainer(std::string_view("test-container"))).Times(1);
+    EXPECT_CALL(*mockEngine, startContainer(std::string_view("test-container"))).Times(1);
+
+    perturbations::KillPerturbation pert(mockEngine, target.id);
+    pert.apply();
+    pert.revert();
+}
+
+/**
  * @test Verifies KillPerturbation throws when target name is empty.
  */
 TEST(PerturbationTests, PerturbationThrowsOnEmptyTarget) {
@@ -237,6 +253,28 @@ TEST(PerturbationTests, GarbagePacketRevertIsNoOpWhenNotApplied) {
 }
 
 /**
+ * @test Verifies GarbagePacketPerturbation::revert calls exec with the correct delete command after apply.
+ */
+TEST(PerturbationTests, GarbagePacketRevertCallsExecWithDeleteCommand) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"garbage_packet", {{"corrupt_pct", "5%"}}};
+
+    testing::InSequence seq;
+    EXPECT_CALL(*mockEngine,
+                exec(std::string_view("target"),
+                     std::string_view("tc qdisc add dev eth0 root netem corrupt 5%")))
+        .WillOnce(Return(std::string{}));
+    EXPECT_CALL(*mockEngine,
+                exec(std::string_view("target"),
+                     std::string_view("tc qdisc del dev eth0 root netem")))
+        .WillOnce(Return(std::string{}));
+
+    perturbations::GarbagePacketPerturbation pert(mockEngine, "target", spec);
+    pert.apply();
+    pert.revert();
+}
+
+/**
  * @test Verifies GarbagePacketPerturbation::apply throws when target ID is empty.
  */
 TEST(PerturbationTests, GarbagePacketThrowsOnEmptyTargetId) {
@@ -273,9 +311,15 @@ TEST(PerturbationTests, NetworkDelayRevertCallsExecWithCorrectCommand) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     manifests::Perturbation spec{"network_delay", {{"delay_ms", "50"}}};
 
-    EXPECT_CALL(*mockEngine, exec(std::string_view("target-c"), ::testing::_))
-        .Times(2)
-        .WillRepeatedly(Return(std::string{}));
+    testing::InSequence seq;
+    EXPECT_CALL(*mockEngine,
+                exec(std::string_view("target-c"),
+                     std::string_view("tc qdisc add dev eth0 root netem delay 50ms")))
+        .WillOnce(Return(std::string{}));
+    EXPECT_CALL(*mockEngine,
+                exec(std::string_view("target-c"),
+                     std::string_view("tc qdisc del dev eth0 root netem")))
+        .WillOnce(Return(std::string{}));
 
     perturbations::NetworkDelayPerturbation pert(mockEngine, "target-c", spec);
     pert.apply();
@@ -351,9 +395,15 @@ TEST(PerturbationTests, GarbagePacketApplyCallsExecWithDefaultNetemCommand) {
 TEST(PerturbationTests, NetworkCutoffApplyCallsExecWithIptablesDropRules) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     manifests::Perturbation spec{"network_cutoff", {}};
-    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), ::testing::_))
-        .Times(2)
-        .WillRepeatedly(Return(std::string{}));
+
+    testing::InSequence seq;
+    EXPECT_CALL(*mockEngine,
+                exec(std::string_view("target"), std::string_view("iptables -A OUTPUT -j DROP")))
+        .WillOnce(Return(std::string{}));
+    EXPECT_CALL(*mockEngine,
+                exec(std::string_view("target"), std::string_view("iptables -A INPUT -j DROP")))
+        .WillOnce(Return(std::string{}));
+
     perturbations::NetworkCutoffPerturbation pert(mockEngine, "target", spec);
     EXPECT_NO_THROW(pert.apply());
 }

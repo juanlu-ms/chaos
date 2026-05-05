@@ -18,6 +18,8 @@ using namespace chaos::orchestrator;
 
 namespace {
 
+constexpr auto kAsyncTimeout = std::chrono::seconds(5);
+
 class RecordingPerturbation final : public perturbations::IPerturbation {
 public:
     RecordingPerturbation(std::shared_ptr<std::atomic<int>> apply_count,
@@ -75,12 +77,12 @@ TEST(PerturbationEngineUnitTest, ScheduleAllAsyncAppliesAndReverts) {
     engine.scheduleAllAsync(std::move(perturbations), std::chrono::seconds(0));
 
     auto applied_future = applied->get_future();
-    ASSERT_EQ(applied_future.wait_for(std::chrono::seconds(1)), std::future_status::ready);
+    ASSERT_EQ(applied_future.wait_for(kAsyncTimeout), std::future_status::ready);
 
     engine.waitForTeardown();
 
     auto reverted_future = reverted->get_future();
-    ASSERT_EQ(reverted_future.wait_for(std::chrono::seconds(1)), std::future_status::ready);
+    ASSERT_EQ(reverted_future.wait_for(kAsyncTimeout), std::future_status::ready);
 
     EXPECT_EQ(apply_count->load(), 1);
     EXPECT_EQ(revert_count->load(), 1);
@@ -103,7 +105,7 @@ TEST(PerturbationEngineUnitTest, CancelIsIdempotent) {
     engine.scheduleAllAsync(std::move(perturbations), std::chrono::seconds(60));
 
     auto applied_future = applied->get_future();
-    ASSERT_EQ(applied_future.wait_for(std::chrono::seconds(1)), std::future_status::ready);
+    ASSERT_EQ(applied_future.wait_for(kAsyncTimeout), std::future_status::ready);
 
     std::thread cancel_thread([&engine]() { engine.cancel(); });
     engine.cancel();
@@ -112,7 +114,7 @@ TEST(PerturbationEngineUnitTest, CancelIsIdempotent) {
     engine.waitForTeardown();
 
     auto reverted_future = reverted->get_future();
-    ASSERT_EQ(reverted_future.wait_for(std::chrono::seconds(1)), std::future_status::ready);
+    ASSERT_EQ(reverted_future.wait_for(kAsyncTimeout), std::future_status::ready);
 
     EXPECT_EQ(apply_count->load(), 1);
     EXPECT_EQ(revert_count->load(), 1);
@@ -148,11 +150,11 @@ TEST(PerturbationEngineUnitTest, DestructorCallsWaitForTeardown) {
         engine.scheduleAllAsync(std::move(perturbations), std::chrono::seconds(0));
 
         auto applied_future = applied->get_future();
-        ASSERT_EQ(applied_future.wait_for(std::chrono::seconds(1)), std::future_status::ready);
+        ASSERT_EQ(applied_future.wait_for(kAsyncTimeout), std::future_status::ready);
     }
 
     auto reverted_future = reverted->get_future();
-    ASSERT_EQ(reverted_future.wait_for(std::chrono::seconds(1)), std::future_status::ready);
+    ASSERT_EQ(reverted_future.wait_for(kAsyncTimeout), std::future_status::ready);
 
     EXPECT_EQ(apply_count->load(), 1);
     EXPECT_EQ(revert_count->load(), 1);

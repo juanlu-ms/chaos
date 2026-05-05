@@ -81,7 +81,18 @@ target_link_libraries(orchestrator_unit_tests PRIVATE
     GTest::gtest_main
 )
 
-add_executable(orchestrator_smoke_tests tests/smoke/DockerClientIntegrationTest.cpp)
+add_executable(orchestrator_smoke_tests 
+    tests/smoke/DockerClientIntegrationTest.cpp
+    tests/smoke/ContainerLifecycleTest.cpp
+    tests/smoke/ContainerExecTest.cpp
+    tests/smoke/ContainerResourceTest.cpp
+    tests/smoke/ContainerNetworkTest.cpp
+    tests/smoke/ContainerValidationTest.cpp
+)
+
+target_include_directories(orchestrator_smoke_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/smoke
+)
 target_link_libraries(orchestrator_smoke_tests PRIVATE
     orchestrator_core
     GTest::gtest_main

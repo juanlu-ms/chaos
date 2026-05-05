@@ -16,3 +16,4 @@ enable_testing()
 
 add_subdirectory(wrapper)
 add_subdirectory(orchestrator)
+add_subdirectory(tests/e2e)

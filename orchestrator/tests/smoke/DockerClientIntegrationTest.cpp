@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 
-#include <containers/ContainerEngineFactory.hpp>
-#include <containers/IContainerEngine.hpp>
+#include "containers/ContainerEngineFactory.hpp"
+#include "containers/IContainerEngine.hpp"
 
 /**
  * @file DockerClientIntegrationTest.cpp
- * @brief Smoke test for Docker engine integration in real environments.
+ * @brief Smoke tests for Docker engine integration in real environments.
  */
 
 using chaos::orchestrator::containers::createContainerEngine;
@@ -15,13 +15,14 @@ using chaos::orchestrator::containers::createContainerEngine;
  */
 TEST(DockerClientIntegrationTest, ListsContainersWhenDockerAvailable) {
     auto adapter = createContainerEngine();
-
-    try {
-        const auto containers = adapter->listContainers();
-        for (const auto& container : containers) {
-            EXPECT_FALSE(container.id.empty());
-        }
-    } catch (const chaos::orchestrator::containers::ContainerEngineError& ex) {
-        GTEST_SKIP() << "Docker socket unavailable: " << ex.what();
+    const auto containers = adapter->listContainers();
+    for (const auto& container : containers) {
+        EXPECT_FALSE(container.id.empty());
     }
+}
+
+TEST(DockerClientIntegrationTest, GetSystemInfoReturnsTotalMemory) {
+    auto adapter = createContainerEngine();
+    const auto info = adapter->getSystemInfo();
+    EXPECT_GT(info.memTotal, 0);
 }

@@ -24,8 +24,11 @@ protected:
         if (engine_ && !containerId_.empty()) {
             try {
                 engine_->removeContainer(containerId_);
-            } catch (...) {
+            } catch (const std::exception& ex) {
+                ADD_FAILURE() << "Failed to remove container " << containerId_
+                              << " during teardown: " << ex.what();
             }
+            containerId_.clear();
         }
     }
 

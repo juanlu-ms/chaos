@@ -166,7 +166,12 @@ TEST_F(ManifestParserUnitTest, IgnoresAdditionalTargetFields) {
 }
 )json");
 
-    EXPECT_NO_THROW((void)ManifestParser::parseFromFile(file));
+    const auto manifest = ManifestParser::parseFromFile(file);
+    EXPECT_EQ(manifest.target.id, "orders-api");
+    ASSERT_EQ(manifest.perturbations.size(), 1U);
+    EXPECT_EQ(manifest.perturbations[0].type, "kill");
+    ASSERT_EQ(manifest.expectations.size(), 1U);
+    EXPECT_EQ(manifest.expectations[0].type, "container_not_running");
 }
 
 /**
@@ -336,9 +341,7 @@ TEST_F(ManifestParserUnitTest, DurationSIsParsed) {
 }
 
 /**
- * @test Verifies that duration_s is parsed successfully.
- * TODO: Once duration_s is moved to a perturbation parameter, this test should be
- * updated to verify correct parsing from the parameters map instead of the top-level manifest field.
+ * @test Verifies that an exception is thrown when duration_s is not an integer.
  */
 TEST_F(ManifestParserUnitTest, ThrowsWhenDurationSIsNotAnInteger) {
     const auto file = createTempManifest(R"json(

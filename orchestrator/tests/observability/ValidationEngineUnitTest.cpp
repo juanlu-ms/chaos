@@ -300,3 +300,70 @@ TEST(ValidationEngineTests, HttpLatencyFailsWhenIpMissing) {
     ASSERT_EQ(results.size(), 1u);
     EXPECT_FALSE(results[0].passed);
 }
+
+/**
+ * @test Verifies log_contains passes when substring parameter is empty (empty string is trivially present).
+ */
+TEST(ValidationEngineTests, LogContainsPassesWithEmptySubstring) {
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    state.recent_logs = {"some log\n"};
+    manifests::Expectation exp{"log_contains", {{"substring", ""}}};
+    const auto results = validation::ValidationEngine::validate(state, {exp});
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_TRUE(results[0].passed);
+}
+
+/**
+ * @test Verifies log_not_contains fails when substring parameter is empty (empty string is trivially contained).
+ */
+TEST(ValidationEngineTests, LogNotContainsFailsWithEmptySubstring) {
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    state.recent_logs = {"some log\n"};
+    manifests::Expectation exp{"log_not_contains", {{"substring", ""}}};
+    const auto results = validation::ValidationEngine::validate(state, {exp});
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_FALSE(results[0].passed);
+}
+
+/**
+ * @test Verifies log_contains searches across multiple log lines.
+ */
+TEST(ValidationEngineTests, LogContainsSearchesAllLines) {
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    state.recent_logs = {"first line\n", "second line\n", "third line\n"};
+    manifests::Expectation exp{"log_contains", {{"substring", "second"}}};
+    const auto results = validation::ValidationEngine::validate(state, {exp});
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_TRUE(results[0].passed);
+}
+
+/**
+ * @test Verifies log expectations handle empty logs gracefully.
+ */
+TEST(ValidationEngineTests, LogExpectationsHandleEmptyLogs) {
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    manifests::Expectation exp{"log_contains", {{"substring", "missing"}}};
+    const auto results = validation::ValidationEngine::validate(state, {exp});
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_FALSE(results[0].passed);
+}
+
+/**
+ * @test Verifies http_latency fails when min_latency_ms exceeds max_latency_ms.
+ */
+TEST(ValidationEngineTests, HttpLatencyFailsWhenMinExceedsMax) {
+    manifests::Expectation exp{"http_latency", {{"port", "8080"}, {"path", "/ping"}, {"min_latency_ms", "500"}, {"max_latency_ms", "100"}}};
+    shared::TargetState state;
+    state.container_id = "ctr";
+    state.container_ip = std::string{"127.0.0.1"};
+    state.status = shared::ContainerStatus::Running;
+
+    const auto results = validation::ValidationEngine::validate(state, {exp});
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_FALSE(results[0].passed);
+}

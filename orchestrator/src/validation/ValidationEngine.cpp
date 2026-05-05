@@ -5,7 +5,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include <string>
 #include <vector>
 
 #include "validation/ValidationFactory.hpp"

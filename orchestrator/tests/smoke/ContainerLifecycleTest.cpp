@@ -15,7 +15,11 @@ TEST_F(ContainerLifecycleTest, CreateContainerReturnsNonEmptyId) {
 
 TEST_F(ContainerLifecycleTest, CreateContainerWithEnvOptions) {
     containerId_ = engine_->createContainer("chaos-demo-target:latest", {"FOO=bar", "BAZ=qux"});
-    EXPECT_FALSE(containerId_.empty());
+    ASSERT_FALSE(containerId_.empty());
+
+    engine_->startContainer(containerId_);
+    const auto output = engine_->exec(containerId_, "echo $FOO");
+    EXPECT_TRUE(output.find("bar") != std::string::npos);
 }
 
 TEST_F(ContainerLifecycleTest, StartContainerAndGetRunningStatus) {

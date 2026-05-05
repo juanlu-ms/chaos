@@ -23,6 +23,7 @@ TEST_F(ContainerExecTest, ExecSimpleCommandReturnsOutput) {
 TEST_F(ContainerExecTest, ExecWithComplexCommand) {
     const auto output = engine_->exec(containerId_, "whoami");
     EXPECT_FALSE(output.empty());
+    EXPECT_NE(output.find("root"), std::string::npos);
 }
 
 TEST_F(ContainerExecTest, GetLogsReturnsNonEmpty) {

@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 
 #include "containers/ContainerEngineFactory.hpp"
-#include "containers/IContainerEngine.hpp"
 
 /**
  * @file DockerClientIntegrationTest.cpp
@@ -15,10 +14,20 @@ using chaos::orchestrator::containers::createContainerEngine;
  */
 TEST(DockerClientIntegrationTest, ListsContainersWhenDockerAvailable) {
     auto adapter = createContainerEngine();
+    const auto testId = adapter->createContainer("chaos-demo-target:latest", {});
+    ASSERT_FALSE(testId.empty());
+    adapter->startContainer(testId);
+
     const auto containers = adapter->listContainers();
+    ASSERT_GE(containers.size(), 1u);
+    bool foundCreated = false;
     for (const auto& container : containers) {
         EXPECT_FALSE(container.id.empty());
+        if (testId.find(container.id) == 0 || container.id.find(testId) == 0) foundCreated = true;
     }
+    EXPECT_TRUE(foundCreated) << "Created container not found in listing";
+
+    adapter->removeContainer(testId);
 }
 
 TEST(DockerClientIntegrationTest, GetSystemInfoReturnsTotalMemory) {

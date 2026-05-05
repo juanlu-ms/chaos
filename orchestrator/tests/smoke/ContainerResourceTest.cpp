@@ -32,7 +32,7 @@ TEST_F(ContainerResourceTest, UpdateCpuQuotaResetDoesNotThrow) {
 
 TEST_F(ContainerResourceTest, GetContainerMemoryUsageReturnsNonNegative) {
     const auto mem = engine_->getContainerMemoryUsage(containerId_);
-    EXPECT_GE(mem, 0.0);
+    EXPECT_GT(mem, 0.0) << "Running container should consume some memory";
 }
 
 TEST_F(ContainerResourceTest, GetContainerCpuUsageReturnsNonNegative) {

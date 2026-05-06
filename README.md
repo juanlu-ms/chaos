@@ -39,6 +39,8 @@ A fully functional Web UI (`chaos serve`) allows users to run JSON manifests, vi
 
 ## Architecture Overview
 
+> **Deep Dive:** For a comprehensive breakdown of the system's design decisions, concurrency models and the Docker API Facade pattern, please read the [CHAOS Architecture Document](docs/ARCHITECTURE.md).
+
 CHAOS uses a hybrid architecture:
 
 - Top-level separation by deployable component:
@@ -137,3 +139,9 @@ Launch the interactive terminal UI:
 - `orchestrator/tests/perturbations`: perturbation engine and factory unit tests.
 - `orchestrator/tests/smoke`: minimal host smoke checks through public APIs (no direct `internal` includes).
 - `tests/e2e`: cross-component integration tests.
+
+## Project Roadmap
+
+CHAOS is under active development to expand its SRE capabilities, moving towards advanced network fault injection, in-container PID 1 orchestration, and modern C++20 concurrency models. 
+
+> **Vision & Next Steps:** To explore our planned features, architectural evolutions, and upcoming technical milestones, please review the [CHAOS Project Roadmap](ROADMAP.md).

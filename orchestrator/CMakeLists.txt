@@ -93,6 +93,9 @@ add_executable(orchestrator_smoke_tests
 target_include_directories(orchestrator_smoke_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/smoke
 )
+target_compile_definitions(orchestrator_smoke_tests PRIVATE
+    CHAOS_EXAMPLES_DIR="${CMAKE_SOURCE_DIR}/examples"
+)
 target_link_libraries(orchestrator_smoke_tests PRIVATE
     orchestrator_core
     GTest::gtest_main

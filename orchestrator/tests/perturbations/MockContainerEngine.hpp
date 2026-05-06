@@ -19,6 +19,9 @@ namespace chaos::orchestrator::tests {
 class MockContainerEngine : public containers::IContainerEngine {
 public:
     MOCK_METHOD(std::vector<containers::Container>, listContainers, (), (const, override));
+    MOCK_METHOD(void, pullImage, (const std::string_view image), (const, override));
+    MOCK_METHOD(void, buildImage, (const std::string_view imageName, const std::string_view dockerfilePath),
+                (const, override));
     MOCK_METHOD(std::string, createContainer, (const std::string_view image, const std::vector<std::string>& options),
                 (const, override));
     MOCK_METHOD(void, startContainer, (const std::string_view containerId), (const, override));

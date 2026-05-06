@@ -55,6 +55,22 @@ public:
     [[nodiscard]] virtual std::vector<Container> listContainers() const = 0;
 
     /**
+     * @brief Pull a container image from the registry.
+     * @param image Container image to pull (e.g. "nginx:latest").
+     * @throws ContainerEngineError On transport errors or non-OK responses.
+     */
+    virtual void pullImage(const std::string_view image) const = 0;
+
+    /**
+     * @brief Build a container image from a Dockerfile.
+     * @param imageName Tag for the built image (e.g. "myapp:latest").
+     * @param dockerfilePath Path to the Dockerfile on disk.
+     * @throws ContainerEngineError On transport errors or non-OK responses.
+     * @throws std::runtime_error On filesystem errors.
+     */
+    virtual void buildImage(const std::string_view imageName, const std::string_view dockerfilePath) const = 0;
+
+    /**
      * @brief Create a new container with the specified image and options.
      * @param image Container image to use (e.g. "nginx:latest").
      * @param options Additional options for container creation (e.g. env vars).
@@ -62,7 +78,7 @@ public:
      * @throws ContainerEngineError On transport errors or non-OK responses.
      */
     [[nodiscard]] virtual std::string createContainer(const std::string_view image,
-                                                       const std::vector<std::string>& options) const = 0;
+                                                      const std::vector<std::string>& options) const = 0;
 
     /**
      * @brief Start a container by ID.
@@ -99,7 +115,8 @@ public:
      * @return Output of the command execution.
      * @throws ContainerEngineError On transport errors or non-OK responses.
      */
-    [[nodiscard]] virtual std::string exec(const std::string_view containerId, const std::string_view command) const = 0;
+    [[nodiscard]] virtual std::string exec(const std::string_view containerId,
+                                           const std::string_view command) const = 0;
 
     /**
      * @brief Get status of a container by ID.

@@ -2,6 +2,8 @@
 #include <gtest/gtest.h>
 
 #include <containers/internal/DockerClient.hpp>
+#include <filesystem>
+#include <fstream>
 #include <nlohmann/json.hpp>
 #include <string_view>
 
@@ -377,3 +379,142 @@ TEST(DockerClientUnitTest, GetSystemInfoPropagatesApiError) {
     });
     EXPECT_THROW({ adapter.getSystemInfo(); }, chaos::orchestrator::containers::ContainerEngineApiError);
 }
+
+/**
+ * @test pullImage sends POST /images/create with a JSON body containing the
+ *       image name and completes successfully.
+ */
+TEST(DockerClientUnitTest, PullImageSucceedsWithDockerProgressStream) {
+    bool wasCalled = false;
+    const std::string image = "nginx:latest";
+
+    const std::string dockerPullResponse =
+        R"({"status":"Pulling from library/nginx","id":"latest"}\n)"
+        R"({"status":"Digest: sha256:abc123"}\n)"
+        R"({"status":"Status: Image is up to date for nginx:latest"}\n)";
+
+    auto adapter =
+        DockerClient([&wasCalled, &image, &dockerPullResponse](HttpMethod method, std::string_view endpoint,
+                                                               std::string_view body) {
+            wasCalled = true;
+            EXPECT_EQ(method, HttpMethod::POST);
+            EXPECT_EQ(endpoint, "/images/create");
+            const auto payload = nlohmann::json::parse(body);
+            EXPECT_EQ(payload.at("Image").get<std::string>(), image);
+            return HttpResponse{200, dockerPullResponse};
+        });
+
+    EXPECT_NO_THROW(adapter.pullImage(image));
+    EXPECT_TRUE(wasCalled);
+}
+
+/**
+ * @test Verifies pullImage rejects empty image names.
+ */
+TEST(DockerClientUnitTest, PullImageRejectsEmptyImage) {
+    auto adapter = makeAdapterForListContainers(nlohmann::json::array());
+    EXPECT_THROW(adapter.pullImage(""), std::invalid_argument);
+}
+
+/**
+ * @test Verifies pullImage throws std::invalid_argument on 404.
+ */
+TEST(DockerClientUnitTest, PullImageThrowsOn404) {
+    DockerClient adapter([](HttpMethod, std::string_view, std::string_view) {
+        return HttpResponse{.status = 404, .body = R"({"message":"repository not found"})"};
+    });
+    EXPECT_THROW(adapter.pullImage("nonexistent/image"), std::invalid_argument);
+}
+
+/**
+ * @test Verifies pullImage throws ContainerEngineApiError on 500.
+ */
+TEST(DockerClientUnitTest, PullImageThrowsOn500) {
+    DockerClient adapter([](HttpMethod, std::string_view, std::string_view) {
+        return HttpResponse{.status = 500, .body = "Internal server error"};
+    });
+    EXPECT_THROW(adapter.pullImage("nginx:latest"), chaos::orchestrator::containers::ContainerEngineApiError);
+}
+
+/**
+ * @test Verifies pullImage propagates transport errors.
+ */
+TEST(DockerClientUnitTest, PullImagePropagatesTransportErrors) {
+    auto adapter = makeAdapterWithError("Docker daemon unreachable");
+    EXPECT_THROW(adapter.pullImage("nginx:latest"), std::runtime_error);
+}
+
+/**
+ * @test buildImage sends POST_TAR /build?t=<tag> with a non-empty tar body
+ *       and a temp Dockerfile on disk.
+ */
+TEST(DockerClientUnitTest, BuildImageSendsTarToCorrectEndpoint) {
+    const std::string dockerfileContent = "FROM alpine:latest\nCMD [\"echo\", \"hello\"]\n";
+    const std::string dockerfilePath = "/tmp/test_dockerfile_build.txt";
+    {
+        std::ofstream file(dockerfilePath);
+        file << dockerfileContent;
+    }
+
+    bool wasCalled = false;
+    const std::string imageName = "test-image:latest";
+
+    auto adapter = DockerClient(
+        [&wasCalled, &imageName](HttpMethod method, std::string_view endpoint, std::string_view body) {
+            wasCalled = true;
+            EXPECT_EQ(method, HttpMethod::POST_TAR);
+            EXPECT_EQ(endpoint, fmt::format("/build?t={}", imageName));
+            EXPECT_FALSE(body.empty());
+            return HttpResponse{200, "Successfully built"};
+        });
+
+    EXPECT_NO_THROW(adapter.buildImage(imageName, dockerfilePath));
+    EXPECT_TRUE(wasCalled);
+    std::filesystem::remove(dockerfilePath);
+}
+
+/**
+ * @test Verifies buildImage rejects empty image names.
+ */
+TEST(DockerClientUnitTest, BuildImageRejectsEmptyImageName) {
+    auto adapter = makeAdapterForListContainers(nlohmann::json::array());
+    EXPECT_THROW(adapter.buildImage("", "/some/Dockerfile"), std::invalid_argument);
+}
+
+/**
+ * @test Verifies buildImage rejects empty dockerfile path.
+ */
+TEST(DockerClientUnitTest, BuildImageRejectsEmptyPath) {
+    auto adapter = makeAdapterForListContainers(nlohmann::json::array());
+    EXPECT_THROW(adapter.buildImage("myapp:latest", ""), std::invalid_argument);
+}
+
+/**
+ * @test Verifies buildImage throws ContainerEngineApiError on 500.
+ */
+TEST(DockerClientUnitTest, BuildImageThrowsOn500) {
+    const std::string dockerfileContent = "FROM alpine:latest\n";
+    const std::string dockerfilePath = "/tmp/test_dockerfile_500.txt";
+    {
+        std::ofstream file(dockerfilePath);
+        file << dockerfileContent;
+    }
+
+    DockerClient adapter([](HttpMethod, std::string_view, std::string_view) {
+        return HttpResponse{.status = 500, .body = "Internal server error"};
+    });
+
+    EXPECT_THROW(adapter.buildImage("myapp:latest", dockerfilePath),
+                 chaos::orchestrator::containers::ContainerEngineApiError);
+    std::filesystem::remove(dockerfilePath);
+}
+
+/**
+ * @test Verifies buildImage propagates transport errors.
+ */
+TEST(DockerClientUnitTest, BuildImagePropagatesTransportErrors) {
+    auto adapter = makeAdapterWithError("Docker daemon unreachable");
+    EXPECT_THROW(adapter.buildImage("myapp:latest", "/some/Dockerfile"), std::runtime_error);
+}
+
+

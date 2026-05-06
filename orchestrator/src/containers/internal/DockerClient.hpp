@@ -20,7 +20,7 @@ namespace chaos::orchestrator::containers::internal {
 /**
  * @brief Supported HTTP methods for Docker Engine API calls.
  */
-enum class HttpMethod : std::int8_t { GET, POST, REMOVE };
+enum class HttpMethod : std::int8_t { GET, POST, POST_TAR, REMOVE };
 
 /**
  * @brief Raw HTTP response from Docker Engine API.
@@ -37,9 +37,9 @@ class DockerClient final : public containers::IContainerEngine {
 public:
     /**
      * @brief Function used to execute API requests.
-     * @param method HTTP method (GET or POST).
+     * @param method HTTP method (GET, POST, POST_TAR, REMOVE).
      * @param endpoint API endpoint (e.g., /containers/json).
-     * @param body Optional request payload encoded as JSON.
+     * @param body Optional request payload (JSON or tar archive).
      * @return HTTP response with status code and body.
      * @throws std::exception On transport errors.
      */
@@ -72,11 +72,30 @@ public:
     [[nodiscard]] std::vector<containers::Container> listContainers() const override;
 
     /**
+     * @brief Pull a container image from Docker Hub.
+     * @param image Container image to pull (e.g. "nginx:latest").
+     * @throws std::exception On transport errors or non-OK responses.
+     */
+    void pullImage(const std::string_view image) const override;
+
+    /**
+     * @brief Build a container image from a Dockerfile.
+     * @param imageName Tag for the built image (e.g. "myapp:latest").
+     * @param dockerfilePath Path to the Dockerfile on disk.
+     * @throws std::invalid_argument On empty image name or path.
+     * @throws ContainerEngineApiError On non-200 HTTP response.
+     * @throws std::runtime_error On filesystem errors.
+     */
+    void buildImage(const std::string_view imageName, const std::string_view dockerfilePath) const override;
+
+    /**
      * @brief Create a new container with the specified image and options.
      * @param image Container image to use (e.g. "nginx:latest").
-     * @param options Additional options for container creation (e.g. env vars).
+     * @param options Additional options for container creation.
      * @return The ID of the newly created container.
-     * @throws std::exception On transport errors or non-OK responses.
+     * @throws std::invalid_argument On empty image name.
+     * @throws ContainerEngineApiError On non-201 HTTP response.
+     * @throws ContainerEngineParseError On JSON parsing failures.
      */
     [[nodiscard]] std::string createContainer(const std::string_view image,
                                               const std::vector<std::string>& options) const override;

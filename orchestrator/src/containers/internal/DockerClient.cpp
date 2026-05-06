@@ -6,11 +6,74 @@
 #include <sys/socket.h>
 
 #include <cstdint>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 
 #include "shared/ContainerStatus.hpp"
+
+namespace {
+
+constexpr std::size_t TAR_BLOCK_SIZE = 512;
+
+std::string createTarArchive(const std::string_view filePath) {
+    std::ifstream file(std::string(filePath), std::ios::binary | std::ios::ate);
+    if (!file) {
+        throw std::runtime_error(fmt::format("Failed to open Dockerfile: {}", filePath));
+    }
+
+    const auto fileSize = static_cast<std::size_t>(file.tellg());
+    file.seekg(0);
+
+    std::string content(fileSize, '\0');
+    file.read(content.data(), static_cast<std::streamsize>(fileSize));
+
+    const std::string name = std::filesystem::path(filePath).filename().string();
+
+    // Build ustar header (512 bytes)
+    std::string header(TAR_BLOCK_SIZE, '\0');
+    std::snprintf(header.data(), 101, "%s", name.c_str());                                    // name (100)
+    std::snprintf(header.data() + 100, 8, "%07o", 0644);                                      // mode
+    std::snprintf(header.data() + 108, 8, "%07o", 0);                                         // uid
+    std::snprintf(header.data() + 116, 8, "%07o", 0);                                         // gid
+    std::snprintf(header.data() + 124, 12, "%011lo", static_cast<unsigned long>(fileSize));    // size
+    std::snprintf(header.data() + 136, 12, "%011lo", 0UL);                                    // mtime
+    header[156] = '0';                                                                         // typeflag: regular file
+    std::memcpy(header.data() + 257, "ustar", 5);                                             // magic
+    std::memcpy(header.data() + 263, "00", 2);                                                // version
+
+    // Checksum: sum all bytes with chksum field (148-155) treated as spaces
+    unsigned int checksum = 0;
+    for (std::size_t i = 0; i < TAR_BLOCK_SIZE; ++i) {
+        if (i >= 148 && i < 156) {
+            checksum += ' ';
+        } else {
+            checksum += static_cast<unsigned char>(header[i]);
+        }
+    }
+    std::snprintf(header.data() + 148, 7, "%06o", checksum);
+    header[155] = ' ';
+
+    std::string tar;
+    tar.reserve(TAR_BLOCK_SIZE + content.size() + 2 * TAR_BLOCK_SIZE);
+
+    tar.append(header);
+
+    // Pad file content to 512-byte boundary
+    tar.append(content);
+    const auto padding = (TAR_BLOCK_SIZE - (content.size() % TAR_BLOCK_SIZE)) % TAR_BLOCK_SIZE;
+    tar.append(padding, '\0');
+
+    // Two zero-filled blocks mark end of archive
+    tar.append(2 * TAR_BLOCK_SIZE, '\0');
+
+    return tar;
+}
+
+}  // namespace
 
 namespace chaos::orchestrator::containers::internal {
 
@@ -25,9 +88,10 @@ std::shared_ptr<containers::IContainerEngine> DockerClient::create(const std::st
 
     auto requestFn = [client](HttpMethod method, std::string_view endpoint, std::string_view body) {
         SPDLOG_DEBUG("DockerClient: request {} {}",
-                     method == HttpMethod::GET    ? "GET"
-                     : method == HttpMethod::POST ? "POST"
-                                                  : "REMOVE",
+                     method == HttpMethod::GET      ? "GET"
+                     : method == HttpMethod::POST   ? "POST"
+                     : method == HttpMethod::POST_TAR ? "POST_TAR"
+                                                     : "REMOVE",
                      endpoint);
         httplib::Result response;
         std::string endpointStr(endpoint);
@@ -42,6 +106,9 @@ std::shared_ptr<containers::IContainerEngine> DockerClient::create(const std::st
                 } else {
                     response = client->Post(endpointStr, std::string(body), "application/json");
                 }
+                break;
+            case POST_TAR:
+                response = client->Post(endpointStr, std::string(body), "application/x-tar");
                 break;
             case REMOVE:
                 response = client->Delete(endpointStr);
@@ -90,6 +157,50 @@ std::vector<containers::Container> DockerClient::listContainers() const {
 
     SPDLOG_INFO("DockerClient: {} containers found", containers.size());
     return containers;
+}
+
+void DockerClient::pullImage(const std::string_view image) const {
+    if (image.empty()) {
+        throw std::invalid_argument("Image name cannot be empty");
+    }
+    SPDLOG_DEBUG("DockerClient: pulling image {}", image);
+
+    nlohmann::json body = {
+        {"Image", std::string(image)},
+    };
+
+    if (const auto response = request_(HttpMethod::POST, "/images/create", body.dump()); response.status == 404) {
+        SPDLOG_ERROR("Docker API returned status {}: Repository not found", response.status, response.body);
+        throw std::invalid_argument(fmt::format("Repository not found", response.status));
+    } else if (response.status != 200) {
+        SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
+        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", response.status));
+    }
+
+    SPDLOG_INFO("DockerClient: image {} pulled successfully", image);
+}
+
+void DockerClient::buildImage(const std::string_view imageName, const std::string_view dockerfilePath) const {
+    if (imageName.empty()) {
+        throw std::invalid_argument("Image name cannot be empty");
+    }
+    if (dockerfilePath.empty()) {
+        throw std::invalid_argument("Dockerfile path cannot be empty");
+    }
+    SPDLOG_DEBUG("DockerClient: building image {} from {}", imageName, dockerfilePath);
+
+    const auto tarArchive = createTarArchive(dockerfilePath);
+    const auto endpoint = fmt::format("/build?t={}", imageName);
+    const auto response = request_(HttpMethod::POST_TAR, endpoint, tarArchive);
+
+    if (response.status != 200) {
+        SPDLOG_ERROR("Docker API returned status {} while building image {}: {}",
+                     response.status, imageName, response.body);
+        throw containers::ContainerEngineApiError(
+            fmt::format("Docker API returned status {} while building image {}", response.status, imageName));
+    }
+
+    SPDLOG_INFO("DockerClient: image {} built successfully", imageName);
 }
 
 std::string DockerClient::createContainer(const std::string_view image, const std::vector<std::string>& options) const {

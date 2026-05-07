@@ -32,17 +32,30 @@ file(GLOB_RECURSE ALL_SOURCE_FILES
     ${CMAKE_SOURCE_DIR}/examples/*.cpp
 )
 
-add_custom_target(check-format
-    COMMAND clang-format --dry-run -Werror ${ALL_SOURCE_FILES}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Checking code format with clang-format..."
-)
-
-add_custom_target(format
-    COMMAND clang-format -i ${ALL_SOURCE_FILES}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "Formatting code with clang-format..."
-)
+find_program(CLANG_FORMAT_BIN clang-format)
+if(CLANG_FORMAT_BIN)
+  message(STATUS "clang-format found: ${CLANG_FORMAT_BIN}")
+  add_custom_target(check-format
+      COMMAND ${CLANG_FORMAT_BIN} --dry-run -Werror ${ALL_SOURCE_FILES}
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      COMMENT "Checking code format with clang-format..."
+  )
+  add_custom_target(format
+      COMMAND ${CLANG_FORMAT_BIN} -i ${ALL_SOURCE_FILES}
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      COMMENT "Formatting code with clang-format..."
+  )
+else()
+  message(STATUS "clang-format not found — skipping format targets")
+  add_custom_target(check-format
+      COMMAND ${CMAKE_COMMAND} -E echo "clang-format not found — install it or add to PATH"
+      COMMENT "check-format unavailable (clang-format not found)"
+  )
+  add_custom_target(format
+      COMMAND ${CMAKE_COMMAND} -E echo "clang-format not found — install it or add to PATH"
+      COMMENT "format unavailable (clang-format not found)"
+  )
+endif()
 
 add_subdirectory(wrapper)
 add_subdirectory(orchestrator)

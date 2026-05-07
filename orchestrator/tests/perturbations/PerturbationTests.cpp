@@ -261,12 +261,9 @@ TEST(PerturbationTests, GarbagePacketRevertCallsExecWithDeleteCommand) {
 
     testing::InSequence seq;
     EXPECT_CALL(*mockEngine,
-                exec(std::string_view("target"),
-                     std::string_view("tc qdisc add dev eth0 root netem corrupt 5%")))
+                exec(std::string_view("target"), std::string_view("tc qdisc add dev eth0 root netem corrupt 5%")))
         .WillOnce(Return(std::string{}));
-    EXPECT_CALL(*mockEngine,
-                exec(std::string_view("target"),
-                     std::string_view("tc qdisc del dev eth0 root netem")))
+    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("tc qdisc del dev eth0 root netem")))
         .WillOnce(Return(std::string{}));
 
     perturbations::GarbagePacketPerturbation pert(mockEngine, "target", spec);
@@ -313,12 +310,9 @@ TEST(PerturbationTests, NetworkDelayRevertCallsExecWithCorrectCommand) {
 
     testing::InSequence seq;
     EXPECT_CALL(*mockEngine,
-                exec(std::string_view("target-c"),
-                     std::string_view("tc qdisc add dev eth0 root netem delay 50ms")))
+                exec(std::string_view("target-c"), std::string_view("tc qdisc add dev eth0 root netem delay 50ms")))
         .WillOnce(Return(std::string{}));
-    EXPECT_CALL(*mockEngine,
-                exec(std::string_view("target-c"),
-                     std::string_view("tc qdisc del dev eth0 root netem")))
+    EXPECT_CALL(*mockEngine, exec(std::string_view("target-c"), std::string_view("tc qdisc del dev eth0 root netem")))
         .WillOnce(Return(std::string{}));
 
     perturbations::NetworkDelayPerturbation pert(mockEngine, "target-c", spec);
@@ -397,11 +391,9 @@ TEST(PerturbationTests, NetworkCutoffApplyCallsExecWithIptablesDropRules) {
     manifests::Perturbation spec{"network_cutoff", {}};
 
     testing::InSequence seq;
-    EXPECT_CALL(*mockEngine,
-                exec(std::string_view("target"), std::string_view("iptables -A OUTPUT -j DROP")))
+    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -A OUTPUT -j DROP")))
         .WillOnce(Return(std::string{}));
-    EXPECT_CALL(*mockEngine,
-                exec(std::string_view("target"), std::string_view("iptables -A INPUT -j DROP")))
+    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -A INPUT -j DROP")))
         .WillOnce(Return(std::string{}));
 
     perturbations::NetworkCutoffPerturbation pert(mockEngine, "target", spec);

@@ -33,8 +33,7 @@ protected:
             try {
                 engine_->removeContainer(containerId_);
             } catch (const std::exception& ex) {
-                ADD_FAILURE() << "Failed to remove container " << containerId_
-                              << " during teardown: " << ex.what();
+                ADD_FAILURE() << "Failed to remove container " << containerId_ << " during teardown: " << ex.what();
             }
             containerId_.clear();
         }

@@ -33,8 +33,8 @@ shared::TargetState makeTargetState(std::string id, shared::ContainerStatus stat
  */
 TEST(ValidationEngineTests, ContainerRunningPassesWhenRunning) {
     auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
-    const auto results = validation::ValidationEngine::validate(state,
-                                                                {manifests::Expectation{"container_running", {}}});
+    const auto results =
+        validation::ValidationEngine::validate(state, {manifests::Expectation{"container_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_TRUE(results[0].passed);
@@ -46,8 +46,8 @@ TEST(ValidationEngineTests, ContainerRunningPassesWhenRunning) {
  */
 TEST(ValidationEngineTests, ContainerRunningFailsWhenNotRunning) {
     auto state = makeTargetState("ctr", shared::ContainerStatus::Exited);
-    const auto results = validation::ValidationEngine::validate(state,
-                                                                {manifests::Expectation{"container_running", {}}});
+    const auto results =
+        validation::ValidationEngine::validate(state, {manifests::Expectation{"container_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_FALSE(results[0].passed);
@@ -58,8 +58,8 @@ TEST(ValidationEngineTests, ContainerRunningFailsWhenNotRunning) {
  */
 TEST(ValidationEngineTests, ContainerNotRunningPassesWhenStopped) {
     auto state = makeTargetState("ctr", shared::ContainerStatus::Exited);
-    const auto results = validation::ValidationEngine::validate(state,
-                                                                {manifests::Expectation{"container_not_running", {}}});
+    const auto results =
+        validation::ValidationEngine::validate(state, {manifests::Expectation{"container_not_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_TRUE(results[0].passed);
@@ -70,8 +70,8 @@ TEST(ValidationEngineTests, ContainerNotRunningPassesWhenStopped) {
  */
 TEST(ValidationEngineTests, ContainerNotRunningFailsWhenRunning) {
     auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
-    const auto results = validation::ValidationEngine::validate(state,
-                                                                {manifests::Expectation{"container_not_running", {}}});
+    const auto results =
+        validation::ValidationEngine::validate(state, {manifests::Expectation{"container_not_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_FALSE(results[0].passed);
@@ -257,7 +257,8 @@ TEST(ValidationEngineTests, HttpStatusFailsWhenIpMissing) {
  * @test Verifies http_status fails for invalid port parameters.
  */
 TEST(ValidationEngineTests, HttpStatusHandlesInvalidPortParameter) {
-    manifests::Expectation exp{"http_status", {{"port", "not-a-number"}, {"path", "/ping"}, {"expected_status", "200"}}};
+    manifests::Expectation exp{"http_status",
+                               {{"port", "not-a-number"}, {"path", "/ping"}, {"expected_status", "200"}}};
     shared::TargetState state;
     state.container_id = "ctr";
     state.container_ip = std::string{"127.0.0.1"};
@@ -356,7 +357,8 @@ TEST(ValidationEngineTests, LogExpectationsHandleEmptyLogs) {
  * @test Verifies http_latency fails when min_latency_ms exceeds max_latency_ms.
  */
 TEST(ValidationEngineTests, HttpLatencyFailsWhenMinExceedsMax) {
-    manifests::Expectation exp{"http_latency", {{"port", "8080"}, {"path", "/ping"}, {"min_latency_ms", "500"}, {"max_latency_ms", "100"}}};
+    manifests::Expectation exp{
+        "http_latency", {{"port", "8080"}, {"path", "/ping"}, {"min_latency_ms", "500"}, {"max_latency_ms", "100"}}};
     shared::TargetState state;
     state.container_id = "ctr";
     state.container_ip = std::string{"127.0.0.1"};

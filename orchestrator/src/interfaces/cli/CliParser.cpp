@@ -272,8 +272,8 @@ manifests::ChaosManifest CliParser::parseManifest(const std::string& path) const
     return manifests::ManifestParser::parseFromFile(path);
 }
 
-std::vector<std::unique_ptr<perturbations::IPerturbation>>
-CliParser::buildPerturbations(const manifests::ChaosManifest& manifest) const {
+std::vector<std::unique_ptr<perturbations::IPerturbation>> CliParser::buildPerturbations(
+    const manifests::ChaosManifest& manifest) const {
     perturbations::PerturbationFactory factory;
     std::vector<std::unique_ptr<perturbations::IPerturbation>> instances;
     instances.reserve(manifest.perturbations.size());
@@ -284,10 +284,8 @@ CliParser::buildPerturbations(const manifests::ChaosManifest& manifest) const {
 }
 
 shared::TargetState CliParser::runPerturbationsLoop(
-    std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations,
-    const std::string& targetId,
+    std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations, const std::string& targetId,
     std::chrono::seconds duration) const {
-
     perturbations::PerturbationEngine pert_engine;
     pert_engine.scheduleAllAsync(std::move(perturbations), duration);
 
@@ -320,10 +318,8 @@ shared::TargetState CliParser::runPerturbationsLoop(
     return lastKnownState;
 }
 
-bool CliParser::validateExpectations(
-    const manifests::ChaosManifest& manifest,
-    const shared::TargetState& finalState) const {
-
+bool CliParser::validateExpectations(const manifests::ChaosManifest& manifest,
+                                     const shared::TargetState& finalState) const {
     if (manifest.expectations.empty()) {
         return true;
     }

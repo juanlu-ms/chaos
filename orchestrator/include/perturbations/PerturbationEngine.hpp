@@ -12,6 +12,7 @@
 #include <memory>
 #include <mutex>
 #include <vector>
+
 #include "perturbations/IPerturbation.hpp"
 
 namespace chaos::orchestrator::perturbations {
@@ -38,8 +39,7 @@ public:
      * @param perturbations Perturbations to apply and later revert.
      * @param duration Duration to wait before reverting unless canceled.
      */
-    void scheduleAllAsync(std::vector<std::unique_ptr<IPerturbation>> perturbations,
-                          std::chrono::seconds duration);
+    void scheduleAllAsync(std::vector<std::unique_ptr<IPerturbation>> perturbations, std::chrono::seconds duration);
 
     /**
      * @brief Request cancellation of any running perturbations.

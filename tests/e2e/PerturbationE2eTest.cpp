@@ -11,9 +11,9 @@
 
 using chaos::orchestrator::containers::createContainerEngine;
 using chaos::orchestrator::containers::IContainerEngine;
-using chaos::orchestrator::manifests::Target;
-using chaos::orchestrator::manifests::Perturbation;
 using chaos::orchestrator::manifests::Parameters;
+using chaos::orchestrator::manifests::Perturbation;
+using chaos::orchestrator::manifests::Target;
 using chaos::orchestrator::perturbations::PerturbationFactory;
 using chaos::orchestrator::shared::ContainerStatus;
 
@@ -33,8 +33,7 @@ protected:
             try {
                 engine_->removeContainer(containerId_);
             } catch (const std::exception& ex) {
-                ADD_FAILURE() << "Failed to remove container " << containerId_
-                              << " during teardown: " << ex.what();
+                ADD_FAILURE() << "Failed to remove container " << containerId_ << " during teardown: " << ex.what();
             }
             containerId_.clear();
         }
@@ -72,8 +71,8 @@ TEST_F(PerturbationE2eTest, MemoryCapPerturbationApplyAndRevert) {
     EXPECT_EQ(engine_->getStatus(containerId_), ContainerStatus::Running);
 
     const auto limitOutput = engine_->exec(containerId_,
-        "sh -c 'cat /sys/fs/cgroup/memory.max 2>/dev/null || "
-        "cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null'");
+                                           "sh -c 'cat /sys/fs/cgroup/memory.max 2>/dev/null || "
+                                           "cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null'");
     try {
         int64_t limitBytes = std::stoll(limitOutput);
         EXPECT_GE(limitBytes, sysInfo.memTotal)
@@ -96,16 +95,14 @@ TEST_F(PerturbationE2eTest, CpuCapPerturbationApplyAndRevert) {
     EXPECT_EQ(engine_->getStatus(containerId_), ContainerStatus::Running);
 
     const auto cpuOutput = engine_->exec(containerId_,
-        "sh -c 'cat /sys/fs/cgroup/cpu.max 2>/dev/null || "
-        "cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us 2>/dev/null'");
+                                         "sh -c 'cat /sys/fs/cgroup/cpu.max 2>/dev/null || "
+                                         "cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us 2>/dev/null'");
     if (!cpuOutput.empty()) {
         try {
             int64_t quotaValue = std::stoll(cpuOutput);
-            EXPECT_EQ(quotaValue, -1)
-                << "CPU quota not reset to unlimited after revert";
+            EXPECT_EQ(quotaValue, -1) << "CPU quota not reset to unlimited after revert";
         } catch (const std::exception&) {
-            EXPECT_NE(cpuOutput.find("max"), std::string::npos)
-                << "CPU quota not reset after revert: " << cpuOutput;
+            EXPECT_NE(cpuOutput.find("max"), std::string::npos) << "CPU quota not reset after revert: " << cpuOutput;
         }
     }
     auto result = engine_->exec(containerId_, "echo ok");

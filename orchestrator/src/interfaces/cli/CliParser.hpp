@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include <containers/IContainerEngine.hpp>
 #include <chrono>
+#include <containers/IContainerEngine.hpp>
 #include <manifests/ManifestParser.hpp>
 #include <memory>
 #include <perturbations/PerturbationFactory.hpp>
@@ -86,17 +86,15 @@ private:
 
     [[nodiscard]] manifests::ChaosManifest parseManifest(const std::string& path) const;
 
-    [[nodiscard]] std::vector<std::unique_ptr<perturbations::IPerturbation>>
-    buildPerturbations(const manifests::ChaosManifest& manifest) const;
+    [[nodiscard]] std::vector<std::unique_ptr<perturbations::IPerturbation>> buildPerturbations(
+        const manifests::ChaosManifest& manifest) const;
 
     [[nodiscard]] shared::TargetState runPerturbationsLoop(
-        std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations,
-        const std::string& targetId,
+        std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations, const std::string& targetId,
         std::chrono::seconds duration) const;
 
-    [[nodiscard]] bool validateExpectations(
-        const manifests::ChaosManifest& manifest,
-        const shared::TargetState& finalState) const;
+    [[nodiscard]] bool validateExpectations(const manifests::ChaosManifest& manifest,
+                                            const shared::TargetState& finalState) const;
 
     /**
      * @brief Internal helper to dispatch the parsed command.

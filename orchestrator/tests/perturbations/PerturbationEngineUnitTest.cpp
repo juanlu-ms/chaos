@@ -22,10 +22,8 @@ constexpr auto kAsyncTimeout = std::chrono::seconds(5);
 
 class RecordingPerturbation final : public perturbations::IPerturbation {
 public:
-    RecordingPerturbation(std::shared_ptr<std::atomic<int>> apply_count,
-                          std::shared_ptr<std::atomic<int>> revert_count,
-                          std::shared_ptr<std::promise<void>> applied,
-                          std::shared_ptr<std::promise<void>> reverted)
+    RecordingPerturbation(std::shared_ptr<std::atomic<int>> apply_count, std::shared_ptr<std::atomic<int>> revert_count,
+                          std::shared_ptr<std::promise<void>> applied, std::shared_ptr<std::promise<void>> reverted)
         : apply_count_(std::move(apply_count)),
           revert_count_(std::move(revert_count)),
           applied_(std::move(applied)),

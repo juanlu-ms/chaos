@@ -5,13 +5,12 @@
 
 #pragma once
 
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
-
-#include <optional>
-#include <cstdint>
 
 namespace chaos::orchestrator::manifests {
 

@@ -1,37 +1,34 @@
 #include <gtest/gtest.h>
 
-#include "containers/ContainerEngineFactory.hpp"
+#include "ContainerSmokeTestBase.hpp"
 
 /**
  * @file DockerClientIntegrationTest.cpp
  * @brief Smoke tests for Docker engine integration in real environments.
  */
 
-using chaos::orchestrator::containers::createContainerEngine;
+using namespace chaos::orchestrator::tests::smoke;
 
 /**
  * @test Verifies container listing when Docker is available.
  */
-TEST(DockerClientIntegrationTest, ListsContainersWhenDockerAvailable) {
-    auto adapter = createContainerEngine();
-    const auto testId = adapter->createContainer("chaos-demo-target:latest", {});
-    ASSERT_FALSE(testId.empty());
-    adapter->startContainer(testId);
+class DockerClientIntegrationTest : public ContainerSmokeTestBase {};
 
-    const auto containers = adapter->listContainers();
+TEST_F(DockerClientIntegrationTest, ListsContainersWhenDockerAvailable) {
+    createAndStartContainer();
+
+    const auto containers = engine_->listContainers();
     ASSERT_GE(containers.size(), 1u);
     bool foundCreated = false;
     for (const auto& container : containers) {
         EXPECT_FALSE(container.id.empty());
-        if (testId.find(container.id) == 0 || container.id.find(testId) == 0) foundCreated = true;
+        if (containerId_.find(container.id) == 0 || container.id.find(containerId_) == 0) foundCreated = true;
     }
     EXPECT_TRUE(foundCreated) << "Created container not found in listing";
-
-    adapter->removeContainer(testId);
 }
 
-TEST(DockerClientIntegrationTest, GetSystemInfoReturnsTotalMemory) {
-    auto adapter = createContainerEngine();
+TEST(DockerClientSystemInfoTest, GetSystemInfoReturnsTotalMemory) {
+    auto adapter = createTestEngine();
     const auto info = adapter->getSystemInfo();
     EXPECT_GT(info.memTotal, 0);
 }

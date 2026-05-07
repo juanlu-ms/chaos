@@ -14,7 +14,10 @@ inline std::shared_ptr<containers::IContainerEngine> createTestEngine() { return
 
 class ContainerSmokeTestBase : public ::testing::Test {
 protected:
-    void SetUp() override { engine_ = createTestEngine(); }
+    void SetUp() override {
+        engine_ = createTestEngine();
+        engine_->buildImage("chaos-demo-target:latest", CHAOS_EXAMPLES_DIR "/demo-target/Dockerfile");
+    }
 
     void TearDown() override {
         if (engine_ && !containerId_.empty()) {
@@ -28,7 +31,6 @@ protected:
     }
 
     void createAndStartContainer() {
-        engine_->buildImage("chaos-demo-target:latest", CHAOS_EXAMPLES_DIR "/demo-target/Dockerfile");
         containerId_ = engine_->createContainer("chaos-demo-target:latest", {});
         ASSERT_FALSE(containerId_.empty());
         engine_->startContainer(containerId_);

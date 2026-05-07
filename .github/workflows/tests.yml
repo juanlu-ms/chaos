@@ -47,11 +47,11 @@ jobs:
       - name: Verify vcpkg toolchain
         run: test -f "$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
 
-      - name: Configure
-        run: cmake --preset release-linux-gcc
-
-      - name: Check formatting
+      - name: Check formatting (configures dev-linux-clang, builds check-format target)
         run: cmake --workflow --preset check-format
+
+      - name: Configure release build
+        run: cmake --preset release-linux-gcc
 
       - name: Build
         run: cmake --build --preset release

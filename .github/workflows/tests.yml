@@ -28,6 +28,10 @@ jobs:
       - name: Install CMake and Ninja (cached)
         uses: lukka/get-cmake@latest
 
+      - name: Get vcpkg submodule commit
+        id: vcpkg-commit
+        run: echo "sha=$(git submodule status vcpkg | awk '{print $1}' | tr -d ' -')" >> "$GITHUB_OUTPUT"
+
       - name: Cache vcpkg directory
         uses: actions/cache@v4
         with:
@@ -37,7 +41,8 @@ jobs:
             !${{ env.VCPKG_ROOT }}/packages
             !${{ env.VCPKG_ROOT }}/downloads
             !${{ env.VCPKG_ROOT }}/installed
-          key: vcpkg-${{ hashFiles('.git/modules/vcpkg/HEAD') }}
+          key: vcpkg-${{ steps.vcpkg-commit.outputs.sha }}
+          restore-keys: vcpkg-
 
       - name: Verify vcpkg toolchain
         run: test -f "$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"

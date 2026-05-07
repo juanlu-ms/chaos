@@ -9,66 +9,73 @@
     {
       "name": "local-env",
       "displayName": "Local Environment Overrides",
-      "description": "Local-only environment settings",
+      "description": "Local-only environment settings (override via CMakeUserPresets.json)",
       "environment": {
         "VCPKG_ROOT": "$penv{VCPKG_ROOT}"
       }
     },
     {
-      "name": "dev-linux-gcc",
-      "displayName": "Linux GCC (Debug + vcpkg)",
-      "description": "Dev config using GCC and vcpkg",
-      "inherits": [
-        "local-env"
-      ],
-      "binaryDir": "${sourceDir}/build/debug",
+      "name": "base-gcc",
+      "description": "Base GCC preset — inheritable, not selectable directly",
+      "hidden": true,
+      "inherits": ["local-env"],
       "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_CXX_COMPILER": "g++-13",
         "CMAKE_C_COMPILER": "gcc-13",
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_FEATURE_FLAGS": "manifests",
         "VCPKG_TARGET_TRIPLET": "x64-linux"
       }
     },
     {
-      "name": "dev-linux-clang",
-      "displayName": "Linux Clang (Debug + vcpkg)",
-      "description": "Dev config using Clang and vcpkg",
-      "inherits": [
-        "local-env"
-      ],
-      "binaryDir": "${sourceDir}/build/debug-clang",
+      "name": "base-clang",
+      "description": "Base Clang preset — inheritable, not selectable directly",
+      "hidden": true,
+      "inherits": ["local-env"],
       "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_C_COMPILER": "clang",
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_FEATURE_FLAGS": "manifests",
         "VCPKG_TARGET_TRIPLET": "x64-linux"
+      }
+    },
+    {
+      "name": "dev-linux-gcc",
+      "displayName": "Linux GCC (Debug)",
+      "inherits": ["base-gcc"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
       "name": "release-linux-gcc",
-      "displayName": "Linux GCC (Release + vcpkg)",
-      "description": "Release config using GCC and vcpkg",
-      "inherits": [
-        "local-env"
-      ],
-      "binaryDir": "${sourceDir}/build/release",
-      "generator": "Ninja",
+      "displayName": "Linux GCC (Release)",
+      "inherits": ["base-gcc"],
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_CXX_COMPILER": "g++-13",
-        "CMAKE_C_COMPILER": "gcc-13",
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_FEATURE_FLAGS": "manifests",
-        "VCPKG_TARGET_TRIPLET": "x64-linux"
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "dev-linux-clang",
+      "displayName": "Linux Clang (Debug)",
+      "inherits": ["base-clang"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release-linux-clang",
+      "displayName": "Linux Clang (Release)",
+      "inherits": ["base-clang"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
       }
     }
   ],
@@ -113,6 +120,34 @@
         "noTestsAction": "error",
         "stopOnFailure": false
       }
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "check-format",
+      "steps": [
+        {
+          "name": "dev-linux-clang",
+          "type": "configure"
+        },
+        {
+          "name": "check-format",
+          "type": "build"
+        }
+      ]
+    },
+    {
+      "name": "format",
+      "steps": [
+        {
+          "name": "dev-linux-clang",
+          "type": "configure"
+        },
+        {
+          "name": "format",
+          "type": "build"
+        }
+      ]
     }
   ]
 }

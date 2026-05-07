@@ -1,0 +1,21 @@
+Checks: >
+  clang-diagnostic-*,
+  clang-analyzer-*,
+  modernize-*,
+  performance-*,
+  readability-braces-around-statements,
+  readability-identifier-length,
+  bugprone-*,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -readability-magic-numbers,
+  -modernize-use-trailing-return-type,
+  -modernize-avoid-c-arrays
+
+WarningsAsErrors: >
+  clang-diagnostic-*,
+  clang-analyzer-*
+
+CheckOptions:
+  readability-identifier-length.MinimumVariableLength: 2
+  readability-identifier-length.IgnoredVariableNames: ^[ijk]$

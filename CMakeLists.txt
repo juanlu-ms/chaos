@@ -12,6 +12,14 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+find_program(CLANG_TIDY_BIN clang-tidy)
+if(CLANG_TIDY_BIN)
+  set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_BIN}")
+  message(STATUS "clang-tidy found: ${CLANG_TIDY_BIN}")
+else()
+  message(STATUS "clang-tidy not found — skipping static analysis")
+endif()
+
 enable_testing()
 
 add_subdirectory(wrapper)

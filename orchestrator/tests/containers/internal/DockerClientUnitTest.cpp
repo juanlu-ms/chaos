@@ -52,8 +52,7 @@ TEST(DockerClientUnitTest, ParsesContainerList) {
             {"State", "running"},
         },
         {
-            {"Id", "def456"},
-            {"Names", nlohmann::json::array({"/another-container"})},
+            {"Id", "def456"}, {"Names", nlohmann::json::array({"/another-container"})},
             // State field is intentionally missing to test default handling
         },
     });

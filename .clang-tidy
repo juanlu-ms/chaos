@@ -16,6 +16,8 @@ WarningsAsErrors: >
   clang-diagnostic-*,
   clang-analyzer-*
 
+HeaderFilterRegex: '.*'
+
 CheckOptions:
   readability-identifier-length.MinimumVariableLength: 2
   readability-identifier-length.IgnoredVariableNames: ^[ijk]$

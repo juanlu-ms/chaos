@@ -22,6 +22,7 @@ class ManifestE2eTest : public ::testing::Test {
 protected:
     void SetUp() override {
         engine_ = createContainerEngine();
+        engine_->buildImage("chaos-demo-target:latest", CHAOS_EXAMPLES_DIR "/demo-target/Dockerfile");
         containerId_ = engine_->createContainer("chaos-demo-target:latest", {});
         ASSERT_FALSE(containerId_.empty());
         engine_->startContainer(containerId_);

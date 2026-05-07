@@ -15,5 +15,9 @@ target_link_libraries(chaos_e2e_tests PRIVATE
     GTest::gtest_main
 )
 
+target_compile_definitions(chaos_e2e_tests PRIVATE
+    CHAOS_EXAMPLES_DIR="${CMAKE_SOURCE_DIR}/examples"
+)
+
 include(GoogleTest)
 gtest_discover_tests(chaos_e2e_tests)

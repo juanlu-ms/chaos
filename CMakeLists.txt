@@ -22,6 +22,28 @@ endif()
 
 enable_testing()
 
+file(GLOB_RECURSE ALL_SOURCE_FILES
+    ${CMAKE_SOURCE_DIR}/orchestrator/src/*.cpp
+    ${CMAKE_SOURCE_DIR}/orchestrator/src/*.hpp
+    ${CMAKE_SOURCE_DIR}/orchestrator/include/*.hpp
+    ${CMAKE_SOURCE_DIR}/orchestrator/tests/*.cpp
+    ${CMAKE_SOURCE_DIR}/wrapper/src/*.cpp
+    ${CMAKE_SOURCE_DIR}/tests/e2e/*.cpp
+    ${CMAKE_SOURCE_DIR}/examples/*.cpp
+)
+
+add_custom_target(check-format
+    COMMAND clang-format --dry-run -Werror ${ALL_SOURCE_FILES}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Checking code format with clang-format..."
+)
+
+add_custom_target(format
+    COMMAND clang-format -i ${ALL_SOURCE_FILES}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Formatting code with clang-format..."
+)
+
 add_subdirectory(wrapper)
 add_subdirectory(orchestrator)
 add_subdirectory(tests/e2e)

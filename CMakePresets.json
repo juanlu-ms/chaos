@@ -94,6 +94,18 @@
       "name": "release",
       "configurePreset": "release-linux-gcc",
       "configuration": "Release"
+    },
+    {
+      "name": "check-format",
+      "configurePreset": "dev-linux-clang",
+      "configuration": "Debug",
+      "targets": ["check-format"]
+    },
+    {
+      "name": "format",
+      "configurePreset": "dev-linux-clang",
+      "configuration": "Debug",
+      "targets": ["format"]
     }
   ],
   "testPresets": [

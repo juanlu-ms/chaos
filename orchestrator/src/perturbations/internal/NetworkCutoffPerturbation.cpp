@@ -32,7 +32,7 @@ void NetworkCutoffPerturbation::apply() {
         bool hasFilter = false;
 
         auto addRule = [&](const std::string& applyArgs, const std::string& revertArgs) {
-            engine_->exec(target_id_, "iptables " + applyArgs);
+            (void)engine_->exec(target_id_, "iptables " + applyArgs);
             revertCommands_.push_back("iptables " + revertArgs);
             hasFilter = true;
         };
@@ -81,7 +81,7 @@ void NetworkCutoffPerturbation::revert() {
 
     try {
         for (const auto& cmd : revertCommands_) {
-            engine_->exec(target_id_, cmd);
+            (void)engine_->exec(target_id_, cmd);
         }
 
         revertCommands_.clear();

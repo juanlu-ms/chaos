@@ -37,7 +37,7 @@ void NetworkDelayPerturbation::apply() {
     const std::string& delay = delay_it->second;
 
     try {
-        engine_->exec(target_id_, fmt::format("tc qdisc add dev eth0 root netem delay {}ms", delay));
+        (void)engine_->exec(target_id_, fmt::format("tc qdisc add dev eth0 root netem delay {}ms", delay));
         hasBeenApplied_ = true;
         SPDLOG_INFO("Network Delay Perturbation applied: delay={}ms on target {}", delay, target_id_);
     } catch (const containers::ContainerEngineError& e) {
@@ -57,7 +57,7 @@ void NetworkDelayPerturbation::revert() {
     }
 
     try {
-        engine_->exec(target_id_, "tc qdisc del dev eth0 root netem");
+        (void)engine_->exec(target_id_, "tc qdisc del dev eth0 root netem");
         hasBeenApplied_ = false;
         SPDLOG_INFO("Network Delay Perturbation reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {

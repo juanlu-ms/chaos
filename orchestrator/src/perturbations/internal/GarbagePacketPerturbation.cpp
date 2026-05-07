@@ -59,7 +59,7 @@ void GarbagePacketPerturbation::apply() {
     }();
 
     try {
-        engine_->exec(target_id_, fmt::format("tc qdisc add dev {} root netem{}", iface, opts));
+        (void)engine_->exec(target_id_, fmt::format("tc qdisc add dev {} root netem{}", iface, opts));
         hasBeenApplied_ = true;
         SPDLOG_INFO("Garbage Packet Perturbation applied on target {} iface={}: {}", target_id_, iface, opts);
     } catch (const containers::ContainerEngineError& e) {
@@ -84,7 +84,7 @@ void GarbagePacketPerturbation::revert() {
     }();
 
     try {
-        engine_->exec(target_id_, "tc qdisc del dev " + iface + " root netem");
+        (void)engine_->exec(target_id_, "tc qdisc del dev " + iface + " root netem");
         hasBeenApplied_ = false;
         SPDLOG_INFO("Garbage Packet Perturbation reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {

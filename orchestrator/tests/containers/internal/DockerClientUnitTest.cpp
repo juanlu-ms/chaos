@@ -82,7 +82,7 @@ TEST(DockerClientUnitTest, ParsesEmptyContainerList) {
 TEST(DockerClientUnitTest, ThrowsOnErrorInResponse) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::object({{"error", "not an array"}}));
 
-    EXPECT_THROW(adapter.listContainers(), std::runtime_error);
+    EXPECT_THROW((void)adapter.listContainers(), std::runtime_error);
 }
 
 /**
@@ -132,7 +132,7 @@ TEST(DockerClientUnitTest, ListParsesMultipleContainers) {
 TEST(DockerClientUnitTest, ListPropagatesTransportErrors) {
     auto adapter = makeAdapterWithError("Connection refused");
 
-    EXPECT_THROW(adapter.listContainers(), std::runtime_error);
+    EXPECT_THROW((void)adapter.listContainers(), std::runtime_error);
 }
 
 /**
@@ -161,7 +161,7 @@ TEST(DockerClientUnitTest, StopContainerCallsCorrectEndpoint) {
 TEST(DockerClientUnitTest, StopContainerPropagatesApiError) {
     auto adapter = makeAdapterWithError("Docker daemon unreachable");
 
-    EXPECT_THROW(adapter.stopContainer("any-id"), std::runtime_error);
+    EXPECT_THROW((void)adapter.stopContainer("any-id"), std::runtime_error);
 }
 
 /**
@@ -170,7 +170,7 @@ TEST(DockerClientUnitTest, StopContainerPropagatesApiError) {
 TEST(DockerClientUnitTest, StopContainerWithEmptyIdThrows) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::array());
 
-    EXPECT_THROW(adapter.stopContainer(""), std::invalid_argument);
+    EXPECT_THROW((void)adapter.stopContainer(""), std::invalid_argument);
 }
 
 /**
@@ -199,7 +199,7 @@ TEST(DockerClientUnitTest, KillContainerCallsCorrectEndpoint) {
 TEST(DockerClientUnitTest, KillContainerPropagatesApiError) {
     auto adapter = makeAdapterWithError("Docker daemon is on fire");
 
-    EXPECT_THROW(adapter.killContainer("any-id"), std::runtime_error);
+    EXPECT_THROW((void)adapter.killContainer("any-id"), std::runtime_error);
 }
 
 /**
@@ -208,7 +208,7 @@ TEST(DockerClientUnitTest, KillContainerPropagatesApiError) {
 TEST(DockerClientUnitTest, KillContainerWithEmptyIdThrows) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::array());
 
-    EXPECT_THROW(adapter.killContainer(""), std::invalid_argument);
+    EXPECT_THROW((void)adapter.killContainer(""), std::invalid_argument);
 }
 
 /**
@@ -253,8 +253,8 @@ TEST(DockerClientUnitTest, ExecCallsCreateAndStartEndpoints) {
 TEST(DockerClientUnitTest, ExecRejectsEmptyArguments) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::array());
 
-    EXPECT_THROW(adapter.exec("", "echo hi"), std::invalid_argument);
-    EXPECT_THROW(adapter.exec("container", ""), std::invalid_argument);
+    EXPECT_THROW((void)adapter.exec("", "echo hi"), std::invalid_argument);
+    EXPECT_THROW((void)adapter.exec("container", ""), std::invalid_argument);
 }
 
 /**
@@ -306,7 +306,7 @@ TEST(DockerClientUnitTest, CreateContainerIncludesEnvOptions) {
  */
 TEST(DockerClientUnitTest, CreateContainerRejectsEmptyImage) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::array());
-    EXPECT_THROW({ adapter.createContainer("", {}); }, std::invalid_argument);
+    EXPECT_THROW((void)adapter.createContainer("", {}), std::invalid_argument);
 }
 
 /**
@@ -314,7 +314,7 @@ TEST(DockerClientUnitTest, CreateContainerRejectsEmptyImage) {
  */
 TEST(DockerClientUnitTest, CreateContainerPropagatesApiError) {
     auto adapter = makeAdapterWithError("Docker daemon unavailable");
-    EXPECT_THROW({ adapter.createContainer("alpine:latest", {}); }, std::runtime_error);
+    EXPECT_THROW((void)adapter.createContainer("alpine:latest", {}), std::runtime_error);
 }
 
 /**
@@ -336,7 +336,7 @@ TEST(DockerClientUnitTest, GetLogsCallsCorrectEndpoint) {
  */
 TEST(DockerClientUnitTest, GetLogsWithEmptyIdThrows) {
     auto adapter = makeAdapterForListContainers(nlohmann::json::array());
-    EXPECT_THROW(adapter.getLogs(""), std::invalid_argument);
+    EXPECT_THROW((void)adapter.getLogs(""), std::invalid_argument);
 }
 
 /**
@@ -346,7 +346,7 @@ TEST(DockerClientUnitTest, GetLogsPropagatesApiError) {
     DockerClient adapter([](HttpMethod, std::string_view, std::string_view) {
         return HttpResponse{.status = 404, .body = "not found"};
     });
-    EXPECT_THROW(adapter.getLogs("missing-container"), chaos::orchestrator::containers::ContainerEngineApiError);
+    EXPECT_THROW((void)adapter.getLogs("missing-container"), chaos::orchestrator::containers::ContainerEngineApiError);
 }
 
 /**
@@ -377,7 +377,7 @@ TEST(DockerClientUnitTest, GetSystemInfoPropagatesApiError) {
     DockerClient adapter([](HttpMethod, std::string_view, std::string_view) {
         return HttpResponse{.status = 500, .body = "Internal server error"};
     });
-    EXPECT_THROW({ adapter.getSystemInfo(); }, chaos::orchestrator::containers::ContainerEngineApiError);
+    EXPECT_THROW((void)adapter.getSystemInfo(), chaos::orchestrator::containers::ContainerEngineApiError);
 }
 
 /**
@@ -388,14 +388,12 @@ TEST(DockerClientUnitTest, PullImageSucceedsWithDockerProgressStream) {
     bool wasCalled = false;
     const std::string image = "nginx:latest";
 
-    const std::string dockerPullResponse =
-        R"({"status":"Pulling from library/nginx","id":"latest"}\n)"
-        R"({"status":"Digest: sha256:abc123"}\n)"
-        R"({"status":"Status: Image is up to date for nginx:latest"}\n)";
+    const std::string dockerPullResponse = R"({"status":"Pulling from library/nginx","id":"latest"}\n)"
+                                           R"({"status":"Digest: sha256:abc123"}\n)"
+                                           R"({"status":"Status: Image is up to date for nginx:latest"}\n)";
 
-    auto adapter =
-        DockerClient([&wasCalled, &image, &dockerPullResponse](HttpMethod method, std::string_view endpoint,
-                                                               std::string_view body) {
+    auto adapter = DockerClient(
+        [&wasCalled, &image, &dockerPullResponse](HttpMethod method, std::string_view endpoint, std::string_view body) {
             wasCalled = true;
             EXPECT_EQ(method, HttpMethod::POST);
             EXPECT_EQ(endpoint, "/images/create");
@@ -423,7 +421,7 @@ TEST(DockerClientUnitTest, PullImageThrowsOn404) {
     DockerClient adapter([](HttpMethod, std::string_view, std::string_view) {
         return HttpResponse{.status = 404, .body = R"({"message":"repository not found"})"};
     });
-    EXPECT_THROW(adapter.pullImage("nonexistent/image"), std::invalid_argument);
+    EXPECT_THROW((void)adapter.pullImage("nonexistent/image"), std::invalid_argument);
 }
 
 /**
@@ -433,7 +431,7 @@ TEST(DockerClientUnitTest, PullImageThrowsOn500) {
     DockerClient adapter([](HttpMethod, std::string_view, std::string_view) {
         return HttpResponse{.status = 500, .body = "Internal server error"};
     });
-    EXPECT_THROW(adapter.pullImage("nginx:latest"), chaos::orchestrator::containers::ContainerEngineApiError);
+    EXPECT_THROW((void)adapter.pullImage("nginx:latest"), chaos::orchestrator::containers::ContainerEngineApiError);
 }
 
 /**
@@ -441,7 +439,7 @@ TEST(DockerClientUnitTest, PullImageThrowsOn500) {
  */
 TEST(DockerClientUnitTest, PullImagePropagatesTransportErrors) {
     auto adapter = makeAdapterWithError("Docker daemon unreachable");
-    EXPECT_THROW(adapter.pullImage("nginx:latest"), std::runtime_error);
+    EXPECT_THROW((void)adapter.pullImage("nginx:latest"), std::runtime_error);
 }
 
 /**
@@ -459,8 +457,8 @@ TEST(DockerClientUnitTest, BuildImageSendsTarToCorrectEndpoint) {
     bool wasCalled = false;
     const std::string imageName = "test-image:latest";
 
-    auto adapter = DockerClient(
-        [&wasCalled, &imageName](HttpMethod method, std::string_view endpoint, std::string_view body) {
+    auto adapter =
+        DockerClient([&wasCalled, &imageName](HttpMethod method, std::string_view endpoint, std::string_view body) {
             wasCalled = true;
             EXPECT_EQ(method, HttpMethod::POST_TAR);
             EXPECT_EQ(endpoint, fmt::format("/build?t={}", imageName));
@@ -504,7 +502,7 @@ TEST(DockerClientUnitTest, BuildImageThrowsOn500) {
         return HttpResponse{.status = 500, .body = "Internal server error"};
     });
 
-    EXPECT_THROW(adapter.buildImage("myapp:latest", dockerfilePath),
+    EXPECT_THROW((void)adapter.buildImage("myapp:latest", dockerfilePath),
                  chaos::orchestrator::containers::ContainerEngineApiError);
     std::filesystem::remove(dockerfilePath);
 }
@@ -514,7 +512,5 @@ TEST(DockerClientUnitTest, BuildImageThrowsOn500) {
  */
 TEST(DockerClientUnitTest, BuildImagePropagatesTransportErrors) {
     auto adapter = makeAdapterWithError("Docker daemon unreachable");
-    EXPECT_THROW(adapter.buildImage("myapp:latest", "/some/Dockerfile"), std::runtime_error);
+    EXPECT_THROW((void)adapter.buildImage("myapp:latest", "/some/Dockerfile"), std::runtime_error);
 }
-
-

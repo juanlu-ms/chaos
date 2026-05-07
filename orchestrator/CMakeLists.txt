@@ -4,6 +4,7 @@ find_package(httplib CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(ftxui CONFIG REQUIRED)
+find_package(LibArchive REQUIRED)
 
 set(ORCHESTRATOR_SOURCES
     src/containers/ContainerEngineFactory.cpp
@@ -43,6 +44,7 @@ target_link_libraries(orchestrator_core PUBLIC
     ftxui::screen
     ftxui::dom
     ftxui::component
+    LibArchive::LibArchive
 )
 
 if(UNIX)

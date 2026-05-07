@@ -1,12 +1,12 @@
 #include "DockerClient.hpp"
 
+#include <archive.h>
+#include <archive_entry.h>
 #include <fmt/format.h>
 #include <httplib.h>
 #include <spdlog/spdlog.h>
 #include <sys/socket.h>
 
-#include <cstdint>
-#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -17,60 +17,68 @@
 
 namespace {
 
-constexpr std::size_t TAR_BLOCK_SIZE = 512;
-
-std::string createTarArchive(const std::string_view filePath) {
-    std::ifstream file(std::string(filePath), std::ios::binary | std::ios::ate);
-    if (!file) {
-        throw std::runtime_error(fmt::format("Failed to open Dockerfile: {}", filePath));
+std::string createTarArchive(const std::string_view dockerfilePath) {
+    const auto contextDir = std::filesystem::path(dockerfilePath).parent_path();
+    if (!std::filesystem::exists(contextDir)) {
+        throw std::runtime_error(fmt::format("Build context directory does not exist: {}", contextDir.string()));
     }
 
-    const auto fileSize = static_cast<std::size_t>(file.tellg());
-    file.seekg(0);
+    auto* arch = archive_write_new();
+    archive_write_set_format_ustar(arch);
 
-    std::string content(fileSize, '\0');
-    file.read(content.data(), static_cast<std::streamsize>(fileSize));
+    std::string tarData;
+    archive_write_open(
+        arch, &tarData, nullptr,
+        [](archive*, void* client, const void* buf, size_t len) {
+            static_cast<std::string*>(client)->append(static_cast<const char*>(buf), len);
+            return static_cast<la_ssize_t>(len);
+        },
+        nullptr);
 
-    const std::string name = std::filesystem::path(filePath).filename().string();
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(contextDir)) {
+        const auto& path = entry.path();
+        const auto relative = std::filesystem::relative(path, contextDir).string();
 
-    // Build ustar header (512 bytes)
-    std::string header(TAR_BLOCK_SIZE, '\0');
-    std::snprintf(header.data(), 101, "%s", name.c_str());                                    // name (100)
-    std::snprintf(header.data() + 100, 8, "%07o", 0644);                                      // mode
-    std::snprintf(header.data() + 108, 8, "%07o", 0);                                         // uid
-    std::snprintf(header.data() + 116, 8, "%07o", 0);                                         // gid
-    std::snprintf(header.data() + 124, 12, "%011lo", static_cast<unsigned long>(fileSize));    // size
-    std::snprintf(header.data() + 136, 12, "%011lo", 0UL);                                    // mtime
-    header[156] = '0';                                                                         // typeflag: regular file
-    std::memcpy(header.data() + 257, "ustar", 5);                                             // magic
-    std::memcpy(header.data() + 263, "00", 2);                                                // version
+        if (entry.is_regular_file()) {
+            auto* ae = archive_entry_new();
+            archive_entry_set_pathname(ae, relative.c_str());
+            archive_entry_set_size(ae, static_cast<la_int64_t>(entry.file_size()));
+            archive_entry_set_filetype(ae, AE_IFREG);
+            archive_entry_set_perm(ae, 0644);
+            archive_write_header(arch, ae);
 
-    // Checksum: sum all bytes with chksum field (148-155) treated as spaces
-    unsigned int checksum = 0;
-    for (std::size_t i = 0; i < TAR_BLOCK_SIZE; ++i) {
-        if (i >= 148 && i < 156) {
-            checksum += ' ';
-        } else {
-            checksum += static_cast<unsigned char>(header[i]);
+            std::ifstream file(path, std::ios::binary);
+            std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+            archive_write_data(arch, content.data(), content.size());
+
+            archive_entry_free(ae);
         }
     }
-    std::snprintf(header.data() + 148, 7, "%06o", checksum);
-    header[155] = ' ';
 
-    std::string tar;
-    tar.reserve(TAR_BLOCK_SIZE + content.size() + 2 * TAR_BLOCK_SIZE);
+    archive_write_close(arch);
+    archive_write_free(arch);
 
-    tar.append(header);
+    return tarData;
+}
 
-    // Pad file content to 512-byte boundary
-    tar.append(content);
-    const auto padding = (TAR_BLOCK_SIZE - (content.size() % TAR_BLOCK_SIZE)) % TAR_BLOCK_SIZE;
-    tar.append(padding, '\0');
+void parseBuildResponse(const std::string_view body) {
+    std::string_view remaining = body;
+    while (!remaining.empty()) {
+        const auto newlinePos = remaining.find('\n');
 
-    // Two zero-filled blocks mark end of archive
-    tar.append(2 * TAR_BLOCK_SIZE, '\0');
+        if (const std::string_view line =
+                (newlinePos == std::string_view::npos) ? remaining : remaining.substr(0, newlinePos);
+            !line.empty()) {
+            auto json = nlohmann::json::parse(line, nullptr, false);
+            if (!json.is_discarded() && json.is_object() && json.contains("error")) {
+                throw chaos::orchestrator::containers::ContainerEngineApiError(
+                    fmt::format("Docker build error: {}", json["error"].get<std::string>()));
+            }
+        }
 
-    return tar;
+        if (newlinePos == std::string_view::npos) break;
+        remaining = remaining.substr(newlinePos + 1);
+    }
 }
 
 }  // namespace
@@ -88,10 +96,10 @@ std::shared_ptr<containers::IContainerEngine> DockerClient::create(const std::st
 
     auto requestFn = [client](HttpMethod method, std::string_view endpoint, std::string_view body) {
         SPDLOG_DEBUG("DockerClient: request {} {}",
-                     method == HttpMethod::GET      ? "GET"
-                     : method == HttpMethod::POST   ? "POST"
+                     method == HttpMethod::GET        ? "GET"
+                     : method == HttpMethod::POST     ? "POST"
                      : method == HttpMethod::POST_TAR ? "POST_TAR"
-                                                     : "REMOVE",
+                                                      : "REMOVE",
                      endpoint);
         httplib::Result response;
         std::string endpointStr(endpoint);
@@ -194,11 +202,13 @@ void DockerClient::buildImage(const std::string_view imageName, const std::strin
     const auto response = request_(HttpMethod::POST_TAR, endpoint, tarArchive);
 
     if (response.status != 200) {
-        SPDLOG_ERROR("Docker API returned status {} while building image {}: {}",
-                     response.status, imageName, response.body);
+        SPDLOG_ERROR("Docker API returned status {} while building image {}: {}", response.status, imageName,
+                     response.body);
         throw containers::ContainerEngineApiError(
             fmt::format("Docker API returned status {} while building image {}", response.status, imageName));
     }
+
+    parseBuildResponse(response.body);
 
     SPDLOG_INFO("DockerClient: image {} built successfully", imageName);
 }

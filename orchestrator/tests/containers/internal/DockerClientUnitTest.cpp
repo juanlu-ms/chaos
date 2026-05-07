@@ -448,7 +448,10 @@ TEST(DockerClientUnitTest, PullImagePropagatesTransportErrors) {
  */
 TEST(DockerClientUnitTest, BuildImageSendsTarToCorrectEndpoint) {
     const std::string dockerfileContent = "FROM alpine:latest\nCMD [\"echo\", \"hello\"]\n";
-    const std::string dockerfilePath = "/tmp/test_dockerfile_build.txt";
+    const std::filesystem::path tmpDir =
+        fmt::format("/tmp/chaos_test_{}", std::to_string(reinterpret_cast<std::uintptr_t>(&dockerfileContent)));
+    std::filesystem::create_directory(tmpDir);
+    const std::filesystem::path dockerfilePath = tmpDir / "Dockerfile";
     {
         std::ofstream file(dockerfilePath);
         file << dockerfileContent;
@@ -466,9 +469,9 @@ TEST(DockerClientUnitTest, BuildImageSendsTarToCorrectEndpoint) {
             return HttpResponse{200, "Successfully built"};
         });
 
-    EXPECT_NO_THROW(adapter.buildImage(imageName, dockerfilePath));
+    EXPECT_NO_THROW(adapter.buildImage(imageName, dockerfilePath.c_str()));
     EXPECT_TRUE(wasCalled);
-    std::filesystem::remove(dockerfilePath);
+    std::filesystem::remove_all(tmpDir);
 }
 
 /**
@@ -492,7 +495,10 @@ TEST(DockerClientUnitTest, BuildImageRejectsEmptyPath) {
  */
 TEST(DockerClientUnitTest, BuildImageThrowsOn500) {
     const std::string dockerfileContent = "FROM alpine:latest\n";
-    const std::string dockerfilePath = "/tmp/test_dockerfile_500.txt";
+    const std::filesystem::path tmpDir =
+        fmt::format("/tmp/chaos_test_{}", std::to_string(reinterpret_cast<std::uintptr_t>(&dockerfileContent)));
+    std::filesystem::create_directory(tmpDir);
+    const std::filesystem::path dockerfilePath = tmpDir / "Dockerfile";
     {
         std::ofstream file(dockerfilePath);
         file << dockerfileContent;
@@ -502,9 +508,9 @@ TEST(DockerClientUnitTest, BuildImageThrowsOn500) {
         return HttpResponse{.status = 500, .body = "Internal server error"};
     });
 
-    EXPECT_THROW((void)adapter.buildImage("myapp:latest", dockerfilePath),
+    EXPECT_THROW((void)adapter.buildImage("myapp:latest", dockerfilePath.c_str()),
                  chaos::orchestrator::containers::ContainerEngineApiError);
-    std::filesystem::remove(dockerfilePath);
+    std::filesystem::remove_all(tmpDir);
 }
 
 /**

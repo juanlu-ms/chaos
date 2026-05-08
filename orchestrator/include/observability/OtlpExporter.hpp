@@ -34,7 +34,7 @@ public:
      * Export a log payload to the OTLP endpoint.
      * @return true on HTTP 200.
      */
-    bool exportLogs(const json& payload);
+    [[nodiscard]] bool exportLogs(const json& payload);
 
     /** @return the full OTLP Logs URL. */
     std::string endpoint() const;

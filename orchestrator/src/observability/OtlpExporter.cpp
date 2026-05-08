@@ -39,6 +39,8 @@ json OtlpExporter::buildLogPayload(const std::string& run_id, const std::string&
 bool OtlpExporter::exportLogs(const json& payload) {
     try {
         httplib::Client client(endpoint_);
+        client.set_connection_timeout(5);
+        client.set_read_timeout(10);
         auto res = client.Post("/v1/logs", payload.dump(), "application/json");
         if (!res) {
             SPDLOG_WARN("OTLP export request failed: no response");

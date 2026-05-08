@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <httplib.h>
 
 #include <nlohmann/json.hpp>
 
@@ -43,4 +44,45 @@ TEST(OtlpExporterTest, BuildStateChangeEvent) {
 TEST(OtlpExporterTest, ExportToEndpoint) {
     OtlpExporter exporter("http://localhost:4318");
     EXPECT_EQ(exporter.endpoint(), "http://localhost:4318/v1/logs");
+}
+
+TEST(OtlpExporterTest, EmptyAttributes) {
+    auto payload = OtlpExporter::buildLogPayload("run-empty", "run_started", "", {});
+    EXPECT_TRUE(payload.contains("resourceLogs"));
+    auto& attrs = payload["resourceLogs"][0]["resource"]["attributes"];
+    EXPECT_TRUE(attrs.empty() || attrs.is_null());
+}
+
+TEST(OtlpExporterTest, SpecialCharactersInBody) {
+    std::string special = R"({"msg":"hello\nworld™ ✓"})";
+    auto payload = OtlpExporter::buildLogPayload("run-special", "data", special, {{"key", "val-with-äöü"}});
+    auto body = payload["resourceLogs"][0]["scopeLogs"][0]["logRecords"][0]["body"]["stringValue"].get<std::string>();
+    EXPECT_EQ(body, special);
+}
+
+TEST(OtlpExporterTest, BuildLogPayloadHasTimestamp) {
+    auto payload = OtlpExporter::buildLogPayload("run-ts", "test", "{}", {});
+    auto& record = payload["resourceLogs"][0]["scopeLogs"][0]["logRecords"][0];
+    EXPECT_TRUE(record.contains("timeUnixNano"));
+    EXPECT_FALSE(record["timeUnixNano"].get<std::string>().empty());
+}
+
+TEST(OtlpExporterTest, BuildLogPayloadHasRunId) {
+    auto payload = OtlpExporter::buildLogPayload("my-run-id", "test", "{}", {});
+    auto& attrs = payload["resourceLogs"][0]["scopeLogs"][0]["logRecords"][0]["attributes"];
+    bool found = false;
+    for (const auto& a : attrs) {
+        if (a["key"] == "run_id" && a["value"]["stringValue"] == "my-run-id") {
+            found = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found);
+}
+
+TEST(OtlpExporterTest, ExportReturnsFalseForUnreachableEndpoint) {
+    OtlpExporter exporter("http://127.0.0.1:1");
+    auto payload = OtlpExporter::buildLogPayload("x", "test", "{}", {});
+    bool result = exporter.exportLogs(payload);
+    EXPECT_FALSE(result);
 }

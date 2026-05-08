@@ -1,110 +1,98 @@
-class BarChart {
-    constructor(canvasId, options = {}) {
-        this.canvas = document.getElementById(canvasId);
-        if (!this.canvas) return;
-        this.ctx = this.canvas.getContext('2d');
-        this.maxPoints = options.maxPoints || 60;
-        this.data = [];
-        this.peak = 0;
-        this.unit = options.unit || '';
-        this.color = options.color || 'var(--accent)';
-        this.resize();
-        this.resizeHandler = () => this.resize();
-        window.addEventListener('resize', this.resizeHandler);
-    }
-    resize() {
-        const rect = this.canvas.parentElement.getBoundingClientRect();
-        this.canvas.width = rect.width - 4;
-        this.canvas.height = rect.height - 4;
-        this.draw();
-    }
-    push(value) {
-        this.data.push(value);
-        if (this.data.length > this.maxPoints) this.data.shift();
-        this.peak = this.data.reduce((a, b) => Math.max(a, b), 0);
-        this.draw();
-    }
-    clear() { this.data = []; this.peak = 0; this.draw(); }
-    draw() {
-        const ctx = this.ctx, w = this.canvas.width, h = this.canvas.height;
-        if (!w || !h) return;
-        const max = this.peak || 1;
-        const bw = Math.max(3, (w / this.maxPoints) - 1);
-        ctx.clearRect(0, 0, w, h);
-        const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#e6a817';
-        this.data.forEach((val, i) => {
-            if (val === null || val === undefined) return;
-            const x = i * (bw + 1);
-            const bh = Math.max(2, (val / max) * (h - 4));
-            const grad = ctx.createLinearGradient(0, h - 4 - bh, 0, h - 4);
-            grad.addColorStop(0, accentColor);
-            grad.addColorStop(1, 'transparent');
-            ctx.fillStyle = grad;
-            ctx.fillRect(x, h - 4 - bh, bw, bh);
-        });
-        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, h - 4);
-        ctx.lineTo(w, h - 4);
-        ctx.stroke();
-    }
-    destroy() {
-        window.removeEventListener('resize', this.resizeHandler);
-    }
+'use strict';
+
+function createLiveChart(canvasId, label, unit, colorVar) {
+    const ctx = document.getElementById(canvasId)?.getContext('2d');
+    if (!ctx) return null;
+    return new Chart(ctx, {
+        type: 'line',
+        data: { datasets: [{ label, data: [], borderColor: `var(${colorVar})`,
+            backgroundColor: `var(${colorVar})` + '33', fill: true, tension: 0.2,
+            pointRadius: 0, borderWidth: 2 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            animation: { duration: 300 },
+            scales: {
+                x: { type: 'time', time: { displayFormats: { second: ':mm:ss' } },
+                    ticks: { maxTicksLimit: 10, color: getCSS('--text-dim') },
+                    grid: { color: getCSS('--border') + '44' } },
+                y: { beginAtZero: true, ticks: { color: getCSS('--text-dim') },
+                    grid: { color: getCSS('--border') + '44' },
+                    title: { display: true, text: unit, color: getCSS('--text-dim') } },
+            },
+            plugins: { legend: { display: false } },
+        },
+    });
 }
 
-class TimelineChart extends BarChart {
-    constructor(canvasId, options = {}) {
-        super(canvasId, options);
-        this.chaosStart = -1;
-        this.recoveryStart = -1;
-    }
-    setZones(chaosStart, recoveryStart) {
-        this.chaosStart = chaosStart;
-        this.recoveryStart = recoveryStart;
-        this.draw();
-    }
-    draw() {
-        const ctx = this.ctx, w = this.canvas.width, h = this.canvas.height;
-        if (!w || !h) return;
-        const max = this.peak || 1;
-        const len = this.data.length;
-        const bw = Math.max(3, (w / this.maxPoints) - 1);
-        ctx.clearRect(0, 0, w, h);
-        const styles = getComputedStyle(document.documentElement);
-        if (this.chaosStart >= 0 && len > 0) {
-            const normalColor = styles.getPropertyValue('--success-muted').trim() || 'rgba(76,175,80,0.08)';
-            const chaosColor = styles.getPropertyValue('--error-muted').trim() || 'rgba(239,83,80,0.08)';
-            const recoveryColor = styles.getPropertyValue('--success-muted').trim() || 'rgba(76,175,80,0.08)';
-            const total = w;
-            const chaosX = (this.chaosStart / this.maxPoints) * total;
-            const recoveryX = (this.recoveryStart / this.maxPoints) * total;
-            ctx.fillStyle = normalColor;
-            ctx.fillRect(0, 0, chaosX, h);
-            ctx.fillStyle = chaosColor;
-            ctx.fillRect(chaosX, 0, recoveryX - chaosX, h);
-            ctx.fillStyle = recoveryColor;
-            ctx.fillRect(recoveryX, 0, total - recoveryX, h);
-        }
-        const normalColor = styles.getPropertyValue('--success').trim() || '#4caf50';
-        const chaosColor = styles.getPropertyValue('--error').trim() || '#ef5350';
-        const recoveryColor = styles.getPropertyValue('--success').trim() || '#4caf50';
-        this.data.forEach((val, i) => {
-            if (val === null || val === undefined) return;
-            const x = i * (bw + 1);
-            const bh = Math.max(2, (val / max) * (h - 4));
-            let color = normalColor;
-            if (this.chaosStart >= 0 && i >= this.chaosStart) color = chaosColor;
-            if (this.recoveryStart >= 0 && i >= this.recoveryStart) color = recoveryColor;
-            ctx.fillStyle = color;
-            ctx.fillRect(x, h - 4 - bh, bw, bh);
-        });
-        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, h - 4);
-        ctx.lineTo(w, h - 4);
-        ctx.stroke();
-    }
+function createResultsChart(canvasId, label, unit, colorVar) {
+    const ctx = document.getElementById(canvasId)?.getContext('2d');
+    if (!ctx) return null;
+    return new Chart(ctx, {
+        type: 'line',
+        data: { datasets: [{ label, data: [], borderColor: `var(${colorVar})`,
+            backgroundColor: `var(${colorVar})` + '22', fill: true, tension: 0.1,
+            pointRadius: 1, pointBorderColor: `var(${colorVar})`,
+            pointBackgroundColor: `var(${colorVar})`, borderWidth: 2 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            scales: {
+                x: { type: 'time', time: { displayFormats: { second: ':mm:ss' } },
+                    ticks: { maxTicksLimit: 15, color: getCSS('--text-dim') },
+                    grid: { color: getCSS('--border') + '44' } },
+                y: { beginAtZero: true, ticks: { color: getCSS('--text-dim') },
+                    grid: { color: getCSS('--border') + '44' },
+                    title: { display: true, text: unit, color: getCSS('--text-dim') } },
+            },
+            plugins: { legend: { display: false } },
+        },
+        plugins: [zoneBackgroundPlugin],
+    });
 }
+
+function pushChartData(chart, timestamp, value) {
+    if (!chart) return;
+    const max = 60;
+    chart.data.datasets[0].data.push({ x: timestamp, y: value });
+    if (chart.data.datasets[0].data.length > max) chart.data.datasets[0].data.shift();
+    chart.update('none');
+}
+
+function setResultsData(chart, dataPoints) {
+    if (!chart) return;
+    chart.data.datasets[0].data = dataPoints;
+    chart.update('none');
+}
+
+function getCSS(v) {
+    return getComputedStyle(document.documentElement).getPropertyValue(v).trim() || '#888';
+}
+
+const zoneBackgroundPlugin = {
+    id: 'zoneBackground',
+    beforeDraw(chart) {
+        const { ctx, chartArea, scales, data } = chart;
+        if (!chartArea || !data.datasets[0].data.length) return;
+        const points = data.datasets[0].data;
+        const successC = getCSS('--success-muted') || 'rgba(76,175,80,0.08)';
+        const errorC = getCSS('--error-muted') || 'rgba(239,83,80,0.08)';
+        let chaosStart = null, recoveryStart = null, lastPhase = 'normal';
+        points.forEach(pt => {
+            const ph = pt.phase || lastPhase;
+            if (ph === 'chaos' && lastPhase === 'normal') chaosStart = pt.x;
+            if (ph === 'recovery' && lastPhase === 'chaos') recoveryStart = pt.x;
+            lastPhase = ph;
+        });
+        const xAxis = scales.x;
+        const draw = (from, to, color) => {
+            const x1 = xAxis.getPixelForValue(from);
+            const x2 = to ? xAxis.getPixelForValue(to) : chartArea.right;
+            ctx.fillStyle = color;
+            ctx.fillRect(Math.max(x1, chartArea.left), chartArea.top,
+                Math.min(x2, chartArea.right) - Math.max(x1, chartArea.left),
+                chartArea.bottom - chartArea.top);
+        };
+        if (chaosStart) draw(points[0].x, chaosStart, successC);
+        if (chaosStart && recoveryStart) draw(chaosStart, recoveryStart, errorC);
+        if (recoveryStart) draw(recoveryStart, null, successC);
+    },
+};

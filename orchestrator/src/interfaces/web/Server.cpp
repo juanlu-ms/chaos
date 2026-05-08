@@ -333,19 +333,33 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                     perturbation_instances.push_back(factory.create(engine, manifest.target, spec));
                 }
 
+                observability::ObservabilityEngine obs(engine);
+                shared::TargetState lastKnownState;
+
+                {
+                    std::lock_guard<std::mutex> lock(session->mtx);
+                    session->phase = "normal";
+                }
+                for (int i = 0; i < 10; ++i) {
+                    auto ts = obs.observe(manifest.target.id);
+                    {
+                        std::lock_guard<std::mutex> lock(session->mtx);
+                        session->latest = ts;
+                    }
+                    session->cv.notify_all();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                }
+                {
+                    std::lock_guard<std::mutex> lock(session->mtx);
+                    session->phase = "chaos";
+                }
+
                 perturbations::PerturbationEngine pert_engine;
                 const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
                 pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration);
 
-                observability::ObservabilityEngine obs(engine);
-                shared::TargetState lastKnownState;
-
                 if (duration.count() > 0) {
                     SPDLOG_INFO("Injecting faults for {}s. Monitoring real-time state...", duration.count());
-                    {
-                        std::lock_guard<std::mutex> lock(session->mtx);
-                        session->phase = "chaos";
-                    }
                     auto start_time = std::chrono::steady_clock::now();
                     while (std::chrono::steady_clock::now() - start_time < duration) {
                         lastKnownState = obs.observe(manifest.target.id);
@@ -355,10 +369,6 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                         }
                         session->cv.notify_all();
                         std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                    }
-                    {
-                        std::lock_guard<std::mutex> lock(session->mtx);
-                        session->phase = "recovery";
                     }
                 } else {
                     lastKnownState = obs.observe(manifest.target.id);
@@ -370,6 +380,11 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                 }
 
                 pert_engine.waitForTeardown();
+                {
+                    std::lock_guard<std::mutex> lock(session->mtx);
+                    session->phase = "recovery";
+                }
+                session->cv.notify_all();
 
                 const auto results = validation::validate(lastKnownState, manifest.expectations);
 

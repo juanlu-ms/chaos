@@ -80,21 +80,21 @@
             <span class="chart-label">CPU Usage (%)</span>
             <span class="chart-value" id="mon-cpu-val">--</span>
           </div>
-          <canvas id="chart-cpu"></canvas>
+          <canvas id="chart-cpu-live"></canvas>
         </div>
         <div class="chart-card">
           <div class="chart-card-header">
             <span class="chart-label">Memory Usage (MB)</span>
             <span class="chart-value" id="mon-mem-val">--</span>
           </div>
-          <canvas id="chart-mem"></canvas>
+          <canvas id="chart-mem-live"></canvas>
         </div>
         <div class="chart-card">
           <div class="chart-card-header">
             <span class="chart-label">Network I/O (bytes)</span>
             <span class="chart-value" id="mon-net-val">--</span>
           </div>
-          <canvas id="chart-net"></canvas>
+          <canvas id="chart-net-live"></canvas>
         </div>
       </div>
       <div class="monitor-sidebar">
@@ -140,24 +140,24 @@
       <span class="legend-item recovery">Recovery</span>
     </div>
 
-    <div class="timeline-charts">
+    <div class="results-charts">
       <div class="chart-card">
         <div class="chart-card-header">
           <span class="chart-label">CPU Usage Timeline (%)</span>
         </div>
-        <canvas id="timeline-cpu"></canvas>
+        <canvas id="chart-cpu-results"></canvas>
       </div>
       <div class="chart-card">
         <div class="chart-card-header">
           <span class="chart-label">Memory Usage Timeline (MB)</span>
         </div>
-        <canvas id="timeline-mem"></canvas>
+        <canvas id="chart-mem-results"></canvas>
       </div>
       <div class="chart-card">
         <div class="chart-card-header">
           <span class="chart-label">Network I/O Timeline (bytes)</span>
         </div>
-        <canvas id="timeline-net"></canvas>
+        <canvas id="chart-net-results"></canvas>
       </div>
     </div>
 

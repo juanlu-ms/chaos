@@ -36,8 +36,9 @@
 
   let currentStep = 1;
   let manifest = {};
-  let chartData = { cpu: [], mem: [], net: [] };
-  let charts = { cpuLive: null, memLive: null, netLive: null, cpuResults: null, memResults: null, netResults: null };
+  let allData = [];
+  let liveCharts = {};
+  let resultsCharts = {};
   let eventSource = null;
   let runActive = false;
   let targets = [];
@@ -46,8 +47,6 @@
   let expectations = [];
   let lastManifest = null;
   let timerInterval = null;
-  let chaosStartIdx = -1;
-  let recoveryStartIdx = -1;
   let accumulatedLogs = [];
 
   function showStep(n) {
@@ -222,25 +221,15 @@
   }
 
   function initCharts() {
-    if (charts.cpuLive) charts.cpuLive.destroy();
-    if (charts.memLive) charts.memLive.destroy();
-    if (charts.netLive) charts.netLive.destroy();
-    charts.cpuLive = new BarChart('chart-cpu', { maxPoints: 60, unit: '%' });
-    charts.memLive = new BarChart('chart-mem', { maxPoints: 60, unit: 'MB' });
-    charts.netLive = new BarChart('chart-net', { maxPoints: 60, unit: 'bytes' });
-    charts.cpuLive.resize();
-    charts.memLive.resize();
-    charts.netLive.resize();
+    liveCharts.cpu = createLiveChart('chart-cpu-live', 'CPU', '%', '--accent');
+    liveCharts.mem = createLiveChart('chart-mem-live', 'Memory', 'MB', '--info');
+    liveCharts.net = createLiveChart('chart-net-live', 'Network', 'B/s', '--success');
   }
 
   function initTimelineCharts() {
-    if (charts.cpuResults) charts.cpuResults.destroy();
-    if (charts.memResults) charts.memResults.destroy();
-    if (charts.netResults) charts.netResults.destroy();
-    const count = Math.max(chartData.cpu.length, 60);
-    charts.cpuResults = new TimelineChart('timeline-cpu', { maxPoints: count, unit: '%' });
-    charts.memResults = new TimelineChart('timeline-mem', { maxPoints: count, unit: 'MB' });
-    charts.netResults = new TimelineChart('timeline-net', { maxPoints: count, unit: 'bytes' });
+    resultsCharts.cpu = createResultsChart('chart-cpu-results', 'CPU', '%', '--accent');
+    resultsCharts.mem = createResultsChart('chart-mem-results', 'Memory', 'MB', '--info');
+    resultsCharts.net = createResultsChart('chart-net-results', 'Network', 'B/s', '--success');
   }
 
   function startTimer() {
@@ -263,9 +252,7 @@
   }
 
   function resetMonitorState() {
-    chartData = { cpu: [], mem: [], net: [] };
-    chaosStartIdx = -1;
-    recoveryStartIdx = -1;
+    allData = [];
     accumulatedLogs = [];
     document.getElementById('mon-cpu-val').textContent = '--';
     document.getElementById('mon-mem-val').textContent = '--';
@@ -326,27 +313,15 @@
             data.network_rx_bytes != null && data.network_tx_bytes != null
               ? 'RX: ' + data.network_rx_bytes.toFixed(0) + ' B | TX: ' + data.network_tx_bytes.toFixed(0) + ' B'
               : '--';
-          if (data.cpu_usage_percent != null) {
-            chartData.cpu.push(data.cpu_usage_percent);
-            charts.cpuLive.push(data.cpu_usage_percent);
+          const ts = Date.now();
+          pushChartData(liveCharts.cpu, ts, data.cpu_usage_percent);
+          pushChartData(liveCharts.mem, ts, data.memory_usage_mb);
+          if (data.network_rx_bytes !== undefined) {
+            pushChartData(liveCharts.net, ts, data.network_rx_bytes + (data.network_tx_bytes || 0));
           }
-          if (data.memory_usage_mb != null) {
-            chartData.mem.push(data.memory_usage_mb);
-            charts.memLive.push(data.memory_usage_mb);
-          }
-          if (data.network_rx_bytes != null && data.network_tx_bytes != null) {
-            const netTotal = data.network_rx_bytes + data.network_tx_bytes;
-            chartData.net.push(netTotal);
-            charts.netLive.push(netTotal);
-          }
-          if (data.phase) {
-            if (data.phase === 'chaos' && chaosStartIdx < 0) {
-              chaosStartIdx = chartData.cpu.length - 1;
-            }
-            if (data.phase === 'recovery' && recoveryStartIdx < 0 && chaosStartIdx >= 0) {
-              recoveryStartIdx = chartData.cpu.length - 1;
-            }
-          }
+          allData.push({ t: ts, cpu: data.cpu_usage_percent, mem: data.memory_usage_mb,
+            net: data.network_rx_bytes !== undefined ? data.network_rx_bytes + (data.network_tx_bytes || 0) : null,
+            phase: data.phase || 'chaos' });
           if (data.recent_logs && data.recent_logs.length) {
             data.recent_logs.forEach(line => {
               accumulatedLogs.push(line);
@@ -407,17 +382,10 @@
     resultEl.style.color = passed ? 'var(--success)' : 'var(--error)';
     const resArr = data.results || [];
     const logs = data.logs || accumulatedLogs;
-    const cpuHistory = data.cpu_history || chartData.cpu;
-    const memHistory = data.mem_history || chartData.mem;
-    const netHistory = data.net_history || chartData.net;
-    chartData.cpu = cpuHistory;
-    chartData.mem = memHistory;
-    chartData.net = netHistory;
     initTimelineCharts();
-    cpuHistory.forEach(v => { if (v != null) charts.cpuResults.push(v); });
-    memHistory.forEach(v => { if (v != null) charts.memResults.push(v); });
-    netHistory.forEach(v => { if (v != null) charts.netResults.push(v); });
-    setZones(chaosStartIdx, recoveryStartIdx);
+    setResultsData(resultsCharts.cpu, allData.map(d => ({ x: d.t, y: d.cpu, phase: d.phase })));
+    setResultsData(resultsCharts.mem, allData.map(d => ({ x: d.t, y: d.mem, phase: d.phase })));
+    setResultsData(resultsCharts.net, allData.map(d => ({ x: d.t, y: d.net, phase: d.phase })));
     const exContainer = document.getElementById('r-expectations');
     if (resArr.length) {
       exContainer.innerHTML = resArr.map(r =>
@@ -438,9 +406,12 @@
     }
   }
 
-  function setZones(chaosIdx, recoveryIdx) {
-    [charts.cpuResults, charts.memResults, charts.netResults].forEach(c => {
-      if (c) c.setZones(chaosIdx, recoveryIdx);
+  function updateChartTheme() {
+    [liveCharts.cpu, liveCharts.mem, liveCharts.net].forEach(c => {
+      if (!c) return;
+      c.options.scales.x.ticks.color = getCSS('--text-dim');
+      c.options.scales.y.ticks.color = getCSS('--text-dim');
+      c.update();
     });
   }
 
@@ -451,6 +422,7 @@
     document.getElementById('theme-select').addEventListener('change', function () {
       document.documentElement.setAttribute('data-theme', this.value);
       localStorage.setItem('chaos-theme', this.value);
+      updateChartTheme();
     });
   }
 

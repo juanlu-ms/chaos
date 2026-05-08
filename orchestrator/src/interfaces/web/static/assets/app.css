@@ -178,13 +178,10 @@ body {
   border-radius: var(--radius);
 }
 
-.perturbation-row select,
-.expectation-row select {
-  margin-top: 18px;
-}
 .perturbation-row input,
 .expectation-row input,
-.pert-param-group input {
+.field-group select,
+.field-group input {
   background: var(--bg-primary);
   border: 1px solid var(--border);
   color: var(--text-primary);
@@ -195,6 +192,8 @@ body {
   outline: none;
   transition: border-color var(--transition);
   max-width: 200px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .perturbation-row select:focus,
@@ -230,22 +229,23 @@ body {
   border-color: var(--accent);
 }
 
-.perturbation-row .pert-type { flex: 0 0 140px; }
-.pert-param-group {
+.pert-type-group { flex: 0 0 150px; }
+.field-group {
   display: flex;
   flex-direction: column;
   gap: 2px;
   flex: 1 1 130px;
   min-width: 100px;
 }
-.pert-param-label {
+.field-label {
   font-size: 0.65rem;
   color: var(--text-dim);
   white-space: nowrap;
 }
-.pert-param-group .pert-param {
-  flex: none;
-  width: 100%;
+.field-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  white-space: nowrap;
 }
 .expectation-row .expect-type { flex: 0 0 170px; }
 .expectation-row .expect-param { flex: 1; min-width: 0; }

@@ -108,14 +108,16 @@
       const paramHtml = info.params.map(pr => {
         const val = p.params[pr.key] || '';
         const indicator = pr.required ? '' : ' <span class="opt-badge">optional</span>';
-        return `<label class="pert-param-group"><span class="pert-param-label">${escapeHtml(pr.label)}${indicator}</span><input class="pert-param" data-idx="${i}" data-key="${pr.key}" placeholder="${escapeHtml(pr.placeholder)}" value="${escapeHtml(val)}"></label>`;
+        return `<label class="field-group"><span class="field-label">${escapeHtml(pr.label)}${indicator}</span><input class="pert-param" data-idx="${i}" data-key="${pr.key}" placeholder="${escapeHtml(pr.placeholder)}" value="${escapeHtml(val)}"></label>`;
       }).join('');
       return `<div class="perturbation-row">
-        <select class="pert-type" data-idx="${i}">
-          ${PERTURBATION_TYPES.map(t =>
-            `<option value="${t.type}" ${t.type === p.type ? 'selected' : ''}>${t.label}</option>`
-          ).join('')}
-        </select>
+        <label class="field-group pert-type-group"><span class="field-label">Type</span>
+          <select class="pert-type" data-idx="${i}">
+            ${PERTURBATION_TYPES.map(t =>
+              `<option value="${t.type}" ${t.type === p.type ? 'selected' : ''}>${t.label}</option>`
+            ).join('')}
+          </select>
+        </label>
         ${paramHtml}
         <button class="btn xs ghost remove-pert" data-idx="${i}" type="button">✕</button>
       </div>`;
@@ -156,17 +158,19 @@
       const paramHtml = paramDefs.map(pd => {
         const val = (e.parameters && e.parameters[pd.key]) || '';
         const indicator = pd.required ? '' : ' <span class="opt-badge">optional</span>';
-        return `<label class="pert-param-group"><span class="pert-param-label">${escapeHtml(pd.label)}${indicator}</span><input class="expect-param" data-key="${pd.key}" placeholder="${escapeHtml(pd.placeholder)}" value="${escapeHtml(val)}"></label>`;
+        return `<label class="field-group"><span class="field-label">${escapeHtml(pd.label)}${indicator}</span><input class="expect-param" data-key="${pd.key}" placeholder="${escapeHtml(pd.placeholder)}" value="${escapeHtml(val)}"></label>`;
       }).join('');
       return `<div class="expectation-row">
-        <select class="expect-type" data-idx="${i}">
-          <option value="container_running" ${e.type === 'container_running' ? 'selected' : ''}>Container Running</option>
-          <option value="container_not_running" ${e.type === 'container_not_running' ? 'selected' : ''}>Container Not Running</option>
-          <option value="log_contains" ${e.type === 'log_contains' ? 'selected' : ''}>Log Contains</option>
-          <option value="log_not_contains" ${e.type === 'log_not_contains' ? 'selected' : ''}>Log Not Contains</option>
-          <option value="http_status" ${e.type === 'http_status' ? 'selected' : ''}>HTTP Status</option>
-          <option value="http_latency" ${e.type === 'http_latency' ? 'selected' : ''}>HTTP Latency</option>
-        </select>
+        <label class="field-group pert-type-group"><span class="field-label">Type</span>
+          <select class="expect-type" data-idx="${i}">
+            <option value="container_running" ${e.type === 'container_running' ? 'selected' : ''}>Container Running</option>
+            <option value="container_not_running" ${e.type === 'container_not_running' ? 'selected' : ''}>Container Not Running</option>
+            <option value="log_contains" ${e.type === 'log_contains' ? 'selected' : ''}>Log Contains</option>
+            <option value="log_not_contains" ${e.type === 'log_not_contains' ? 'selected' : ''}>Log Not Contains</option>
+            <option value="http_status" ${e.type === 'http_status' ? 'selected' : ''}>HTTP Status</option>
+            <option value="http_latency" ${e.type === 'http_latency' ? 'selected' : ''}>HTTP Latency</option>
+          </select>
+        </label>
         ${paramHtml}
         <button class="btn xs ghost remove-expect" type="button">✕</button>
       </div>`;

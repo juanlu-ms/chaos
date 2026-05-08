@@ -255,6 +255,7 @@ ftxui::Element render_wizard(SharedState& state) {
             int dur = 0;
             bool running = false;
             int elapsed = 0, total = 0;
+            std::size_t num_perts = 0, num_exps = 0;
             std::vector<std::string> output;
             {
                 std::lock_guard lock(state.mtx);
@@ -265,13 +266,15 @@ ftxui::Element render_wizard(SharedState& state) {
                 elapsed = state.wait_elapsed.load();
                 total = state.wait_total.load();
                 output = state.output_lines;
+                num_perts = state.perturbations.size();
+                num_exps = state.expectations.size();
             }
 
             Elements summary;
             summary.push_back(text(fmt::format(" Test Name:       {}", tname)));
             summary.push_back(text(fmt::format(" Target ID:       {}", tid)));
-            summary.push_back(text(fmt::format(" Perturbations:   {}", state.perturbations.size())));
-            summary.push_back(text(fmt::format(" Expectations:    {}", state.expectations.size())));
+            summary.push_back(text(fmt::format(" Perturbations:   {}", num_perts)));
+            summary.push_back(text(fmt::format(" Expectations:    {}", num_exps)));
             summary.push_back(text(fmt::format(" Duration:        {}s", dur)));
 
             Elements output_elems;
@@ -325,20 +328,12 @@ manifests::ChaosManifest build_manifest(const SharedState& state) {
 }
 
 void execute_run(const std::shared_ptr<containers::IContainerEngine>& engine, SharedState& state,
-                 ftxui::ScreenInteractive& screen) {
+                 ftxui::ScreenInteractive& screen, const std::stop_token& stop) {
     manifests::ChaosManifest manifest;
     {
         std::lock_guard lock(state.mtx);
         manifest = build_manifest(state);
     }
-
-    {
-        std::lock_guard lock(state.mtx);
-        state.output_lines.clear();
-    }
-    state.wait_elapsed.store(0);
-    state.wait_total.store(0);
-    post_refresh(screen);
 
     auto pl = [&](std::string line) { push_line(state, screen, std::move(line)); };
 
@@ -367,7 +362,7 @@ void execute_run(const std::shared_ptr<containers::IContainerEngine>& engine, Sh
         if (duration.count() > 0) {
             pl(fmt::format("  Injecting faults for {}s...", duration.count()));
             auto start_time = std::chrono::steady_clock::now();
-            while (std::chrono::steady_clock::now() - start_time < duration) {
+            while (std::chrono::steady_clock::now() - start_time < duration && !stop.stop_requested()) {
                 auto ts = obs.observe(manifest.target.id);
                 broadcaster.broadcast(ts);
                 auto elapsed_s =
@@ -499,7 +494,16 @@ int TuiApp::run() const {
                 return true;
             }
             if (step == 3 && !state.run_in_progress.exchange(true)) {
-                run_thread = std::jthread([engine = m_engine, &state, &screen] { execute_run(engine, state, screen); });
+                {
+                    std::lock_guard lock(state.mtx);
+                    state.output_lines.clear();
+                }
+                state.wait_elapsed.store(0);
+                state.wait_total.store(state.duration_s);
+                post_refresh(screen);
+                run_thread = std::jthread([engine = m_engine, &state, &screen](const std::stop_token& st) {
+                    execute_run(engine, state, screen, st);
+                });
                 post_refresh(screen);
                 return true;
             }

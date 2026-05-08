@@ -206,35 +206,55 @@ TEST(ValidationEngineTests, HttpStatusFailsOnUnexpectedStatus) {
 }
 
 /**
- * @test Verifies http_latency checks both min and max bounds.
+ * @test Verifies http_latency passes when response is within generous bounds.
  */
-TEST(ValidationEngineTests, HttpLatencyValidatesBounds) {
+TEST(ValidationEngineTests, HttpLatencyPassesWithinBounds) {
     httplib::Server svr;
     svr.Get("/ping", [](const httplib::Request&, httplib::Response& res) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
         res.status = 200;
         res.set_content("ok", "text/plain");
     });
     int port = svr.bind_to_any_port("127.0.0.1");
     std::jthread t([&svr]() { svr.listen_after_bind(); });
 
-    manifests::Expectation exp_pass{
+    manifests::Expectation exp{
         "http_latency",
-        {{"port", std::to_string(port)}, {"path", "/ping"}, {"min_latency_ms", "0"}, {"max_latency_ms", "500"}}};
+        {{"port", std::to_string(port)}, {"path", "/ping"}, {"min_latency_ms", "0"}, {"max_latency_ms", "5000"}}};
     auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
     state.container_ip = std::string{"127.0.0.1"};
-    const auto results_pass = validation::validate(state, {exp_pass});
-    ASSERT_EQ(results_pass.size(), 1u);
-    EXPECT_TRUE(results_pass[0].passed);
-
-    manifests::Expectation exp_fail{
-        "http_latency",
-        {{"port", std::to_string(port)}, {"path", "/ping"}, {"min_latency_ms", "0"}, {"max_latency_ms", "10"}}};
-    const auto results_fail = validation::validate(state, {exp_fail});
-    ASSERT_EQ(results_fail.size(), 1u);
-    EXPECT_FALSE(results_fail[0].passed);
+    const auto results = validation::validate(state, {exp});
 
     svr.stop();
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_TRUE(results[0].passed);
+}
+
+/**
+ * @test Verifies http_latency fails when server delay exceeds max bound.
+ * Uses 200ms delay vs 50ms max for a wide margin against scheduler jitter.
+ */
+TEST(ValidationEngineTests, HttpLatencyFailsWhenServerExceedsMax) {
+    httplib::Server svr;
+    svr.Get("/slow", [](const httplib::Request&, httplib::Response& res) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        res.status = 200;
+        res.set_content("ok", "text/plain");
+    });
+    int port = svr.bind_to_any_port("127.0.0.1");
+    std::jthread t([&svr]() { svr.listen_after_bind(); });
+
+    manifests::Expectation exp{
+        "http_latency",
+        {{"port", std::to_string(port)}, {"path", "/slow"}, {"min_latency_ms", "0"}, {"max_latency_ms", "50"}}};
+    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    state.container_ip = std::string{"127.0.0.1"};
+    const auto results = validation::validate(state, {exp});
+
+    svr.stop();
+
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_FALSE(results[0].passed);
 }
 
 /**

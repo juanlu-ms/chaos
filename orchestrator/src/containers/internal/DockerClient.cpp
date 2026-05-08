@@ -17,46 +17,75 @@
 
 namespace {
 
+namespace {
+
+struct ArchiveWriteDeleter {
+    void operator()(archive* a) const noexcept {
+        archive_write_close(a);
+        archive_write_free(a);
+    }
+};
+
+struct ArchiveEntryDeleter {
+    void operator()(archive_entry* e) const noexcept {
+        archive_entry_free(e);
+    }
+};
+
+using ArchiveWritePtr = std::unique_ptr<archive, ArchiveWriteDeleter>;
+using ArchiveEntryPtr = std::unique_ptr<archive_entry, ArchiveEntryDeleter>;
+
+}  // namespace
+
 std::string createTarArchive(const std::string_view dockerfilePath) {
     const auto contextDir = std::filesystem::path(dockerfilePath).parent_path();
     if (!std::filesystem::exists(contextDir)) {
         throw std::runtime_error(fmt::format("Build context directory does not exist: {}", contextDir.string()));
     }
 
-    auto* arch = archive_write_new();
-    archive_write_set_format_ustar(arch);
+    ArchiveWritePtr arch(archive_write_new());
+    archive_write_set_format_ustar(arch.get());
 
     std::string tarData;
     archive_write_open(
-        arch, &tarData, nullptr,
+        arch.get(), &tarData, nullptr,
         [](archive*, void* client, const void* buf, size_t len) {
             static_cast<std::string*>(client)->append(static_cast<const char*>(buf), len);
             return static_cast<la_ssize_t>(len);
         },
         nullptr);
 
-    for (const auto& entry : std::filesystem::recursive_directory_iterator(contextDir)) {
-        const auto& path = entry.path();
-        const auto relative = std::filesystem::relative(path, contextDir).string();
-
-        if (entry.is_regular_file()) {
-            auto* ae = archive_entry_new();
-            archive_entry_set_pathname(ae, relative.c_str());
-            archive_entry_set_size(ae, static_cast<la_int64_t>(entry.file_size()));
-            archive_entry_set_filetype(ae, AE_IFREG);
-            archive_entry_set_perm(ae, 0644);
-            archive_write_header(arch, ae);
-
-            std::ifstream file(path, std::ios::binary);
-            std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-            archive_write_data(arch, content.data(), content.size());
-
-            archive_entry_free(ae);
+    const auto canonicalContext = std::filesystem::weakly_canonical(contextDir);
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(
+             contextDir, std::filesystem::directory_options::skip_permission_denied)) {
+        if (entry.is_symlink()) {
+            SPDLOG_WARN("Skipping symlink in build context: {}", entry.path().string());
+            continue;
         }
-    }
 
-    archive_write_close(arch);
-    archive_write_free(arch);
+        const auto& path = entry.path();
+        auto canonical = std::filesystem::weakly_canonical(path);
+        if (!canonical.string().starts_with(canonicalContext.string())) {
+            SPDLOG_WARN("Path escapes build context, skipping: {}", path.string());
+            continue;
+        }
+
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+
+        const auto relative = std::filesystem::relative(path, contextDir).string();
+        ArchiveEntryPtr ae(archive_entry_new());
+        archive_entry_set_pathname(ae.get(), relative.c_str());
+        archive_entry_set_size(ae.get(), static_cast<la_int64_t>(entry.file_size()));
+        archive_entry_set_filetype(ae.get(), AE_IFREG);
+        archive_entry_set_perm(ae.get(), 0644);
+        archive_write_header(arch.get(), ae.get());
+
+        std::ifstream file(path, std::ios::binary);
+        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        archive_write_data(arch.get(), content.data(), content.size());
+    }
 
     return tarData;
 }

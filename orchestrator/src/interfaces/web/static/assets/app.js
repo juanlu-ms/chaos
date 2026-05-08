@@ -1,9 +1,9 @@
 (() => {
   const PERTURBATION_TYPES = [
     { type: 'kill', label: 'Kill', params: [] },
-    { type: 'memory_cap', label: 'Memory Cap', params: [{ key: 'limit_bytes', label: 'Limit (bytes)', placeholder: '268435456' }] },
-    { type: 'cpu_cap', label: 'CPU Cap', params: [{ key: 'cpu_cores', label: 'CPU Cores', placeholder: '1' }] },
-    { type: 'network_delay', label: 'Network Delay', params: [{ key: 'delay_ms', label: 'Delay (ms)', placeholder: '1000' }] },
+    { type: 'memory_cap', label: 'Memory Cap', params: [{ key: 'limit_bytes', label: 'Limit (bytes)', placeholder: '268435456', required: true }] },
+    { type: 'cpu_cap', label: 'CPU Cap', params: [{ key: 'cpu_cores', label: 'CPU Cores', placeholder: '1', required: true }] },
+    { type: 'network_delay', label: 'Network Delay', params: [{ key: 'delay_ms', label: 'Delay (ms)', placeholder: '1000', required: true }] },
     { type: 'network_cutoff', label: 'Network Cutoff', params: [
       { key: 'dst_ip', label: 'Dest IP', placeholder: 'target IP' },
       { key: 'dst_port', label: 'Dest Port', placeholder: 'target port' },
@@ -20,17 +20,17 @@
   const EXPECTATION_PARAMS = {
     container_running: [],
     container_not_running: [],
-    log_contains: [{ key: 'substring', placeholder: 'text to find in logs' }],
-    log_not_contains: [{ key: 'substring', placeholder: 'text that must not appear' }],
+    log_contains: [{ key: 'substring', label: 'Substring', placeholder: 'text to find', required: true }],
+    log_not_contains: [{ key: 'substring', label: 'Substring', placeholder: 'must not appear', required: true }],
     http_status: [
-      { key: 'port', placeholder: '8000' },
-      { key: 'path', placeholder: '/ping' },
-      { key: 'expected_status', placeholder: '200' },
+      { key: 'port', label: 'Port', placeholder: '8000', required: true },
+      { key: 'path', label: 'Path', placeholder: '/ping', required: true },
+      { key: 'expected_status', label: 'Expected Status', placeholder: '200', required: true },
     ],
     http_latency: [
-      { key: 'port', placeholder: '8000' },
-      { key: 'path', placeholder: '/ping' },
-      { key: 'max_latency_ms', placeholder: '1000' },
+      { key: 'port', label: 'Port', placeholder: '8000', required: true },
+      { key: 'path', label: 'Path', placeholder: '/ping', required: true },
+      { key: 'max_latency_ms', label: 'Max Latency', placeholder: '1000', required: true },
     ],
   };
 
@@ -107,7 +107,8 @@
       const info = PERTURBATION_TYPES.find(t => t.type === p.type) || PERTURBATION_TYPES[0];
       const paramHtml = info.params.map(pr => {
         const val = p.params[pr.key] || '';
-        return `<label class="pert-param-group"><span class="pert-param-label">${escapeHtml(pr.label)}</span><input class="pert-param" data-idx="${i}" data-key="${pr.key}" placeholder="${escapeHtml(pr.placeholder)}" value="${escapeHtml(val)}"></label>`;
+        const indicator = pr.required ? '' : ' <span class="opt-badge">optional</span>';
+        return `<label class="pert-param-group"><span class="pert-param-label">${escapeHtml(pr.label)}${indicator}</span><input class="pert-param" data-idx="${i}" data-key="${pr.key}" placeholder="${escapeHtml(pr.placeholder)}" value="${escapeHtml(val)}"></label>`;
       }).join('');
       return `<div class="perturbation-row">
         <select class="pert-type" data-idx="${i}">
@@ -154,8 +155,9 @@
       const paramDefs = EXPECTATION_PARAMS[e.type] || [];
       const paramHtml = paramDefs.map(pd => {
         const val = (e.parameters && e.parameters[pd.key]) || '';
-        return `<input class="expect-param" data-key="${pd.key}" placeholder="${escapeHtml(pd.placeholder)}" value="${escapeHtml(val)}">`;
-      }).join(' ');
+        const indicator = pd.required ? '' : ' <span class="opt-badge">optional</span>';
+        return `<label class="pert-param-group"><span class="pert-param-label">${escapeHtml(pd.label)}${indicator}</span><input class="expect-param" data-key="${pd.key}" placeholder="${escapeHtml(pd.placeholder)}" value="${escapeHtml(val)}"></label>`;
+      }).join('');
       return `<div class="expectation-row">
         <select class="expect-type" data-idx="${i}">
           <option value="container_running" ${e.type === 'container_running' ? 'selected' : ''}>Container Running</option>

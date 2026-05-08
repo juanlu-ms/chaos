@@ -159,21 +159,32 @@ body {
 }
 
 /* ── Perturbation / Expectation Rows ── */
-.perturbation-row,
+.perturbation-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 8px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius);
+}
 .expectation-row {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  align-items: center;
+  align-items: flex-start;
   padding: 8px;
   background: var(--bg-elevated);
   border-radius: var(--radius);
 }
 
 .perturbation-row select,
+.expectation-row select {
+  margin-top: 18px;
+}
 .perturbation-row input,
-.expectation-row select,
-.expectation-row input {
+.expectation-row input,
+.pert-param-group input {
   background: var(--bg-primary);
   border: 1px solid var(--border);
   color: var(--text-primary);
@@ -191,6 +202,11 @@ body {
 .expectation-row select:focus,
 .expectation-row input:focus {
   border-color: var(--accent);
+}
+.opt-badge {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  font-style: italic;
 }
 
 .perturbation-row select,

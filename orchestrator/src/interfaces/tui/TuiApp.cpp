@@ -28,6 +28,7 @@
 #include "shared/ContainerStatus.hpp"
 #include "shared/StateBroadcaster.hpp"
 #include "shared/TargetState.hpp"
+#include "ui/Theme.hpp"
 #include "validation/ValidationEngine.hpp"
 
 namespace chaos::orchestrator::interfaces::tui {
@@ -147,8 +148,8 @@ ftxui::Element render_dashboard(SharedState& state) {
         hbox({
             text(" CHAOS TUI -- Dashboard") | bold | flex,
             text(" [Tab] Wizard  [r] Refresh  [q] Quit ") | dim,
-        }) | color(Color::White) |
-            bgcolor(Color::Blue),
+        }) | color(chaos::orchestrator::ui::theme::kTextPrimary) |
+            bgcolor(chaos::orchestrator::ui::theme::kAccent),
         hbox({
             vbox({
                 text(" CONTAINERS") | bold,
@@ -176,7 +177,8 @@ ftxui::Element render_wizard(SharedState& state) {
                       text(" CHAOS TUI -- Wizard") | bold | flex,
                       text(" [Tab] Dashboard  [q] Back  [Enter] Confirm ") | dim,
                   }) |
-                  color(Color::White) | bgcolor(Color::Blue);
+                  color(chaos::orchestrator::ui::theme::kTextPrimary) |
+                  bgcolor(chaos::orchestrator::ui::theme::kAccent);
 
     Elements steps;
     for (int i = 0; i < 4; ++i) {
@@ -289,7 +291,7 @@ ftxui::Element render_wizard(SharedState& state) {
                                            text(fmt::format(" Running  {}/{}s  ", elapsed, total)),
                                            gauge(ratio) | flex,
                                        }) |
-                                       color(Color::Yellow));
+                                       color(chaos::orchestrator::ui::theme::kWarning));
             }
 
             content = vbox({
@@ -385,12 +387,14 @@ void execute_run(const std::shared_ptr<containers::IContainerEngine>& engine, Sh
         auto final_state = obs.observe(manifest.target.id);
         auto results = validation::validate(final_state, manifest.expectations);
 
+        pl("═══ Results ═══");
         for (const auto& r : results) {
-            pl(fmt::format("  {}: {}", r.passed ? "PASS" : "FAIL", r.message));
+            pl(fmt::format("  {} {}: {}", r.passed ? "✓" : "✗", r.expectationType, r.message));
         }
-
         bool all_passed = std::all_of(results.begin(), results.end(), [](const auto& r) { return r.passed; });
-        pl(all_passed ? ">>> PASSED" : ">>> FAILED");
+        pl(all_passed ? ">>> PASSED ✓" : ">>> FAILED ✗");
+        pl("");
+        pl("  [Enter] Run Again  [Backspace] Modify");
 
     } catch (const std::exception& ex) {
         pl(fmt::format("ERROR: {}", ex.what()));
@@ -461,7 +465,13 @@ int TuiApp::run() const {
         int step = state.wizard_step;
 
         if (e == Event::Backspace) {
-            if (step == 0) {
+            if (step == 3 && !state.run_in_progress.load()) {
+                state.wizard_step = 0;
+                {
+                    std::lock_guard lock(state.mtx);
+                    state.output_lines.clear();
+                }
+            } else if (step == 0) {
                 state.mode = SharedState::Dashboard;
             } else {
                 state.wizard_step = step - 1;

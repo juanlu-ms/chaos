@@ -224,7 +224,7 @@ private:
     // doubling the HTTP calls on every observation tick.
 
     static constexpr auto INSPECT_TTL = std::chrono::milliseconds(1500);
-    static constexpr auto STATS_TTL  = std::chrono::milliseconds(800);
+    static constexpr auto STATS_TTL = std::chrono::milliseconds(800);
 
     mutable std::string cached_inspect_;
     mutable std::chrono::steady_clock::time_point cached_inspect_at_;
@@ -238,12 +238,9 @@ private:
      * @brief GET helper with transparent TTL caching.
      * @return Live (fresh) response body.
      */
-    [[nodiscard]] std::string
-    getCached(const std::string& endpoint,
-              std::string&       cacheBody,
-              std::chrono::steady_clock::time_point& cacheTime,
-              bool& cacheValid,
-              std::chrono::milliseconds ttl) const;
+    [[nodiscard]] std::string getCached(const std::string& endpoint, std::string& cacheBody,
+                                        std::chrono::steady_clock::time_point& cacheTime, bool& cacheValid,
+                                        std::chrono::milliseconds ttl) const;
 
     /**
      * @brief Parse HTTP response body as JSON and handle errors.

@@ -75,6 +75,7 @@ export default function App() {
         setConn((c) => (c ? null : c));
         const t = (Date.now() - startRef.current) / 1000;
         const net = (s.network_rx_bps || 0) + (s.network_tx_bps || 0);
+        const backendT = s.backend_elapsed_ms != null ? s.backend_elapsed_ms / 1000 : null;
         setData((prev) => [
           ...prev,
           {
@@ -83,9 +84,17 @@ export default function App() {
             mem: s.memory_usage_mb ?? 0,
             net,
             phase: s.phase || 'normal',
+            backendT,
           },
         ]);
         setLastState(s);
+        // Debug timing: compare frontend clock vs backend clock
+        if (backendT != null) {
+          const drift = t - backendT;
+          if (Math.abs(drift) > 0.3) {
+            console.log(`[timing] frontend= ${t.toFixed(1)}s  backend= ${backendT.toFixed(1)}s  drift= ${drift.toFixed(1)}s  phase= ${s.phase}`);
+          }
+        }
         if (s.recent_logs && s.recent_logs.length) {
           setLogs((prev) => {
             const seen = new Set(prev);

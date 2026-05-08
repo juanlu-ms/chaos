@@ -69,7 +69,11 @@ export default function LiveChart({
               fontSize: 11,
             }}
             labelFormatter={(v) => `t = ${Number(v).toFixed(1)}s`}
-            formatter={(v) => yFormat(v)}
+            formatter={(v, name, props) => {
+              const label = yFormat(v);
+              const bt = props?.payload?.backendT;
+              return bt != null ? `${label}  [backend ${bt.toFixed(1)}s]` : label;
+            }}
           />
           <Area
             type="monotone"

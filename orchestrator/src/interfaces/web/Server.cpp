@@ -25,7 +25,8 @@ namespace chaos::orchestrator::interfaces::web {
 
 namespace {
 
-json stateToJson(const shared::TargetState& s, const std::string& phase = "") {
+json stateToJson(const shared::TargetState& s, const std::string& phase = "",
+                 std::chrono::steady_clock::time_point test_start = {}) {
     json j;
     j["container_id"] = s.container_id;
     j["status"] = shared::toString(s.status);
@@ -36,6 +37,10 @@ json stateToJson(const shared::TargetState& s, const std::string& phase = "") {
     if (s.network_rx_bytes) j["network_rx_bytes"] = *s.network_rx_bytes;
     if (s.network_tx_bytes) j["network_tx_bytes"] = *s.network_tx_bytes;
     if (!phase.empty()) j["phase"] = phase;
+    if (test_start != std::chrono::steady_clock::time_point{}) {
+        j["backend_elapsed_ms"] = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - test_start).count();
+    }
     return j;
 }
 
@@ -340,6 +345,7 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                 {
                     std::lock_guard<std::mutex> lock(session->mtx);
                     session->phase = "normal";
+                    session->test_start = test_start;
                 }
 
                 // Quick baseline: 2 seconds (4 ticks)
@@ -466,7 +472,7 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& res) {
             session->cv.wait(lock, [session]() { return session->latest.has_value() || session->complete; });
 
             if (session->latest.has_value()) {
-                auto j = stateToJson(*session->latest, session->phase);
+                auto j = stateToJson(*session->latest, session->phase, session->test_start);
                 std::string data = "event: state\ndata: " + j.dump() + "\n\n";
                 if (!sink.write(data.data(), data.size())) {
                     return false;

@@ -462,8 +462,7 @@ std::string DockerClient::getLogs(const std::string_view containerId) const {
 
     // tail=50 avoids dumping the entire container log on every poll; demuxing
     // is done below by stripping the 8-byte frame headers.
-    const std::string endpoint = fmt::format(
-        "/containers/{}/logs?stdout=1&stderr=1&timestamps=0&tail=50", containerId);
+    const std::string endpoint = fmt::format("/containers/{}/logs?stdout=1&stderr=1&timestamps=0&tail=50", containerId);
     const auto response = request_(HttpMethod::GET, endpoint, "");
 
     if (response.status != 200) {
@@ -485,11 +484,10 @@ std::string DockerClient::getLogs(const std::string_view containerId) const {
 
     size_t i = 0;
     while (i + 8 <= body.size()) {
-        const uint32_t len =
-            (static_cast<uint32_t>(static_cast<uint8_t>(body[i + 4])) << 24) |
-            (static_cast<uint32_t>(static_cast<uint8_t>(body[i + 5])) << 16) |
-            (static_cast<uint32_t>(static_cast<uint8_t>(body[i + 6])) << 8)  |
-            static_cast<uint32_t>(static_cast<uint8_t>(body[i + 7]));
+        const uint32_t len = (static_cast<uint32_t>(static_cast<uint8_t>(body[i + 4])) << 24) |
+                             (static_cast<uint32_t>(static_cast<uint8_t>(body[i + 5])) << 16) |
+                             (static_cast<uint32_t>(static_cast<uint8_t>(body[i + 6])) << 8) |
+                             static_cast<uint32_t>(static_cast<uint8_t>(body[i + 7]));
 
         const size_t remaining = body.size() - i - 8;
         const size_t clen = (len <= remaining) ? static_cast<size_t>(len) : remaining;
@@ -609,12 +607,9 @@ SystemInfo DockerClient::getSystemInfo() const {
     return info;
 }
 
-std::string DockerClient::getCached(
-    const std::string& endpoint,
-    std::string& cacheBody,
-    std::chrono::steady_clock::time_point& cacheTime,
-    bool& cacheValid,
-    std::chrono::milliseconds ttl) const {
+std::string DockerClient::getCached(const std::string& endpoint, std::string& cacheBody,
+                                    std::chrono::steady_clock::time_point& cacheTime, bool& cacheValid,
+                                    std::chrono::milliseconds ttl) const {
     const auto now = std::chrono::steady_clock::now();
     if (cacheValid && (now - cacheTime) < ttl) {
         return cacheBody;

@@ -313,22 +313,24 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
         SPDLOG_INFO("Executing manifest '{}' against target '{}' (async)", manifest.test_name, manifest.target.id);
 
         auto session = std::make_shared<RunSession>();
-        m_session = session;
-        session->running = true;
+        {
+            std::lock_guard<std::mutex> lock(session_mutex_);
+            m_session = session;
+        }
 
-        std::thread([this, session, manifest = std::move(manifest)]() {
+        std::thread([engine = m_engine, session, manifest = std::move(manifest)]() {
             try {
                 perturbations::PerturbationFactory factory;
                 std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbation_instances;
                 for (const auto& spec : manifest.perturbations) {
-                    perturbation_instances.push_back(factory.create(m_engine, manifest.target, spec));
+                    perturbation_instances.push_back(factory.create(engine, manifest.target, spec));
                 }
 
                 perturbations::PerturbationEngine pert_engine;
                 const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
                 pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration);
 
-                observability::ObservabilityEngine obs(m_engine);
+                observability::ObservabilityEngine obs(engine);
                 shared::TargetState lastKnownState;
 
                 if (duration.count() > 0) {
@@ -406,7 +408,11 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& res) {
     res.set_header("Cache-Control", "no-store");
     res.set_header("Connection", "keep-alive");
 
-    auto session = m_session;
+    std::shared_ptr<RunSession> session;
+    {
+        std::lock_guard<std::mutex> lock(session_mutex_);
+        session = m_session;
+    }
 
     res.set_chunked_content_provider(
         "text/event-stream", [session](size_t /*offset*/, httplib::DataSink& sink) -> bool {
@@ -431,9 +437,18 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& res) {
             }
 
             if (session->complete) {
-                std::string data = "event: complete\ndata: " + session->results.dump() + "\n\n";
-                if (!sink.write(data.data(), data.size())) {
-                    return false;
+                if (!session->error.empty()) {
+                    json err;
+                    err["error"] = session->error;
+                    std::string data = "event: error\ndata: " + err.dump() + "\n\n";
+                    if (!sink.write(data.data(), data.size())) {
+                        return false;
+                    }
+                } else {
+                    std::string data = "event: complete\ndata: " + session->results.dump() + "\n\n";
+                    if (!sink.write(data.data(), data.size())) {
+                        return false;
+                    }
                 }
                 sink.done();
                 return false;

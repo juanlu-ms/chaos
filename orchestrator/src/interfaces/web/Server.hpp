@@ -22,23 +22,34 @@ struct RunSession {
     std::mutex mtx;
     std::condition_variable cv;
     std::optional<shared::TargetState> latest;
-    bool running = false;
     bool complete = false;
     json results;
     std::string error;
 };
 
+/**
+ * HTTP server exposing a REST API and Server-Sent Events for chaos engineering runs.
+ */
 class Server {
 public:
+    /**
+     * @brief Construct a Server backed by the given container engine.
+     * @param engine shared container engine implementation
+     */
     explicit Server(std::shared_ptr<containers::IContainerEngine> engine);
     ~Server() = default;
 
+    /**
+     * @brief Start listening on the given port (blocking call).
+     * @param port TCP port number
+     */
     void listen(int port);
 
 private:
     httplib::Server m_server;
     std::shared_ptr<containers::IContainerEngine> m_engine;
 
+    std::mutex session_mutex_;
     std::shared_ptr<RunSession> m_session;
 
     void setupRoutes();

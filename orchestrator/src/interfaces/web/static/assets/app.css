@@ -162,11 +162,35 @@ body {
 .perturbation-row,
 .expectation-row {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
   align-items: center;
   padding: 8px;
   background: var(--bg-elevated);
   border-radius: var(--radius);
+}
+
+.perturbation-row select,
+.perturbation-row input,
+.expectation-row select,
+.expectation-row input {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  font-family: var(--font);
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color var(--transition);
+  max-width: 200px;
+}
+
+.perturbation-row select:focus,
+.perturbation-row input:focus,
+.expectation-row select:focus,
+.expectation-row input:focus {
+  border-color: var(--accent);
 }
 
 .perturbation-row select,
@@ -191,7 +215,7 @@ body {
 }
 
 .perturbation-row .pert-type { flex: 0 0 140px; }
-.perturbation-row .pert-param { flex: 1; min-width: 0; }
+.perturbation-row .pert-param { flex: 1 1 120px; min-width: 80px; }
 .expectation-row .expect-type { flex: 0 0 170px; }
 .expectation-row .expect-param { flex: 1; min-width: 0; }
 

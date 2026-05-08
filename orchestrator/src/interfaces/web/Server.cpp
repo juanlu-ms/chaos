@@ -25,7 +25,7 @@ namespace chaos::orchestrator::interfaces::web {
 
 namespace {
 
-json stateToJson(const shared::TargetState& s) {
+json stateToJson(const shared::TargetState& s, const std::string& phase = "") {
     json j;
     j["container_id"] = s.container_id;
     j["status"] = shared::toString(s.status);
@@ -35,6 +35,7 @@ json stateToJson(const shared::TargetState& s) {
     j["recent_logs"] = s.recent_logs;
     if (s.network_rx_bytes) j["network_rx_bytes"] = *s.network_rx_bytes;
     if (s.network_tx_bytes) j["network_tx_bytes"] = *s.network_tx_bytes;
+    if (!phase.empty()) j["phase"] = phase;
     return j;
 }
 
@@ -341,6 +342,10 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
 
                 if (duration.count() > 0) {
                     SPDLOG_INFO("Injecting faults for {}s. Monitoring real-time state...", duration.count());
+                    {
+                        std::lock_guard<std::mutex> lock(session->mtx);
+                        session->phase = "chaos";
+                    }
                     auto start_time = std::chrono::steady_clock::now();
                     while (std::chrono::steady_clock::now() - start_time < duration) {
                         lastKnownState = obs.observe(manifest.target.id);
@@ -350,6 +355,10 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                         }
                         session->cv.notify_all();
                         std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                    }
+                    {
+                        std::lock_guard<std::mutex> lock(session->mtx);
+                        session->phase = "recovery";
                     }
                 } else {
                     lastKnownState = obs.observe(manifest.target.id);
@@ -438,7 +447,7 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& res) {
             session->cv.wait(lock, [session]() { return session->latest.has_value() || session->complete; });
 
             if (session->latest.has_value()) {
-                auto j = stateToJson(*session->latest);
+                auto j = stateToJson(*session->latest, session->phase);
                 std::string data = "event: state\ndata: " + j.dump() + "\n\n";
                 if (!sink.write(data.data(), data.size())) {
                     return false;

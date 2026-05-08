@@ -26,6 +26,7 @@ struct RunSession {
     bool complete = false;
     json results;
     std::string error;
+    std::string phase;
 };
 
 /**

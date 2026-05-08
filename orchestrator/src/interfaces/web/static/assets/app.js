@@ -309,13 +309,17 @@
           document.getElementById('mon-info-mem').textContent =
             data.memory_usage_mb != null ? data.memory_usage_mb.toFixed(1) + ' MB' : '--';
           document.getElementById('mon-info-net').textContent =
-            data.network_io_bytes != null ? data.network_io_bytes.toFixed(0) + ' B' : '--';
+            data.network_rx_bytes != null && data.network_tx_bytes != null
+              ? 'RX: ' + data.network_rx_bytes.toFixed(0) + ' B | TX: ' + data.network_tx_bytes.toFixed(0) + ' B'
+              : '--';
           document.getElementById('mon-cpu-val').textContent =
             data.cpu_usage_percent != null ? data.cpu_usage_percent.toFixed(1) + '%' : '--';
           document.getElementById('mon-mem-val').textContent =
             data.memory_usage_mb != null ? data.memory_usage_mb.toFixed(1) + ' MB' : '--';
           document.getElementById('mon-net-val').textContent =
-            data.network_io_bytes != null ? data.network_io_bytes.toFixed(0) + ' B' : '--';
+            data.network_rx_bytes != null && data.network_tx_bytes != null
+              ? 'RX: ' + data.network_rx_bytes.toFixed(0) + ' B | TX: ' + data.network_tx_bytes.toFixed(0) + ' B'
+              : '--';
           if (data.cpu_usage_percent != null) {
             chartData.cpu.push(data.cpu_usage_percent);
             charts.cpuLive.push(data.cpu_usage_percent);
@@ -324,9 +328,10 @@
             chartData.mem.push(data.memory_usage_mb);
             charts.memLive.push(data.memory_usage_mb);
           }
-          if (data.network_io_bytes != null) {
-            chartData.net.push(data.network_io_bytes);
-            charts.netLive.push(data.network_io_bytes);
+          if (data.network_rx_bytes != null && data.network_tx_bytes != null) {
+            const netTotal = data.network_rx_bytes + data.network_tx_bytes;
+            chartData.net.push(netTotal);
+            charts.netLive.push(netTotal);
           }
           if (data.phase) {
             if (data.phase === 'chaos' && chaosStartIdx < 0) {

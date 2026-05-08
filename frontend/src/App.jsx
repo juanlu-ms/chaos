@@ -27,6 +27,7 @@ export default function App() {
   const lostTimer = useRef(null);
   const closeRef = useRef(null);
   const startRef = useRef(0);
+  const runEpoch = useRef(0);
 
   // Refs that always see latest state for SSE callbacks.
   const dataRef = useRef(data);
@@ -55,6 +56,7 @@ export default function App() {
   };
 
   const startStream = (start) => {
+    const epoch = ++runEpoch.current;
     closeStream();
     phaseRef.current = 'normal';
     startRef.current = start;
@@ -68,6 +70,7 @@ export default function App() {
 
     closeRef.current = openEventStream({
       onState: (s) => {
+        if (runEpoch.current !== epoch) return;
         lastEventAt.current = Date.now();
         setConn((c) => (c ? null : c));
         const t = (Date.now() - startRef.current) / 1000;
@@ -88,7 +91,7 @@ export default function App() {
             const seen = new Set(prev);
             const merged = [...prev];
             for (const line of s.recent_logs) {
-              if (!seen.has(line)) {
+              if (line && !seen.has(line)) {
                 merged.push(line);
                 seen.add(line);
               }
@@ -108,6 +111,7 @@ export default function App() {
         }
       },
       onComplete: (payload) => {
+        if (runEpoch.current !== epoch) return;
         closeStream();
         setIsRunning(false);
         setResult({
@@ -120,6 +124,7 @@ export default function App() {
         setStep(3);
       },
       onServerError: (payload) => {
+        if (runEpoch.current !== epoch) return;
         closeStream();
         setIsRunning(false);
         setResult({

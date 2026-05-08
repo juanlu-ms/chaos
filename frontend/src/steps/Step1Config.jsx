@@ -84,9 +84,10 @@ export default function Step1Config({ initial, onRun }) {
     }
     setError(null);
     setSubmitting(true);
+    const selectedTarget = targets.find((t) => t.id === targetId);
     const manifest = {
       test_name: testName.trim(),
-      target: { id: targetId },
+      target: { id: targetId, name: selectedTarget?.name },
       duration_s: Number(duration),
       perturbations: perturbations.map((p) => ({
         type: p.type,

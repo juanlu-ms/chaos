@@ -7,6 +7,7 @@
 #include <spdlog/spdlog.h>
 #include <sys/socket.h>
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -463,7 +464,10 @@ std::string DockerClient::getLogs(const std::string_view containerId) const {
 
     SPDLOG_DEBUG("Fetching logs for container: {}", containerId);
 
-    const std::string endpoint = fmt::format("/containers/{}/logs?stdout=1&stderr=1&timestamps=0", containerId);
+    // tail=50 avoids dumping the entire container log on every poll; demuxing
+    // is done below by stripping the 8-byte frame headers.
+    const std::string endpoint = fmt::format(
+        "/containers/{}/logs?stdout=1&stderr=1&timestamps=0&tail=50", containerId);
     const auto response = request_(HttpMethod::GET, endpoint, "");
 
     if (response.status != 200) {
@@ -472,7 +476,32 @@ std::string DockerClient::getLogs(const std::string_view containerId) const {
     }
 
     SPDLOG_INFO("Fetched logs for container '{}'", containerId);
-    return response.body;
+
+    // The Docker Engine logs API returns a multiplexed stream where each log
+    // entry is prefixed by an 8-byte frame header:
+    //   byte 0: stream type (1 = stdout, 2 = stderr)
+    //   bytes 1-3: padding (zero)
+    //   bytes 4-7: payload length (big-endian uint32)
+    // Strip these headers and extract the raw log text.
+    const auto& body = response.body;
+    std::string result;
+    result.reserve(body.size());
+
+    size_t i = 0;
+    while (i + 8 <= body.size()) {
+        const uint32_t len =
+            (static_cast<uint32_t>(static_cast<uint8_t>(body[i + 4])) << 24) |
+            (static_cast<uint32_t>(static_cast<uint8_t>(body[i + 5])) << 16) |
+            (static_cast<uint32_t>(static_cast<uint8_t>(body[i + 6])) << 8)  |
+            static_cast<uint32_t>(static_cast<uint8_t>(body[i + 7]));
+
+        const size_t remaining = body.size() - i - 8;
+        const size_t clen = (len <= remaining) ? static_cast<size_t>(len) : remaining;
+        result.append(body, i + 8, clen);
+        i += 8 + clen;
+    }
+
+    return result;
 }
 
 double DockerClient::getContainerMemoryUsage(const std::string_view containerId) const {

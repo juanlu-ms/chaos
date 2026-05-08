@@ -24,6 +24,7 @@ export default function ResultsChart({
   const grid = readVar('--border', '#3d3228');
   const text = readVar('--text-dim', '#9e8f7e');
   const surface = readVar('--bg-elevated', '#2d251e');
+  const success = readVar('--success', '#4caf50');
   const error = readVar('--error', '#ef5350');
 
   const id = `grad-r-${dataKey}-${themeKey}`;
@@ -31,12 +32,21 @@ export default function ResultsChart({
 
   const tEnd = data.length ? data[data.length - 1].t : 0;
   const normalEnd = zones?.normalEnd ?? 0;
-  const chaosEnd = zones?.chaosEnd ?? tEnd;
-  const hasChaosWindow = chaosEnd > normalEnd && normalEnd >= 0;
+  const chaosEnd = zones?.chaosEnd || tEnd;
+  const hasPhases = normalEnd > 0;
 
   return (
     <div className="chart-card">
-      <h4>{title}</h4>
+      <div className="chart-card-head">
+        <h4>{title}</h4>
+        {hasPhases && (
+          <div className="chart-legend">
+            <span className="dot baseline" /> Baseline
+            <span className="dot chaos" /> Chaos
+            <span className="dot recovery" /> Recovery
+          </div>
+        )}
+      </div>
       <ResponsiveContainer width="100%" height={180}>
         <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <defs>
@@ -49,7 +59,8 @@ export default function ResultsChart({
           <XAxis
             dataKey="t"
             type="number"
-            domain={[0, tEnd || 'dataMax']}
+            domain={['dataMin', 'dataMax']}
+            allowDataOverflow={false}
             stroke={text}
             tick={{ fill: text, fontSize: 10 }}
             tickFormatter={(v) => `${Number(v).toFixed(0)}s`}
@@ -70,32 +81,50 @@ export default function ResultsChart({
             labelFormatter={(v) => `t = ${Number(v).toFixed(1)}s`}
             formatter={(v) => yFormat(v)}
           />
-          {hasChaosWindow && (
-            <ReferenceArea
-              x1={normalEnd}
-              x2={chaosEnd}
-              fill={error}
-              fillOpacity={0.18}
-              stroke="none"
-              ifOverflow="extendDomain"
-            />
+
+          {hasPhases && (
+            <>
+              <ReferenceArea
+                x1={0}
+                x2={normalEnd}
+                fill={success}
+                fillOpacity={0.1}
+                stroke="none"
+                ifOverflow="extendDomain"
+              />
+              <ReferenceArea
+                x1={normalEnd}
+                x2={chaosEnd}
+                fill={error}
+                fillOpacity={0.28}
+                stroke="none"
+                ifOverflow="extendDomain"
+              />
+              <ReferenceArea
+                x1={chaosEnd}
+                x2={tEnd}
+                fill={success}
+                fillOpacity={0.18}
+                stroke="none"
+                ifOverflow="extendDomain"
+              />
+              <ReferenceLine
+                x={normalEnd}
+                stroke={error}
+                strokeWidth={1.5}
+                strokeOpacity={0.7}
+                strokeDasharray="4 3"
+              />
+              <ReferenceLine
+                x={chaosEnd}
+                stroke={success}
+                strokeWidth={1.5}
+                strokeOpacity={0.7}
+                strokeDasharray="4 3"
+              />
+            </>
           )}
-          {hasChaosWindow && (
-            <ReferenceLine
-              x={normalEnd}
-              stroke={error}
-              strokeDasharray="3 3"
-              strokeOpacity={0.7}
-            />
-          )}
-          {hasChaosWindow && (
-            <ReferenceLine
-              x={chaosEnd}
-              stroke={error}
-              strokeDasharray="3 3"
-              strokeOpacity={0.7}
-            />
-          )}
+
           <Area
             type="monotone"
             dataKey={dataKey}

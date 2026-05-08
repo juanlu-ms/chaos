@@ -49,6 +49,8 @@ export default function LiveChart({
           <CartesianGrid stroke={grid} strokeDasharray="3 3" />
           <XAxis
             dataKey="t"
+            type="number"
+            domain={[0, 'auto']}
             stroke={text}
             tick={{ fill: text, fontSize: 10 }}
             tickFormatter={(v) => `${v.toFixed(0)}s`}

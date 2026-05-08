@@ -22,7 +22,25 @@ shared::TargetState ObservabilityEngine::observe(const std::string_view containe
     state.container_id = std::string(containerId);
 
     state.status = getStatus(containerId);
-    state.recent_logs = {getLogs(containerId)};
+
+    // Fetch recent logs and split into individual lines so the frontend
+    // receives a proper array of log entries instead of one giant blob.
+    const std::string rawLogs = getLogs(containerId);
+    state.recent_logs.clear();
+    if (!rawLogs.empty()) {
+        size_t start = 0;
+        while (start < rawLogs.size()) {
+            size_t end = rawLogs.find('\n', start);
+            if (end == std::string::npos) end = rawLogs.size();
+            std::string line = rawLogs.substr(start, end - start);
+            // Trim trailing \r from Docker's line endings.
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (!line.empty()) {
+                state.recent_logs.push_back(std::move(line));
+            }
+            start = end + 1;
+        }
+    }
 
     if (state.status != shared::ContainerStatus::Running) {
         SPDLOG_DEBUG("Container '{}' is not running. Skipping resource usage metrics.", containerId);

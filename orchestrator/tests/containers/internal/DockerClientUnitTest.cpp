@@ -1,6 +1,7 @@
 #include <fmt/format.h>
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -323,12 +324,31 @@ TEST(DockerClientUnitTest, CreateContainerPropagatesApiError) {
  * @test Verifies getLogs calls the correct Docker API endpoint and returns body.
  */
 TEST(DockerClientUnitTest, GetLogsCallsCorrectEndpoint) {
+    // The Docker Engine logs API returns a multiplexed stream where each
+    // frame has an 8-byte header (stream type + 3 pad + 4 length).
+    // Build two frames: stdout "app started\n" + stderr "some error\n"
+    auto buildFrame = [](char stream, const std::string& msg) -> std::string {
+        const uint32_t len = static_cast<uint32_t>(msg.size());
+        std::string frame;
+        frame += stream;
+        frame += '\0';
+        frame += '\0';
+        frame += '\0';
+        frame += static_cast<char>(len >> 24);
+        frame += static_cast<char>(len >> 16);
+        frame += static_cast<char>(len >> 8);
+        frame += static_cast<char>(len);
+        frame += msg;
+        return frame;
+    };
+
+    const std::string body = buildFrame(1, "app started\n") + buildFrame(2, "some error\n");
     const std::string expectedLogs = "app started\nsome error\n";
-    DockerClient adapter([&expectedLogs](HttpMethod method, std::string_view endpoint, std::string_view body) {
+
+    DockerClient adapter([&body](HttpMethod method, std::string_view endpoint, std::string_view) {
         EXPECT_EQ(method, HttpMethod::GET);
-        EXPECT_EQ(endpoint, "/containers/my-id/logs?stdout=1&stderr=1&timestamps=0");
-        EXPECT_TRUE(body.empty());
-        return HttpResponse{.status = 200, .body = expectedLogs};
+        EXPECT_EQ(endpoint, "/containers/my-id/logs?stdout=1&stderr=1&timestamps=0&tail=50");
+        return HttpResponse{.status = 200, .body = body};
     });
     EXPECT_EQ(adapter.getLogs("my-id"), expectedLogs);
 }

@@ -35,26 +35,42 @@ export default function Step2Monitor({
     }
   }, [isRunning, data]);
 
-  const target = { id: lastState?.container_id, name: manifest?.target?.id };
+  const target = {
+    id: lastState?.container_id,
+    name: manifest?.target?.name || manifest?.target?.id,
+  };
+  const phase = lastState?.phase || (isRunning ? 'pending' : 'finished');
 
   return (
     <>
       <ConnectionBanner kind={conn} onBack={onBack} />
       <div className="monitor-header">
         <div className="info">
-          <span className="test-name">{manifest?.test_name}</span>
-          <span className="elapsed">{elapsed.toFixed(1)}s elapsed</span>
-          <span
-            className="tag"
-            style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}
-          >
-            {lastState?.phase || (isRunning ? 'pending' : 'finished')}
-          </span>
+          <div className="info-row">
+            <span className="test-name">{manifest?.test_name}</span>
+            <span
+              className="tag"
+              style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}
+            >
+              {phase}
+            </span>
+            <span className="elapsed">{elapsed.toFixed(1)}s elapsed</span>
+          </div>
+          <div className="target-name">
+            container: <strong>{target.name || '—'}</strong>
+          </div>
         </div>
-        {isRunning && (
+        {isRunning ? (
           <button className="danger" onClick={onAbort}>
             Abort
           </button>
+        ) : (
+          <span
+            className="tag"
+            style={{ background: 'var(--bg-elevated)', color: 'var(--text-dim)' }}
+          >
+            completed
+          </span>
         )}
       </div>
       <div className="split">

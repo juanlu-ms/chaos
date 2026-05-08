@@ -44,14 +44,17 @@ public:
      */
     std::optional<std::string> getContainerIp(const std::string_view containerId) const;
 
-private:
-    std::shared_ptr<containers::IContainerEngine> engine_;
-
+    // ── Individual data-source getters ──────────────────────────────
+    // Exposed so the observation loop can send partial SSE events as
+    // soon as each source arrives, without waiting for the slowest one.
     shared::ContainerStatus getStatus(const std::string_view containerId) const;
     std::string getLogs(const std::string_view containerId) const;
     std::optional<double> getMemoryUsage(const std::string_view containerId) const;
     std::optional<double> getCpuUsage(const std::string_view containerId) const;
     std::pair<double, double> getNetworkBps(const std::string_view containerId) const;
+
+private:
+    std::shared_ptr<containers::IContainerEngine> engine_;
 };
 
 }  // namespace chaos::orchestrator::observability

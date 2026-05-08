@@ -8,6 +8,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <future>
 #include <string>
 #include <utility>
 
@@ -22,24 +23,31 @@ shared::TargetState ObservabilityEngine::observe(const std::string_view containe
     shared::TargetState state;
     state.container_id = std::string(containerId);
 
+    // Run the three independent data sources concurrently so that one tick
+    // takes max(latency) instead of sum(latency).
+    auto logsFut  = std::async(std::launch::async, [this, &containerId]() { return getLogs(containerId); });
+    auto cpuFut   = std::async(std::launch::async, [this, &containerId]() { return getCpuUsage(containerId); });
+
+    // Status is lightweight (cached inspect) — run on the calling thread
+    // so we can decide whether to fetch the remaining metrics.
     state.status = getStatus(containerId);
 
-    // Fetch recent logs and split into individual lines so the frontend
-    // receives a proper array of log entries instead of one giant blob.
-    const std::string rawLogs = getLogs(containerId);
-    state.recent_logs.clear();
-    if (!rawLogs.empty()) {
-        size_t start = 0;
-        while (start < rawLogs.size()) {
-            size_t end = rawLogs.find('\n', start);
-            if (end == std::string::npos) end = rawLogs.size();
-            std::string line = rawLogs.substr(start, end - start);
-            // Trim trailing \r from Docker's line endings.
-            if (!line.empty() && line.back() == '\r') line.pop_back();
-            if (!line.empty()) {
-                state.recent_logs.push_back(std::move(line));
+    // Parse logs (already arriving in the background).
+    {
+        const std::string rawLogs = logsFut.get();
+        state.recent_logs.clear();
+        if (!rawLogs.empty()) {
+            size_t start = 0;
+            while (start < rawLogs.size()) {
+                size_t end = rawLogs.find('\n', start);
+                if (end == std::string::npos) end = rawLogs.size();
+                std::string line = rawLogs.substr(start, end - start);
+                if (!line.empty() && line.back() == '\r') line.pop_back();
+                if (!line.empty()) {
+                    state.recent_logs.push_back(std::move(line));
+                }
+                start = end + 1;
             }
-            start = end + 1;
         }
     }
 
@@ -48,7 +56,9 @@ shared::TargetState ObservabilityEngine::observe(const std::string_view containe
         state.cpu_usage_percent = std::nullopt;
         state.memory_usage_mb = std::nullopt;
     } else {
-        state.cpu_usage_percent = getCpuUsage(containerId);
+        // CPU was fetched in parallel; memory and network reuse the same
+        // stats response via the DockerClient cache.
+        state.cpu_usage_percent = cpuFut.get();
         state.memory_usage_mb = getMemoryUsage(containerId);
         try {
             auto [rx, tx] = getNetworkBps(containerId);

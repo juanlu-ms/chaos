@@ -60,7 +60,7 @@ TEST(ObservabilityEngineTests, ObserveSkipsResourceMetricsWhenNotRunning) {
         .WillOnce(Return(shared::ContainerStatus::Exited));
     EXPECT_CALL(*mockEngine, getLogs(std::string_view(kContainerId))).WillOnce(Return("logs"));
     EXPECT_CALL(*mockEngine, getContainerMemoryUsage(_)).Times(0);
-    EXPECT_CALL(*mockEngine, getContainerCpuUsage(_)).Times(0);
+    EXPECT_CALL(*mockEngine, getContainerCpuUsage(_)).Times(1);  // started optimistically in parallel
     EXPECT_CALL(*mockEngine, getContainerNetworkBps(_)).Times(0);
 
     observability::ObservabilityEngine obs(mockEngine);

@@ -1,104 +1,90 @@
 <!doctype html>
 <html lang="en">
-
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CHAOS - Web Panel</title>
-  <link rel="stylesheet" href="/assets/app.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CHAOS — Resilience Testing</title>
+  <link rel="stylesheet" href="/assets/app.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
-
 <body>
-  <div class="bg-orb orb-1" aria-hidden="true"></div>
-  <div class="bg-orb orb-2" aria-hidden="true"></div>
+  <nav class="topbar">
+    <span class="logo">CHAOS</span>
+    <span class="badge" id="status-badge">Connecting...</span>
+    <div class="nav-links">
+      <button class="nav-btn active" data-view="dashboard">Dashboard</button>
+      <button class="nav-btn" data-view="builder">Manifest Builder</button>
+    </div>
+  </nav>
 
-  <main class="shell">
-    <header class="hero">
-      <div class="badge">CHAOS :: Web Adapter</div>
-      <h1>Container resilience dashboard</h1>
-      <p class="subtitle">
-        Monitor containers, validate states, and review orchestrator health without leaving your local environment.
-      </p>
-      <div class="actions">
-        <button class="btn" id="refresh-btn">Refresh</button>
-        <button class="btn ghost" id="toggle-auto">Auto: ON</button>
-      </div>
+  <!-- DASHBOARD -->
+  <section id="view-dashboard" class="view active">
+    <header class="section-header">
+      <h2>Targets</h2>
+      <button class="btn sm" id="refresh-targets">Refresh</button>
     </header>
+    <div class="target-grid" id="target-grid">
+      <div class="empty-state">No containers detected.</div>
+    </div>
+    <header class="section-header"><h2>System Limits</h2></header>
+    <div class="limits-card" id="limits-card">
+      <div class="metric"><span class="label">CPU Cores</span><span class="value" id="limit-cpu">--</span></div>
+      <div class="metric"><span class="label">Memory</span><span class="value" id="limit-mem">--</span></div>
+    </div>
+  </section>
 
-    <section class="grid">
-      <article class="card status">
-        <div class="card-head">
-          <h2>Orchestrator status</h2>
-          <span class="chip" id="status-chip">--</span>
-        </div>
-        <div class="status-body">
-          <div class="metric">
-            <span class="label">Service</span>
-            <span class="value" id="status-project">--</span>
+  <!-- MANIFEST BUILDER + MONITOR -->
+  <section id="view-builder" class="view">
+    <div class="builder-layout">
+      <div class="builder-form">
+        <h2>New Chaos Scenario</h2>
+        <label>Test Name</label>
+        <input type="text" id="field-name" placeholder="my-resilience-test" value="Untitled Test">
+        <label>Target Container</label>
+        <select id="field-target"></select>
+        <label>Duration (seconds)</label>
+        <input type="number" id="field-duration" min="0" max="3600" value="10">
+        <fieldset>
+          <legend>Perturbations <button class="btn xs" id="add-perturbation">+ Add</button></legend>
+          <div id="perturbation-list"></div>
+        </fieldset>
+        <fieldset>
+          <legend>Expectations</legend>
+          <div id="expectation-list">
+            <div class="expectation-row">
+              <select class="expect-type">
+                <option value="container_running">Container Running</option>
+                <option value="container_not_running">Container Not Running</option>
+                <option value="log_contains">Log Contains</option>
+                <option value="http_status">HTTP Status</option>
+              </select>
+              <input class="expect-param" placeholder="value (e.g. 200)">
+              <button class="btn xs ghost remove-expect">✕</button>
+            </div>
           </div>
-          <div class="metric">
-            <span class="label">Message</span>
-            <span class="value" id="status-message">--</span>
-          </div>
-          <div class="metric">
-            <span class="label">Last updated</span>
-            <span class="value" id="last-updated">--</span>
-          </div>
+          <button class="btn xs" id="add-expectation">+ Add Expectation</button>
+        </fieldset>
+        <button class="btn primary" id="run-btn">▶ Run Scenario</button>
+      </div>
+      <div class="monitor-panel" id="monitor-panel" style="display:none">
+        <h2>Live Monitor <span class="chip pending" id="run-status-chip">Pending</span></h2>
+        <div class="state-card" id="state-card">
+          <div class="metric"><span class="label">Status</span><span class="value" id="mon-status">--</span></div>
+          <div class="metric"><span class="label">CPU</span><span class="value" id="mon-cpu">--</span></div>
+          <div class="metric"><span class="label">Memory</span><span class="value" id="mon-mem">--</span></div>
+          <progress id="mon-progress" value="0" max="100"></progress>
         </div>
-      </article>
-
-      <article class="card containers">
-        <div class="card-head">
-          <h2>Detected containers</h2>
-          <span class="count" id="container-count">0</span>
+        <pre class="log-view" id="mon-logs">Waiting for state updates...</pre>
+        <div id="results-panel" style="display:none">
+          <h3>Results</h3>
+          <ul id="result-list"></ul>
         </div>
-        <ul class="container-list" id="container-list"></ul>
-        <div class="empty" id="container-empty">No containers available.</div>
-        <div class="error" id="container-error">Could not load the list.</div>
-      </article>
-
-      <article class="card logs" id="logs-panel" style="display:none">
-        <div class="card-head">
-          <h2>Container logs — <span id="logs-container-name"></span></h2>
-          <button class="btn ghost" id="logs-close-btn">✕ Close</button>
-        </div>
-        <pre class="log-output" id="log-output">Loading...</pre>
-      </article>
-    </section>
-
-    <section class="card run-panel">
-      <div class="card-head">
-        <h2>Run Chaos Scenario</h2>
-        <span class="chip" id="run-result-chip" style="display:none"></span>
       </div>
-      <label for="manifest-input" class="run-label">Paste manifest JSON:</label>
-      <textarea id="manifest-input" class="manifest-textarea" rows="10"
-        placeholder='{"test_name":"my-test","target":{"id":"container-id"},"perturbations":[],"expectations":[]}'></textarea>
-      <div class="run-actions">
-        <button class="btn" id="run-btn">▶ Run Scenario</button>
-      </div>
-      <div id="run-results" class="run-results" style="display:none">
-        <h3>Results</h3>
-        <ul id="result-list" class="result-list"></ul>
-      </div>
-    </section>
-
-    <section class="card footer">
-      <div>
-        <h3>Quick notes</h3>
-        <p>
-          This panel is designed for quick diagnostics. The CLI remains the primary path for CI executions.
-        </p>
-      </div>
-      <div class="tags">
-        <span>Docker</span>
-        <span>Chaos Testing</span>
-        <span>Hexagonal</span>
-      </div>
-    </section>
-  </main>
+    </div>
+  </section>
 
   <script src="/assets/app.js"></script>
 </body>
-
 </html>

@@ -1,275 +1,345 @@
-const statusProject = document.getElementById("status-project");
-const statusMessage = document.getElementById("status-message");
-const statusChip = document.getElementById("status-chip");
-const lastUpdated = document.getElementById("last-updated");
-const containerList = document.getElementById("container-list");
-const containerCount = document.getElementById("container-count");
-const containerEmpty = document.getElementById("container-empty");
-const containerError = document.getElementById("container-error");
-const refreshBtn = document.getElementById("refresh-btn");
-const toggleAutoBtn = document.getElementById("toggle-auto");
+(() => {
+  // ── State ──
+  let targets = [];
+  let limits = { cpu_cores: '--', memory_total_mb: '--' };
+  let perturbations = [];
+  let expectations = [];
+  let eventSource = null;
+  let runActive = false;
 
-let autoRefresh = true;
-let timerId = null;
+  const PERTURBATION_TYPES = [
+    { type: 'kill', label: 'Kill', params: [{ key: 'signal', label: 'Signal', placeholder: 'SIGKILL' }] },
+    { type: 'memory_cap', label: 'Memory Cap', params: [{ key: 'limit_mb', label: 'Limit (MB)', placeholder: '64' }] },
+    { type: 'cpu_cap', label: 'CPU Cap', params: [{ key: 'percent', label: 'Percent', placeholder: '50' }] },
+    { type: 'network_delay', label: 'Network Delay', params: [{ key: 'delay_ms', label: 'Delay (ms)', placeholder: '1000' }] },
+    { type: 'network_cutoff', label: 'Network Cutoff', params: [] },
+    { type: 'garbage_packet', label: 'Garbage Packet', params: [{ key: 'count', label: 'Count', placeholder: '10' }] },
+  ];
 
-const formatNow = () => new Date().toLocaleTimeString("en-US", {
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-});
-
-const setLoading = () => {
-  statusChip.textContent = "Loading";
-  statusChip.style.color = "#f5a623";
-  statusChip.style.background = "rgba(245, 166, 35, 0.2)";
-};
-
-const setOnline = () => {
-  statusChip.textContent = "Online";
-  statusChip.style.color = "#36f9c4";
-  statusChip.style.background = "rgba(54, 249, 196, 0.2)";
-};
-
-const setOffline = () => {
-  statusChip.textContent = "Offline";
-  statusChip.style.color = "#f87171";
-  statusChip.style.background = "rgba(248, 113, 113, 0.2)";
-};
-
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const invokeAction = async (containerId, action) => {
-  const url = `/containers/${encodeURIComponent(containerId)}/${action}`;
-  let lastError = null;
-
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const response = await fetch(url, { method: "POST" });
-      const text = await response.text();
-      let payload = {};
-      if (text) {
-        try {
-          payload = JSON.parse(text);
-        } catch (error) {
-          payload = {};
-        }
-      }
-
-      if (!response.ok) {
-        const reason = payload.error || text || `HTTP ${response.status}`;
-        const err = new Error(reason);
-        err.status = response.status;
-        throw err;
-      }
-
-      return payload;
-    } catch (error) {
-      lastError = error;
-      const status = typeof error.status === "number" ? error.status : null;
-      const shouldRetry = status === null || status >= 500;
-      if (attempt === 0 && shouldRetry) {
-        await delay(700);
-        continue;
-      }
-      break;
-    }
-  }
-
-  throw lastError || new Error("Action failed");
-};
-
-const renderContainers = (containers) => {
-  containerList.innerHTML = "";
-  containerError.style.display = "none";
-
-  if (!containers.length) {
-    containerEmpty.style.display = "block";
-    containerCount.textContent = "0";
-    return;
-  }
-
-  containerEmpty.style.display = "none";
-  containerCount.textContent = String(containers.length);
-
-  containers.forEach((container) => {
-    const item = document.createElement("li");
-    item.className = "container-item";
-
-    const name = document.createElement("div");
-    name.className = "name";
-    name.textContent = container.name || "(unnamed)";
-
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    meta.textContent = container.id || "unknown";
-
-    const state = document.createElement("div");
-    const normalized = (container.state || "unknown").toLowerCase();
-    state.className = `state ${normalized}`;
-    state.textContent = container.state || "unknown";
-
-    const actions = document.createElement("div");
-    actions.className = "container-actions";
-
-    const stopBtn = document.createElement("button");
-    stopBtn.className = "action-btn";
-    stopBtn.textContent = "Stop";
-
-    stopBtn.addEventListener("click", async () => {
-      stopBtn.disabled = true;
-      statusMessage.textContent = `Stop requested: ${container.name || container.id}`;
-      try {
-        await invokeAction(container.id, "stop");
-        await refresh();
-      } catch (error) {
-        statusMessage.textContent = `Stop failed: ${error.message}`;
-      } finally {
-        stopBtn.disabled = false;
-      }
+  // ── Navigation ──
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('view-' + btn.dataset.view).classList.add('active');
     });
-
-    actions.appendChild(stopBtn);
-
-    const logsBtn = document.createElement("button");
-    logsBtn.className = "action-btn";
-    logsBtn.textContent = "Logs";
-    logsBtn.addEventListener("click", () => viewLogs(container));
-    actions.appendChild(logsBtn);
-
-    item.appendChild(name);
-    item.appendChild(meta);
-    item.appendChild(state);
-    item.appendChild(actions);
-    containerList.appendChild(item);
   });
-};
 
-const loadStatus = async () => {
-  const response = await fetch("/status");
-  if (!response.ok) {
-    throw new Error("status not ok");
-  }
-  return response.json();
-};
+  // ── Target Loading ──
+  const loadTargets = async () => {
+    try {
+      const res = await fetch('/api/targets');
+      if (!res.ok) throw new Error('Failed to load targets');
+      targets = await res.json();
+      renderTargets();
+      populateTargetSelect();
+      document.getElementById('status-badge').textContent = 'Online';
+      document.getElementById('status-badge').style.color = 'var(--green)';
+    } catch (err) {
+      document.getElementById('status-badge').textContent = 'Offline';
+      document.getElementById('status-badge').style.color = 'var(--red)';
+    }
+  };
 
-const loadContainers = async () => {
-  const response = await fetch("/containers");
-  if (!response.ok) {
-    throw new Error("containers not ok");
-  }
-  return response.json();
-};
+  const renderTargets = () => {
+    const grid = document.getElementById('target-grid');
+    if (!targets.length) {
+      grid.innerHTML = '<div class="empty-state">No containers detected.</div>';
+      return;
+    }
+    grid.innerHTML = targets.map(t => {
+      const state = (t.state || 'unknown').toLowerCase();
+      return `<div class="target-card">
+        <div class="name">${escapeHtml(t.name || '(unnamed)')}</div>
+        <div class="id">${escapeHtml(t.id || '--')}</div>
+        <div class="state ${state}">${t.state || 'unknown'}</div>
+      </div>`;
+    }).join('');
+  };
 
-const refresh = async () => {
-  setLoading();
-  try {
-    const [status, containers] = await Promise.all([loadStatus(), loadContainers()]);
-    statusProject.textContent = status.project || "CHAOS";
-    statusMessage.textContent = status.status || "Online";
-    lastUpdated.textContent = formatNow();
-    setOnline();
-    renderContainers(Array.isArray(containers) ? containers : []);
-  } catch (error) {
-    setOffline();
-    statusProject.textContent = "CHAOS";
-    statusMessage.textContent = "No response from web adapter";
-    lastUpdated.textContent = formatNow();
-    containerList.innerHTML = "";
-    containerEmpty.style.display = "none";
-    containerError.style.display = "block";
-    containerCount.textContent = "0";
-  }
-};
+  const populateTargetSelect = () => {
+    const sel = document.getElementById('field-target');
+    sel.innerHTML = targets.map(t =>
+      `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name || t.id)}</option>`
+    ).join('');
+  };
 
-const startAutoRefresh = () => {
-  if (timerId) {
-    clearInterval(timerId);
-  }
-  timerId = setInterval(refresh, 5000);
-};
+  // ── Limits Loading ──
+  const loadLimits = async () => {
+    try {
+      const res = await fetch('/api/limits');
+      if (!res.ok) throw new Error('Failed to load limits');
+      limits = await res.json();
+      document.getElementById('limit-cpu').textContent = limits.cpu_cores ?? '--';
+      document.getElementById('limit-mem').textContent = limits.memory_total_mb != null ? limits.memory_total_mb + ' MB' : '--';
+    } catch (err) {
+      // keep defaults
+    }
+  };
 
-refreshBtn.addEventListener("click", refresh);
+  // ── Perturbation Management ──
+  const renderPerturbations = () => {
+    const container = document.getElementById('perturbation-list');
+    if (!perturbations.length) {
+      container.innerHTML = '<div class="empty-state" style="padding:12px;font-size:12px;">No perturbations added.</div>';
+      return;
+    }
+    container.innerHTML = perturbations.map((p, i) => {
+      const info = PERTURBATION_TYPES.find(t => t.type === p.type) || PERTURBATION_TYPES[0];
+      const paramHtml = info.params.map(pr => {
+        const val = p.params[pr.key] || '';
+        return `<input class="pert-param" data-idx="${i}" data-key="${pr.key}" placeholder="${pr.placeholder}" value="${escapeHtml(val)}">`;
+      }).join(' ');
+      return `<div class="perturbation-row">
+        <select class="pert-type" data-idx="${i}">
+          ${PERTURBATION_TYPES.map(t =>
+            `<option value="${t.type}" ${t.type === p.type ? 'selected' : ''}>${t.label}</option>`
+          ).join('')}
+        </select>
+        ${paramHtml}
+        <button class="btn xs ghost remove-pert" data-idx="${i}">✕</button>
+      </div>`;
+    }).join('');
+  };
 
-toggleAutoBtn.addEventListener("click", () => {
-  autoRefresh = !autoRefresh;
-  toggleAutoBtn.textContent = `Auto: ${autoRefresh ? "ON" : "OFF"}`;
-  if (autoRefresh) {
-    startAutoRefresh();
-  } else if (timerId) {
-    clearInterval(timerId);
-    timerId = null;
-  }
-});
+  const addPerturbation = () => {
+    perturbations.push({ type: 'kill', params: {} });
+    renderPerturbations();
+  };
 
-refresh();
-startAutoRefresh();
+  const removePerturbation = (idx) => {
+    perturbations.splice(idx, 1);
+    renderPerturbations();
+  };
 
-const logsPanel = document.getElementById("logs-panel");
-const logsContainerName = document.getElementById("logs-container-name");
-const logOutput = document.getElementById("log-output");
-const logsCloseBtn = document.getElementById("logs-close-btn");
+  const updatePerturbationType = (idx, type) => {
+    perturbations[idx].type = type;
+    perturbations[idx].params = {};
+    renderPerturbations();
+  };
 
-const viewLogs = async (container) => {
-  logsPanel.style.display = "";
-  logsContainerName.textContent = container.name || container.id;
-  logOutput.textContent = "Loading...";
-  logsPanel.scrollIntoView({ behavior: "smooth" });
-  try {
-    const response = await fetch(`/containers/${encodeURIComponent(container.id)}/logs`);
-    logOutput.textContent = response.ok ? (await response.text()) || "(empty)" : `Error: HTTP ${response.status}`;
-  } catch {
-    logOutput.textContent = "Failed to fetch logs.";
-  }
-};
+  const updatePerturbationParam = (idx, key, value) => {
+    perturbations[idx].params[key] = value;
+  };
 
-logsCloseBtn.addEventListener("click", () => {
-  logsPanel.style.display = "none";
-});
+  document.getElementById('add-perturbation').addEventListener('click', addPerturbation);
 
-const runBtn = document.getElementById("run-btn");
-const manifestInput = document.getElementById("manifest-input");
-const runResultChip = document.getElementById("run-result-chip");
-const runResults = document.getElementById("run-results");
-const resultList = document.getElementById("result-list");
+  document.getElementById('perturbation-list').addEventListener('click', e => {
+    const btn = e.target.closest('.remove-pert');
+    if (btn) removePerturbation(parseInt(btn.dataset.idx));
+  });
 
-runBtn.addEventListener("click", async () => {
-  const body = manifestInput.value.trim();
-  if (!body) {
-    alert("Paste a manifest JSON first.");
-    return;
-  }
-  runBtn.disabled = true;
-  runResultChip.style.display = "none";
-  runResults.style.display = "none";
-  try {
-    const response = await fetch("/run", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
+  document.getElementById('perturbation-list').addEventListener('change', e => {
+    const sel = e.target.closest('.pert-type');
+    if (sel) updatePerturbationType(parseInt(sel.dataset.idx), sel.value);
+  });
+
+  document.getElementById('perturbation-list').addEventListener('input', e => {
+    const inp = e.target.closest('.pert-param');
+    if (inp) updatePerturbationParam(parseInt(inp.dataset.idx), inp.dataset.key, inp.value);
+  });
+
+  // ── Expectation Management ──
+  const readExpectations = () => {
+    const rows = document.querySelectorAll('#expectation-list .expectation-row');
+    expectations = [];
+    rows.forEach(row => {
+      const typeEl = row.querySelector('.expect-type');
+      const paramEl = row.querySelector('.expect-param');
+      if (typeEl && paramEl) {
+        expectations.push({ type: typeEl.value, value: paramEl.value });
+      }
     });
-    const payload = await response.json();
-    const passed = payload.passed === true;
-    runResultChip.textContent = passed ? "PASS" : "FAIL";
-    runResultChip.style.display = "";
-    runResultChip.style.color = passed ? "#36f9c4" : "#f87171";
-    runResultChip.style.background = passed ? "rgba(54,249,196,0.2)" : "rgba(248,113,113,0.2)";
+  };
 
-    resultList.innerHTML = "";
-    const items = payload.results || (payload.error ? [{ type: "error", passed: false, message: payload.error }] : []);
-    items.forEach((r) => {
-      const li = document.createElement("li");
-      li.className = `result-item ${r.passed ? "pass" : "fail"}`;
-      li.innerHTML = `<span class="result-icon">${r.passed ? "✓" : "✗"}</span>
-                      <span class="result-type">${r.type}</span>
-                      <span class="result-msg">${r.message || ""}</span>`;
-      resultList.appendChild(li);
+  const renderExpectations = () => {
+    const container = document.getElementById('expectation-list');
+    container.innerHTML = expectations.map((e, i) =>
+      `<div class="expectation-row">
+        <select class="expect-type">
+          <option value="container_running" ${e.type === 'container_running' ? 'selected' : ''}>Container Running</option>
+          <option value="container_not_running" ${e.type === 'container_not_running' ? 'selected' : ''}>Container Not Running</option>
+          <option value="log_contains" ${e.type === 'log_contains' ? 'selected' : ''}>Log Contains</option>
+          <option value="http_status" ${e.type === 'http_status' ? 'selected' : ''}>HTTP Status</option>
+        </select>
+        <input class="expect-param" placeholder="value (e.g. 200)" value="${escapeHtml(e.value || '')}">
+        <button class="btn xs ghost remove-expect">✕</button>
+      </div>`
+    ).join('');
+  };
+
+  const addExpectation = () => {
+    expectations.push({ type: 'container_running', value: '' });
+    renderExpectations();
+  };
+
+  document.getElementById('add-expectation').addEventListener('click', addExpectation);
+
+  document.getElementById('expectation-list').addEventListener('click', e => {
+    const btn = e.target.closest('.remove-expect');
+    if (btn) {
+      const row = btn.closest('.expectation-row');
+      const idx = Array.from(row.parentNode.children).indexOf(row);
+      expectations.splice(idx, 1);
+      renderExpectations();
+    }
+  });
+
+  document.getElementById('expectation-list').addEventListener('change', () => readExpectations());
+  document.getElementById('expectation-list').addEventListener('input', () => readExpectations());
+
+  // ── Build Manifest ──
+  const buildManifest = () => {
+    readExpectations();
+    const perturbationSpecs = perturbations.map(p => {
+      const spec = { type: p.type };
+      Object.keys(p.params).forEach(k => {
+        const val = p.params[k];
+        if (val !== '') spec[k] = isNaN(val) ? val : Number(val);
+      });
+      return spec;
     });
-    runResults.style.display = "";
-  } catch (err) {
-    runResultChip.textContent = "ERROR";
-    runResultChip.style.display = "";
-    runResultChip.style.color = "#f87171";
-  } finally {
-    runBtn.disabled = false;
-  }
-});
+    return {
+      test_name: document.getElementById('field-name').value || 'Untitled Test',
+      target: { id: document.getElementById('field-target').value },
+      duration_s: parseInt(document.getElementById('field-duration').value) || 10,
+      perturbations: perturbationSpecs,
+      expectations: expectations.map(e => {
+        const spec = { type: e.type };
+        if (e.value !== '') spec.value = isNaN(e.value) ? e.value : Number(e.value);
+        return spec;
+      }),
+    };
+  };
+
+  // ── Run Flow ──
+  const runScenario = async () => {
+    if (runActive) return;
+    const manifest = buildManifest();
+    const monitorPanel = document.getElementById('monitor-panel');
+    const runBtn = document.getElementById('run-btn');
+    const statusChip = document.getElementById('run-status-chip');
+    const resultsPanel = document.getElementById('results-panel');
+    const resultList = document.getElementById('result-list');
+    const monLogs = document.getElementById('mon-logs');
+    const monProgress = document.getElementById('mon-progress');
+
+    resultsPanel.style.display = 'none';
+    resultList.innerHTML = '';
+    monLogs.textContent = 'Starting scenario...';
+    monProgress.value = 0;
+    statusChip.textContent = 'Pending';
+    statusChip.className = 'chip pending';
+    monitorPanel.style.display = 'flex';
+    runBtn.disabled = true;
+    runActive = true;
+
+    if (eventSource) { eventSource.close(); eventSource = null; }
+
+    try {
+      const res = await fetch('/api/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(manifest),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+
+      statusChip.textContent = 'Running';
+      statusChip.className = 'chip running';
+
+      const duration = manifest.duration_s || 10;
+      const startTime = Date.now();
+
+      eventSource = new EventSource('/events');
+
+      eventSource.addEventListener('state', e => {
+        try {
+          const data = JSON.parse(e.data);
+          document.getElementById('mon-status').textContent = data.status || '--';
+          document.getElementById('mon-cpu').textContent = data.cpu_usage_percent != null ? data.cpu_usage_percent + '%' : '--';
+          document.getElementById('mon-mem').textContent = data.memory_usage_mb != null ? data.memory_usage_mb + ' MB' : '--';
+
+          const elapsed = (Date.now() - startTime) / 1000;
+          const pct = Math.min(Math.round((elapsed / duration) * 100), 99);
+          monProgress.value = pct;
+
+          if (data.recent_logs && data.recent_logs.length) {
+            const logLine = data.recent_logs[data.recent_logs.length - 1];
+            monLogs.textContent += '\n' + logLine;
+            monLogs.scrollTop = monLogs.scrollHeight;
+          }
+        } catch (err) { /* ignore malformed state */ }
+      });
+
+      eventSource.addEventListener('complete', e => {
+        try {
+          const data = JSON.parse(e.data);
+          const passed = data.passed === true;
+          statusChip.textContent = passed ? 'PASS' : 'FAIL';
+          statusChip.className = 'chip ' + (passed ? 'pass' : 'fail');
+          monProgress.value = 100;
+
+          if (data.results && data.results.length) {
+            resultList.innerHTML = data.results.map(r =>
+              `<li class="result-item ${r.passed ? 'pass' : 'fail'}">
+                <span class="result-icon">${r.passed ? '✓' : '✗'}</span>
+                <span class="result-type">${escapeHtml(r.type || '')}</span>
+                <span class="result-msg">${escapeHtml(r.message || '')}</span>
+              </li>`
+            ).join('');
+          }
+          resultsPanel.style.display = 'block';
+          monLogs.textContent += '\n--- Scenario complete ---';
+        } catch (err) { /* ignore malformed complete */ }
+        cleanupRun();
+      });
+
+      eventSource.addEventListener('error', e => {
+        let errorMsg = 'Unknown error';
+        try { const d = JSON.parse(e.data); errorMsg = d.error || errorMsg; } catch (_) {}
+        statusChip.textContent = 'ERROR';
+        statusChip.className = 'chip error';
+        monLogs.textContent += '\n[ERROR] ' + errorMsg;
+        cleanupRun();
+      });
+    } catch (err) {
+      statusChip.textContent = 'ERROR';
+      statusChip.className = 'chip error';
+      monLogs.textContent = '[ERROR] ' + err.message;
+      cleanupRun();
+    }
+  };
+
+  const cleanupRun = () => {
+    runActive = false;
+    document.getElementById('run-btn').disabled = false;
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+  };
+
+  document.getElementById('run-btn').addEventListener('click', runScenario);
+
+  // ── Refresh ──
+  document.getElementById('refresh-targets').addEventListener('click', () => {
+    loadTargets();
+    loadLimits();
+  });
+
+  // ── Helpers ──
+  const escapeHtml = (str) => {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  };
+
+  // ── Init ──
+  loadTargets();
+  loadLimits();
+  addPerturbation();
+})();

@@ -1,11 +1,12 @@
 #include <fmt/format.h>
 #include <gtest/gtest.h>
 
-#include <containers/internal/DockerClient.hpp>
 #include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <string_view>
+
+#include "containers/internal/DockerClient.hpp"
 
 /**
  * @file DockerClientUnitTest.cpp

@@ -6,10 +6,6 @@ add_executable(chaos_e2e_tests
     ManifestE2eTest.cpp
 )
 
-target_include_directories(chaos_e2e_tests PRIVATE
-    ${CMAKE_SOURCE_DIR}/orchestrator/include
-)
-
 target_link_libraries(chaos_e2e_tests PRIVATE
     orchestrator_core
     GTest::gtest_main

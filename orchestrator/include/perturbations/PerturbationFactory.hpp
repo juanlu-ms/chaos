@@ -7,8 +7,8 @@
 
 #include <memory>
 
-#include "manifests/Manifest.hpp"
-#include "perturbations/IPerturbation.hpp"
+#include "../manifests/Manifest.hpp"
+#include "../perturbations/IPerturbation.hpp"
 
 namespace chaos::orchestrator::perturbations {
 

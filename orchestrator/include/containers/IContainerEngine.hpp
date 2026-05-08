@@ -10,9 +10,9 @@
 #include <string_view>
 #include <vector>
 
+#include "../shared/ContainerStatus.hpp"
 #include "Container.hpp"
 #include "SystemInfo.hpp"
-#include "shared/ContainerStatus.hpp"
 
 namespace chaos::orchestrator::containers {
 

@@ -9,8 +9,8 @@
 #include <string>
 #include <string_view>
 
-#include "containers/IContainerEngine.hpp"
-#include "shared/TargetState.hpp"
+#include "../containers/IContainerEngine.hpp"
+#include "../shared/TargetState.hpp"
 
 namespace chaos::orchestrator::observability {
 

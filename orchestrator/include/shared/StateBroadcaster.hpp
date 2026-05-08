@@ -4,7 +4,7 @@
 #include <mutex>
 #include <vector>
 
-#include "shared/TargetState.hpp"
+#include "TargetState.hpp"
 
 namespace chaos::orchestrator::shared {
 

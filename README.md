@@ -103,22 +103,22 @@ chaos/
 For direct CMake control, use these exact commands:
 
 - Build: `cmake --build --preset debug-clang -- -j$(nproc)`
-- Test: `ctest --test-dir build/debug-clang --output-on-failure`
+- Test: `ctest --test-dir build/dev-linux-clang --output-on-failure`
 
 ## Run the Orchestrator (CLI)
 
 After building:
 
-- `./build/debug-clang/orchestrator/chaos help`
-- `./build/debug-clang/orchestrator/chaos list`
-- `./build/debug-clang/orchestrator/chaos stop <container_id>`
-- `./build/debug-clang/orchestrator/chaos kill <container_id>`
+- `./build/dev-linux-clang/orchestrator/chaos help`
+- `./build/dev-linux-clang/orchestrator/chaos list`
+- `./build/dev-linux-clang/orchestrator/chaos stop <container_id>`
+- `./build/dev-linux-clang/orchestrator/chaos kill <container_id>`
 
 ## Run the Web UI
 
 Start the server:
 
-- `./build/debug-clang/orchestrator/chaos serve --port 8080`
+- `./build/dev-linux-clang/orchestrator/chaos serve --port 8080`
 
 Then open:
 
@@ -128,7 +128,7 @@ Then open:
 
 Launch the interactive terminal UI:
 
-- `./build/debug-clang/orchestrator/chaos tui`
+- `./build/dev-linux-clang/orchestrator/chaos tui`
 
 ## Testing Strategy
 
@@ -142,6 +142,6 @@ Launch the interactive terminal UI:
 
 ## Project Roadmap
 
-CHAOS is under active development to expand its SRE capabilities, moving towards advanced network fault injection, in-container PID 1 orchestration, and modern C++20 concurrency models. 
+CHAOS is under active development to expand its SRE capabilities, moving towards advanced network fault injection, in-container PID 1 orchestration, and modern C++23 concurrency models. 
 
 > **Vision & Next Steps:** To explore our planned features, architectural evolutions, and upcoming technical milestones, please review the [CHAOS Project Roadmap](ROADMAP.md).

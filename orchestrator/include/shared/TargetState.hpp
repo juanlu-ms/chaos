@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "shared/ContainerStatus.hpp"
+#include "ContainerStatus.hpp"
 
 namespace chaos::orchestrator::shared {
 

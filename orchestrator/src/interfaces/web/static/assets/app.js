@@ -12,8 +12,17 @@
     { type: 'memory_cap', label: 'Memory Cap', params: [{ key: 'limit_bytes', label: 'Limit (bytes)', placeholder: '268435456' }] },
     { type: 'cpu_cap', label: 'CPU Cap', params: [{ key: 'cpu_cores', label: 'CPU Cores', placeholder: '1' }] },
     { type: 'network_delay', label: 'Network Delay', params: [{ key: 'delay_ms', label: 'Delay (ms)', placeholder: '1000' }] },
-    { type: 'network_cutoff', label: 'Network Cutoff', params: [] },
-    { type: 'garbage_packet', label: 'Garbage Packet', params: [] },
+    { type: 'network_cutoff', label: 'Network Cutoff', params: [
+      { key: 'dst_ip', label: 'Dest IP', placeholder: '(optional) target IP' },
+      { key: 'dst_port', label: 'Dest Port', placeholder: '(optional) target port' },
+      { key: 'src_port', label: 'Source Port', placeholder: '(optional) source port' },
+    ]},
+    { type: 'garbage_packet', label: 'Garbage Packet', params: [
+      { key: 'corrupt_pct', label: 'Corrupt %', placeholder: '(optional) e.g. 25' },
+      { key: 'loss_pct', label: 'Loss %', placeholder: '(optional) e.g. 10' },
+      { key: 'duplicate_pct', label: 'Duplicate %', placeholder: '(optional) e.g. 5' },
+      { key: 'iface', label: 'Interface', placeholder: 'eth0' },
+    ]},
   ];
 
   // ── Navigation ──
@@ -144,22 +153,21 @@
     if (inp) updatePerturbationParam(parseInt(inp.dataset.idx), inp.dataset.key, inp.value);
   });
 
-  const EXPECTATION_PARAM_KEYS = {
-    container_running: null,
-    container_not_running: null,
-    log_contains: 'substring',
-    log_not_contains: 'substring',
-    http_status: 'expected_status',
-    http_latency: 'max_latency_ms',
-  };
-
-  const EXPECTATION_PARAM_PLACEHOLDERS = {
-    container_running: null,
-    container_not_running: null,
-    log_contains: 'substring to find',
-    log_not_contains: 'substring to exclude',
-    http_status: 'expected HTTP status (e.g. 200)',
-    http_latency: 'max latency in ms',
+  const EXPECTATION_PARAMS = {
+    container_running: [],
+    container_not_running: [],
+    log_contains: [{ key: 'substring', placeholder: 'text to find in logs' }],
+    log_not_contains: [{ key: 'substring', placeholder: 'text that must not appear' }],
+    http_status: [
+      { key: 'port', placeholder: '8000' },
+      { key: 'path', placeholder: '/ping' },
+      { key: 'expected_status', placeholder: '200' },
+    ],
+    http_latency: [
+      { key: 'port', placeholder: '8000' },
+      { key: 'path', placeholder: '/ping' },
+      { key: 'max_latency_ms', placeholder: '1000' },
+    ],
   };
 
   // ── Expectation Management ──
@@ -168,12 +176,12 @@
     expectations = [];
     rows.forEach(row => {
       const typeEl = row.querySelector('.expect-type');
-      const paramEl = row.querySelector('.expect-param');
       if (typeEl) {
         const type = typeEl.value;
-        const key = EXPECTATION_PARAM_KEYS[type];
         const params = {};
-        if (key && paramEl && paramEl.value !== '') params[key] = paramEl.value;
+        row.querySelectorAll('.expect-param').forEach(inp => {
+          if (inp.value !== '') params[inp.dataset.key] = inp.value;
+        });
         expectations.push({ type, parameters: params });
       }
     });
@@ -182,9 +190,11 @@
   const renderExpectations = () => {
     const container = document.getElementById('expectation-list');
     container.innerHTML = expectations.map((e, i) => {
-      const key = EXPECTATION_PARAM_KEYS[e.type];
-      const placeholder = EXPECTATION_PARAM_PLACEHOLDERS[e.type] || 'value';
-      const paramVal = key && e.parameters ? (e.parameters[key] || '') : '';
+      const paramDefs = EXPECTATION_PARAMS[e.type] || [];
+      const paramHtml = paramDefs.map(pd => {
+        const val = (e.parameters && e.parameters[pd.key]) || '';
+        return `<input class="expect-param" data-key="${pd.key}" placeholder="${escapeHtml(pd.placeholder)}" value="${escapeHtml(val)}">`;
+      }).join(' ');
       return `<div class="expectation-row">
         <select class="expect-type" data-idx="${i}">
           <option value="container_running" ${e.type === 'container_running' ? 'selected' : ''}>Container Running</option>
@@ -194,7 +204,7 @@
           <option value="http_status" ${e.type === 'http_status' ? 'selected' : ''}>HTTP Status</option>
           <option value="http_latency" ${e.type === 'http_latency' ? 'selected' : ''}>HTTP Latency</option>
         </select>
-        ${key ? `<input class="expect-param" placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(paramVal)}">` : ''}
+        ${paramHtml}
         <button class="btn xs ghost remove-expect">✕</button>
       </div>`;
     }).join('');

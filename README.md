@@ -122,6 +122,8 @@ chaos/
 For direct CMake control, use these exact commands:
 
 - Build the C++ orchestrator: `cmake --build --preset debug-clang -- -j$(nproc)`
+- Build the Web UI (required before C++ build, or whenever frontend changes): `cd frontend && bun install && bun run build`
+- Full build (frontend + C++): `cd frontend && bun install && bun run build && cd .. && cmake --build --preset debug-clang -- -j$(nproc)`
 - Test: `ctest --test-dir build/dev-linux-clang --output-on-failure`
 - Build the Web UI: see [Build the Web UI](#build-the-web-ui) below
 

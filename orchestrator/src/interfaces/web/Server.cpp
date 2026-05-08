@@ -196,7 +196,7 @@ void Server::setupRoutes() {
 
     m_server.Post("/api/run", [this](const httplib::Request& req, httplib::Response& res) { handleRun(req, res); });
 
-    m_server.Post(R"(/api/run/([^/]+)/abort)",
+    m_server.Post("/api/run/abort",
                   [this](const httplib::Request& req, httplib::Response& res) { handleAbort(req, res); });
 
     m_server.Get("/events", [this](const httplib::Request& req, httplib::Response& res) { handleEvents(req, res); });
@@ -374,6 +374,7 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
 
                 {
                     std::lock_guard<std::mutex> lock(session->mtx);
+                    if (!session->running) return;
                     session->results = j;
                     session->running = false;
                     session->complete = true;
@@ -382,6 +383,7 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
             } catch (const std::exception& ex) {
                 {
                     std::lock_guard<std::mutex> lock(session->mtx);
+                    if (!session->running) return;
                     session->error = ex.what();
                     session->running = false;
                     session->complete = true;
@@ -467,17 +469,24 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& res) {
 }
 
 void Server::handleAbort(const httplib::Request&, httplib::Response& res) {
-    std::lock_guard lock(session_mutex_);
-    if (!m_session || !m_session->running) {
-        json j = {{"error", "No active run to abort"}};
-        res.status = 404;
-        res.set_content(j.dump(4), "application/json");
-        return;
+    std::shared_ptr<RunSession> session;
+    {
+        std::lock_guard<std::mutex> lock(session_mutex_);
+        if (!m_session || !m_session->running) {
+            json j = {{"error", "No active run to abort"}};
+            res.status = 409;
+            res.set_content(j.dump(4), "application/json");
+            return;
+        }
+        session = m_session;
     }
-    m_session->error = "Aborted by user";
-    m_session->complete = true;
-    m_session->running = false;
-    m_session->cv.notify_all();
+    {
+        std::lock_guard<std::mutex> lock(session->mtx);
+        session->error = "Aborted by user";
+        session->complete = true;
+        session->running = false;
+    }
+    session->cv.notify_all();
     json j = {{"status", "aborted"}};
     res.set_content(j.dump(4), "application/json");
 }

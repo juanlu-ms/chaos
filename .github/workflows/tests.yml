@@ -31,7 +31,7 @@ jobs:
       - name: Install clang-format v22 (match dev environment)
         run: |
           wget -qO- https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.3/LLVM-22.1.3-Linux-X64.tar.xz \
-            | sudo tar -xJ --strip-components=1 -C /usr/local/bin/ '*/bin/clang-format'
+            | sudo tar -xJ --strip-components=1 -C /usr/local/ --wildcards '*/bin/clang-format'
 
       - name: Get vcpkg submodule commit
         id: vcpkg-commit

@@ -56,6 +56,7 @@ CHAOS uses a hybrid architecture:
 
 - Top-level separation by deployable component:
     - `orchestrator/`: host binary (CLI/Web) and orchestration logic.
+    - `frontend/`: Vite + pnpm project for the Web UI (builds to `orchestrator/src/interfaces/web/static/`).
     - `wrapper/`: in-container agent (`PID 1`) for process supervision and telemetry handoff.
 - Inside `orchestrator/`, public contracts live in `include/` and implementation details stay in `src/`.
 - Ownership is organized by responsibility (interfaces, containers, manifests, perturbations, observability).
@@ -67,6 +68,13 @@ chaos/
 ├── CMakeLists.txt
 ├── CMakePresets.json
 ├── vcpkg.json
+├── frontend/                   # Vite + pnpm Web UI project
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.js
+│   └── src/
+│       ├── main.js
+│       └── style.css
 ├── orchestrator/
 │   ├── CMakeLists.txt
 │   ├── include/
@@ -125,6 +133,18 @@ After building:
 - `./build/dev-linux-clang/orchestrator/chaos stop <container_id>`
 - `./build/dev-linux-clang/orchestrator/chaos kill <container_id>`
 
+## Build the Web UI
+
+The Web UI is a Vite + pnpm project in `frontend/`:
+
+```bash
+cd frontend
+pnpm install
+pnpm run build    # outputs to orchestrator/src/interfaces/web/static/
+```
+
+During development, use `pnpm run dev` for hot module reload at `http://localhost:5173`.
+
 ## Run the Web UI
 
 Start the server:
@@ -138,7 +158,7 @@ Then open:
 The Web UI has a 3-step flow:
 
 1. **Configure** — select target, set duration, add perturbations with parameters, configure expectations, click "Run Chaos Test"
-2. **Monitor** — watch live Canvas bar charts (CPU, Memory, Network I/O), container info, and logs update in real time via SSE. Click **Abort** to stop
+2. **Monitor** — watch live ECharts line charts (CPU, Memory, Network I/O), container info, and logs update in real time via SSE. Click **Abort** to stop
 3. **Results** — see summary stats, timeline charts with Normal/Chaos/Recovery color zones, expectation results, and run logs. Click **Run Again** or **Modify Manifest**
 
 Switch themes (Amber / Dark / Cyber) from the topbar dropdown. Your preference is saved to localStorage.

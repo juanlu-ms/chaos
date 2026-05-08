@@ -7,6 +7,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/event.hpp>
@@ -91,6 +92,22 @@ void refresh_containers(const std::shared_ptr<containers::IContainerEngine>& eng
     post_refresh(screen);
 }
 
+ftxui::Element render_container_list(const std::vector<std::string>& labels, int selected) {
+    using namespace ftxui;
+    Elements elems;
+    if (labels.empty()) {
+        elems.push_back(text("  (no containers)") | dim);
+    } else {
+        for (int i = 0; i < static_cast<int>(labels.size()); ++i) {
+            auto prefix = (i == selected) ? text(" > ") | bold : text("   ");
+            auto line = text(labels[static_cast<std::size_t>(i)]);
+            if (i == selected) line = line | bold | inverted;
+            elems.push_back(hbox({prefix, line}));
+        }
+    }
+    return vbox(std::move(elems)) | vscroll_indicator | frame | flex;
+}
+
 ftxui::Element render_dashboard(SharedState& state) {
     using namespace ftxui;
 
@@ -104,19 +121,7 @@ ftxui::Element render_dashboard(SharedState& state) {
         latest = state.latest_state;
     }
 
-    Elements container_elems;
-    if (labels.empty()) {
-        container_elems.push_back(text("  (no containers)") | dim);
-    } else {
-        for (int i = 0; i < static_cast<int>(labels.size()); ++i) {
-            auto prefix = (i == selected) ? text(" > ") | bold : text("   ");
-            auto line = text(labels[static_cast<std::size_t>(i)]);
-            if (i == selected) {
-                line = line | bold | inverted;
-            }
-            container_elems.push_back(hbox({prefix, line}));
-        }
-    }
+    auto container_elems = render_container_list(labels, selected);
 
     Elements right_elems;
     right_elems.push_back(text(" Target State") | bold);
@@ -187,24 +192,17 @@ ftxui::Element render_wizard(SharedState& state) {
 
     switch (step) {
         case 0: {
-            std::lock_guard lock(state.mtx);
-            Elements elems;
-            if (state.container_labels.empty()) {
-                elems.push_back(text("  (no containers)") | dim);
-            } else {
-                for (int i = 0; i < static_cast<int>(state.container_labels.size()); ++i) {
-                    auto prefix = (i == state.selected_target) ? text(" > ") | bold : text("   ");
-                    auto line = text(state.container_labels[static_cast<std::size_t>(i)]);
-                    if (i == state.selected_target) {
-                        line = line | bold | inverted;
-                    }
-                    elems.push_back(hbox({prefix, line}));
-                }
+            std::vector<std::string> labels;
+            int sel = 0;
+            {
+                std::lock_guard lock(state.mtx);
+                labels = state.container_labels;
+                sel = state.selected_target;
             }
             content = vbox({
                           text(" Select Target Container") | bold,
                           separator(),
-                          vbox(std::move(elems)) | vscroll_indicator | frame | flex,
+                          render_container_list(labels, sel),
                           separator(),
                           text(" arrow keys to navigate, Enter to confirm ") | dim,
                       }) |

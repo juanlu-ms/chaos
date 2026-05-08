@@ -1,7 +1,4 @@
-/// @file CpuCapPerturbation.cpp
-/// @brief Implements CPU throttling via Docker Update API.
-
-#include "perturbations/CpuCapPerturbation.hpp"
+#include "CpuCapPerturbation.hpp"
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>

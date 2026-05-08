@@ -6,13 +6,13 @@
 #include "MockContainerEngine.hpp"
 #include "containers/SystemInfo.hpp"
 #include "manifests/Manifest.hpp"
-#include "perturbations/CpuCapPerturbation.hpp"
-#include "perturbations/GarbagePacketPerturbation.hpp"
-#include "perturbations/KillPerturbation.hpp"
-#include "perturbations/MemoryCapPerturbation.hpp"
-#include "perturbations/NetworkCutoffPerturbation.hpp"
-#include "perturbations/NetworkDelayPerturbation.hpp"
 #include "perturbations/PerturbationFactory.hpp"
+#include "perturbations/internal/CpuCapPerturbation.hpp"
+#include "perturbations/internal/GarbagePacketPerturbation.hpp"
+#include "perturbations/internal/KillPerturbation.hpp"
+#include "perturbations/internal/MemoryCapPerturbation.hpp"
+#include "perturbations/internal/NetworkCutoffPerturbation.hpp"
+#include "perturbations/internal/NetworkDelayPerturbation.hpp"
 
 /**
  * @file PerturbationTests.cpp

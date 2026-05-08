@@ -1,7 +1,4 @@
-/// @file NetworkDelayPerturbation.cpp
-/// @brief Implements network delay via tc netem inside the container using IContainerEngine::exec.
-
-#include "perturbations/NetworkDelayPerturbation.hpp"
+#include "NetworkDelayPerturbation.hpp"
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>

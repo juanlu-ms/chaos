@@ -1,7 +1,4 @@
-/// @file GarbagePacketPerturbation.cpp
-/// @brief Implements garbage packet injection via tc netem executed inside the container.
-
-#include "perturbations/GarbagePacketPerturbation.hpp"
+#include "GarbagePacketPerturbation.hpp"
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>

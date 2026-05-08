@@ -1,7 +1,4 @@
-/// @file MemoryCapPerturbation.cpp
-/// @brief Implements memory limiting via Docker Update API.
-
-#include "perturbations/MemoryCapPerturbation.hpp"
+#include "MemoryCapPerturbation.hpp"
 
 #include <spdlog/spdlog.h>
 

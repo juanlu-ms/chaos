@@ -1,7 +1,4 @@
-/// @file NetworkCutoffPerturbation.cpp
-/// @brief Implements network cutoff via iptables rules executed inside the container.
-
-#include "perturbations/NetworkCutoffPerturbation.hpp"
+#include "NetworkCutoffPerturbation.hpp"
 
 #include <spdlog/spdlog.h>
 

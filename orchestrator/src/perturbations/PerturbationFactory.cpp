@@ -3,12 +3,12 @@
 #include <stdexcept>
 #include <utility>
 
-#include "perturbations/CpuCapPerturbation.hpp"
-#include "perturbations/GarbagePacketPerturbation.hpp"
-#include "perturbations/KillPerturbation.hpp"
-#include "perturbations/MemoryCapPerturbation.hpp"
-#include "perturbations/NetworkCutoffPerturbation.hpp"
-#include "perturbations/NetworkDelayPerturbation.hpp"
+#include "internal/CpuCapPerturbation.hpp"
+#include "internal/GarbagePacketPerturbation.hpp"
+#include "internal/KillPerturbation.hpp"
+#include "internal/MemoryCapPerturbation.hpp"
+#include "internal/NetworkCutoffPerturbation.hpp"
+#include "internal/NetworkDelayPerturbation.hpp"
 
 namespace chaos::orchestrator::perturbations {
 

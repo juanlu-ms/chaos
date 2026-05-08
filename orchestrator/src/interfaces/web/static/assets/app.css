@@ -215,10 +215,12 @@ body {
   background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 6px 8px;
+  padding: 5px 6px;
   color: var(--text-primary);
   font-family: var(--font);
   font-size: 12px;
+  height: 28px;
+  box-sizing: border-box;
 }
 
 .perturbation-row select:focus,
@@ -229,7 +231,8 @@ body {
   border-color: var(--accent);
 }
 
-.pert-type-group { flex: 0 0 150px; }
+.pert-type-group { flex: 0 0 140px; min-width: 0; }
+.pert-type-group select { min-width: 0; width: 100%; }
 .field-group {
   display: flex;
   flex-direction: column;
@@ -242,8 +245,6 @@ body {
   color: var(--text-dim);
   white-space: nowrap;
 }
-.field-label {
-  font-size: 0.65rem;
   color: var(--text-dim);
   white-space: nowrap;
 }

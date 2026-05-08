@@ -497,7 +497,14 @@ double DockerClient::getContainerCpuUsage(const std::string_view containerId) co
         jsonResponse["cpu_stats"]["cpu_usage"].contains("total_usage") &&
         jsonResponse["cpu_stats"]["cpu_usage"]["total_usage"].is_number() &&
         jsonResponse["cpu_stats"].contains("system_cpu_usage") &&
-        jsonResponse["cpu_stats"]["system_cpu_usage"].is_number()) {
+        jsonResponse["cpu_stats"]["system_cpu_usage"].is_number() && jsonResponse.contains("precpu_stats") &&
+        jsonResponse["precpu_stats"].is_object() && jsonResponse["precpu_stats"].contains("cpu_usage") &&
+        jsonResponse["precpu_stats"]["cpu_usage"].is_object() &&
+        jsonResponse["precpu_stats"]["cpu_usage"].contains("total_usage") &&
+        jsonResponse["precpu_stats"]["cpu_usage"]["total_usage"].is_number() &&
+        jsonResponse["precpu_stats"].contains("system_cpu_usage") &&
+        jsonResponse["precpu_stats"]["system_cpu_usage"].is_number() &&
+        jsonResponse["cpu_stats"].contains("online_cpus") && jsonResponse["cpu_stats"]["online_cpus"].is_number()) {
         const auto cpu_delta = static_cast<int64_t>(jsonResponse["cpu_stats"]["cpu_usage"]["total_usage"]) -
                                static_cast<int64_t>(jsonResponse["precpu_stats"]["cpu_usage"]["total_usage"]);
         const auto system_cpu_delta = static_cast<int64_t>(jsonResponse["cpu_stats"]["system_cpu_usage"]) -

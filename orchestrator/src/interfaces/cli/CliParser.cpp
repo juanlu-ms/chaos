@@ -1,9 +1,10 @@
+#include "interfaces/cli/CliParser.hpp"
+
 #include <spdlog/spdlog.h>
 
+#include <atomic>
 #include <chrono>
 #include <csignal>
-#include <interfaces/cli/CliParser.hpp>
-#include <interfaces/web/Server.hpp>
 #include <memory>
 #include <span>
 #include <string>
@@ -14,6 +15,7 @@
 #include <vector>
 
 #include "interfaces/tui/TuiApp.hpp"
+#include "interfaces/web/Server.hpp"
 #include "manifests/ManifestParser.hpp"
 #include "observability/ObservabilityEngine.hpp"
 #include "perturbations/PerturbationEngine.hpp"
@@ -31,7 +33,7 @@ namespace {
     return command == "help" || command == "--help" || command == "-h";
 }
 
-volatile std::sig_atomic_t g_interrupt_requested = 0;
+std::atomic<std::sig_atomic_t> g_interrupt_requested{0};
 
 using SignalHandler = void (*)(int);
 
@@ -325,7 +327,7 @@ bool CliParser::validateExpectations(const manifests::ChaosManifest& manifest,
     }
 
     SPDLOG_INFO("Evaluating {} expectation(s)...", manifest.expectations.size());
-    const auto results = validation::ValidationEngine::validate(finalState, manifest.expectations);
+    const auto results = validation::validate(finalState, manifest.expectations);
 
     for (const auto& result : results) {
         if (!result.passed) {

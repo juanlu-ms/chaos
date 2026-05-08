@@ -8,12 +8,12 @@
   let runActive = false;
 
   const PERTURBATION_TYPES = [
-    { type: 'kill', label: 'Kill', params: [{ key: 'signal', label: 'Signal', placeholder: 'SIGKILL' }] },
-    { type: 'memory_cap', label: 'Memory Cap', params: [{ key: 'limit_mb', label: 'Limit (MB)', placeholder: '64' }] },
-    { type: 'cpu_cap', label: 'CPU Cap', params: [{ key: 'percent', label: 'Percent', placeholder: '50' }] },
+    { type: 'kill', label: 'Kill', params: [] },
+    { type: 'memory_cap', label: 'Memory Cap', params: [{ key: 'limit_bytes', label: 'Limit (bytes)', placeholder: '268435456' }] },
+    { type: 'cpu_cap', label: 'CPU Cap', params: [{ key: 'cpu_cores', label: 'CPU Cores', placeholder: '1' }] },
     { type: 'network_delay', label: 'Network Delay', params: [{ key: 'delay_ms', label: 'Delay (ms)', placeholder: '1000' }] },
     { type: 'network_cutoff', label: 'Network Cutoff', params: [] },
-    { type: 'garbage_packet', label: 'Garbage Packet', params: [{ key: 'count', label: 'Count', placeholder: '10' }] },
+    { type: 'garbage_packet', label: 'Garbage Packet', params: [] },
   ];
 
   // ── Navigation ──
@@ -141,6 +141,24 @@
     if (inp) updatePerturbationParam(parseInt(inp.dataset.idx), inp.dataset.key, inp.value);
   });
 
+  const EXPECTATION_PARAM_KEYS = {
+    container_running: null,
+    container_not_running: null,
+    log_contains: 'substring',
+    log_not_contains: 'substring',
+    http_status: 'expected_status',
+    http_latency: 'max_latency_ms',
+  };
+
+  const EXPECTATION_PARAM_PLACEHOLDERS = {
+    container_running: null,
+    container_not_running: null,
+    log_contains: 'substring to find',
+    log_not_contains: 'substring to exclude',
+    http_status: 'expected HTTP status (e.g. 200)',
+    http_latency: 'max latency in ms',
+  };
+
   // ── Expectation Management ──
   const readExpectations = () => {
     const rows = document.querySelectorAll('#expectation-list .expectation-row');
@@ -148,30 +166,39 @@
     rows.forEach(row => {
       const typeEl = row.querySelector('.expect-type');
       const paramEl = row.querySelector('.expect-param');
-      if (typeEl && paramEl) {
-        expectations.push({ type: typeEl.value, value: paramEl.value });
+      if (typeEl) {
+        const type = typeEl.value;
+        const key = EXPECTATION_PARAM_KEYS[type];
+        const params = {};
+        if (key && paramEl && paramEl.value !== '') params[key] = paramEl.value;
+        expectations.push({ type, parameters: params });
       }
     });
   };
 
   const renderExpectations = () => {
     const container = document.getElementById('expectation-list');
-    container.innerHTML = expectations.map((e, i) =>
-      `<div class="expectation-row">
-        <select class="expect-type">
+    container.innerHTML = expectations.map((e, i) => {
+      const key = EXPECTATION_PARAM_KEYS[e.type];
+      const placeholder = EXPECTATION_PARAM_PLACEHOLDERS[e.type] || 'value';
+      const paramVal = key && e.parameters ? (e.parameters[key] || '') : '';
+      return `<div class="expectation-row">
+        <select class="expect-type" data-idx="${i}">
           <option value="container_running" ${e.type === 'container_running' ? 'selected' : ''}>Container Running</option>
           <option value="container_not_running" ${e.type === 'container_not_running' ? 'selected' : ''}>Container Not Running</option>
           <option value="log_contains" ${e.type === 'log_contains' ? 'selected' : ''}>Log Contains</option>
+          <option value="log_not_contains" ${e.type === 'log_not_contains' ? 'selected' : ''}>Log Not Contains</option>
           <option value="http_status" ${e.type === 'http_status' ? 'selected' : ''}>HTTP Status</option>
+          <option value="http_latency" ${e.type === 'http_latency' ? 'selected' : ''}>HTTP Latency</option>
         </select>
-        <input class="expect-param" placeholder="value (e.g. 200)" value="${escapeHtml(e.value || '')}">
+        ${key ? `<input class="expect-param" placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(paramVal)}">` : ''}
         <button class="btn xs ghost remove-expect">✕</button>
-      </div>`
-    ).join('');
+      </div>`;
+    }).join('');
   };
 
   const addExpectation = () => {
-    expectations.push({ type: 'container_running', value: '' });
+    expectations.push({ type: 'container_running', parameters: {} });
     renderExpectations();
   };
 
@@ -181,25 +208,34 @@
     const btn = e.target.closest('.remove-expect');
     if (btn) {
       const row = btn.closest('.expectation-row');
-      const idx = Array.from(row.parentNode.children).indexOf(row);
+      const sel = row.querySelector('.expect-type');
+      const idx = parseInt(sel.dataset.idx);
       expectations.splice(idx, 1);
       renderExpectations();
     }
   });
 
-  document.getElementById('expectation-list').addEventListener('change', () => readExpectations());
+  document.getElementById('expectation-list').addEventListener('change', e => {
+    const sel = e.target.closest('.expect-type');
+    if (sel) {
+      const idx = parseInt(sel.dataset.idx);
+      expectations[idx].type = sel.value;
+      expectations[idx].parameters = {};
+      renderExpectations();
+    }
+  });
   document.getElementById('expectation-list').addEventListener('input', () => readExpectations());
 
   // ── Build Manifest ──
   const buildManifest = () => {
     readExpectations();
     const perturbationSpecs = perturbations.map(p => {
-      const spec = { type: p.type };
+      const params = {};
       Object.keys(p.params).forEach(k => {
         const val = p.params[k];
-        if (val !== '') spec[k] = isNaN(val) ? val : Number(val);
+        if (val !== '') params[k] = val;
       });
-      return spec;
+      return { type: p.type, parameters: params };
     });
     return {
       test_name: document.getElementById('field-name').value || 'Untitled Test',
@@ -207,9 +243,7 @@
       duration_s: parseInt(document.getElementById('field-duration').value, 10) || 10,
       perturbations: perturbationSpecs,
       expectations: expectations.map(e => {
-        const spec = { type: e.type };
-        if (e.value !== '') spec.value = isNaN(e.value) ? e.value : Number(e.value);
-        return spec;
+        return { type: e.type, parameters: e.parameters || {} };
       }),
     };
   };
@@ -351,4 +385,5 @@
   loadTargets();
   loadLimits();
   addPerturbation();
+  addExpectation();
 })();

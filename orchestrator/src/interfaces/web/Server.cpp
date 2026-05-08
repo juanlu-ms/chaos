@@ -2,6 +2,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <nlohmann/json.hpp>
@@ -23,6 +24,31 @@ using json = nlohmann::json;
 namespace chaos::orchestrator::interfaces::web {
 
 namespace {
+
+json stateToJson(const shared::TargetState& s) {
+    json j;
+    j["container_id"] = s.container_id;
+    j["status"] = shared::toString(s.status);
+    if (s.cpu_usage_percent) j["cpu_usage_percent"] = *s.cpu_usage_percent;
+    if (s.memory_usage_mb) j["memory_usage_mb"] = *s.memory_usage_mb;
+    if (s.container_ip) j["container_ip"] = *s.container_ip;
+    j["recent_logs"] = s.recent_logs;
+    return j;
+}
+
+json limitsToJson(const containers::SystemInfo& info) {
+    json j;
+    j["cpu_cores"] = std::thread::hardware_concurrency();
+    auto memoryTotalMb = static_cast<uint64_t>(info.memTotal / (1024 * 1024));
+    j["memory_total_mb"] = memoryTotalMb;
+    j["perturbation_limits"] = {
+        {"cpu_cap", {{"min_percent", 1}, {"max_percent", 100}}},
+        {"memory_cap", {{"min_mb", 1}, {"max_mb", memoryTotalMb}}},
+        {"network_delay", {{"min_ms", 0}, {"max_ms", 30000}}},
+    };
+    return j;
+}
+
 std::optional<std::filesystem::path> findWebRoot() {
     std::vector<std::filesystem::path> candidates = {
         "orchestrator/src/interfaces/web/static",
@@ -158,6 +184,20 @@ void Server::setupRoutes() {
         }
     });
 
+    // --- New API endpoints ---
+
+    m_server.Get("/api/targets",
+                 [this](const httplib::Request& req, httplib::Response& res) { handleTargets(req, res); });
+
+    m_server.Get("/api/limits",
+                 [this](const httplib::Request& req, httplib::Response& res) { handleLimits(req, res); });
+
+    m_server.Post("/api/run", [this](const httplib::Request& req, httplib::Response& res) { handleRun(req, res); });
+
+    m_server.Get("/events", [this](const httplib::Request& req, httplib::Response& res) { handleEvents(req, res); });
+
+    // --- Legacy synchronous POST /run (unchanged) ---
+
     m_server.Post("/run", [this](const httplib::Request& req, httplib::Response& res) {
         if (req.body.empty()) {
             res.status = 400;
@@ -224,6 +264,183 @@ void Server::setupRoutes() {
             SPDLOG_ERROR("/run failed: {}", ex.what());
         }
     });
+}
+
+void Server::handleTargets(const httplib::Request&, httplib::Response& res) {
+    try {
+        auto containers = m_engine->listContainers();
+        json j = json::array();
+        for (const auto& c : containers) {
+            j.push_back({{"id", c.id}, {"name", c.name}, {"state", c.state}});
+        }
+        res.set_content(j.dump(4), "application/json");
+        SPDLOG_INFO("/api/targets served: {} items", containers.size());
+    } catch (const std::exception& ex) {
+        json err;
+        err["error"] = "Failed to list containers";
+        res.status = 500;
+        res.set_content(err.dump(4), "application/json");
+        SPDLOG_ERROR("/api/targets failed: {}", ex.what());
+    }
+}
+
+void Server::handleLimits(const httplib::Request&, httplib::Response& res) {
+    try {
+        auto info = m_engine->getSystemInfo();
+        json j = limitsToJson(info);
+        res.set_content(j.dump(4), "application/json");
+        SPDLOG_INFO("/api/limits served");
+    } catch (const std::exception& ex) {
+        json err;
+        err["error"] = "Failed to get system info";
+        res.status = 500;
+        res.set_content(err.dump(4), "application/json");
+        SPDLOG_ERROR("/api/limits failed: {}", ex.what());
+    }
+}
+
+void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
+    if (req.body.empty()) {
+        res.status = 400;
+        json err;
+        err["error"] = "Empty request body";
+        res.set_content(err.dump(4), "application/json");
+        return;
+    }
+
+    try {
+        auto manifest = manifests::ManifestParser::parseFromJson(req.body);
+        SPDLOG_INFO("Executing manifest '{}' against target '{}' (async)", manifest.test_name, manifest.target.id);
+
+        auto session = std::make_shared<RunSession>();
+        m_session = session;
+        session->running = true;
+
+        std::thread([this, session, manifest = std::move(manifest)]() {
+            try {
+                perturbations::PerturbationFactory factory;
+                std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbation_instances;
+                for (const auto& spec : manifest.perturbations) {
+                    perturbation_instances.push_back(factory.create(m_engine, manifest.target, spec));
+                }
+
+                perturbations::PerturbationEngine pert_engine;
+                const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
+                pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration);
+
+                observability::ObservabilityEngine obs(m_engine);
+                shared::TargetState lastKnownState;
+
+                if (duration.count() > 0) {
+                    SPDLOG_INFO("Injecting faults for {}s. Monitoring real-time state...", duration.count());
+                    auto start_time = std::chrono::steady_clock::now();
+                    while (std::chrono::steady_clock::now() - start_time < duration) {
+                        lastKnownState = obs.observe(manifest.target.id);
+                        {
+                            std::lock_guard<std::mutex> lock(session->mtx);
+                            session->latest = lastKnownState;
+                        }
+                        session->cv.notify_all();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                    }
+                } else {
+                    lastKnownState = obs.observe(manifest.target.id);
+                    {
+                        std::lock_guard<std::mutex> lock(session->mtx);
+                        session->latest = lastKnownState;
+                    }
+                    session->cv.notify_all();
+                }
+
+                pert_engine.waitForTeardown();
+
+                const auto results = validation::validate(lastKnownState, manifest.expectations);
+
+                bool passed = std::ranges::all_of(results, [](const auto& r) { return r.passed; });
+                json j;
+                j["passed"] = passed;
+                j["results"] = json::array();
+                for (const auto& r : results) {
+                    j["results"].push_back({{"type", r.expectationType}, {"passed", r.passed}, {"message", r.message}});
+                }
+
+                {
+                    std::lock_guard<std::mutex> lock(session->mtx);
+                    session->results = j;
+                    session->complete = true;
+                }
+                session->cv.notify_all();
+            } catch (const std::exception& ex) {
+                {
+                    std::lock_guard<std::mutex> lock(session->mtx);
+                    session->error = ex.what();
+                    session->complete = true;
+                }
+                session->cv.notify_all();
+                SPDLOG_ERROR("/api/run async failed: {}", ex.what());
+            }
+        }).detach();
+
+        json resp;
+        resp["status"] = "started";
+        res.status = 202;
+        res.set_content(resp.dump(4), "application/json");
+        SPDLOG_INFO("/api/run started async execution for '{}'", manifest.test_name);
+
+    } catch (const manifests::ManifestParserError& ex) {
+        res.status = 400;
+        json err;
+        err["error"] = "Invalid manifest";
+        res.set_content(err.dump(4), "application/json");
+        SPDLOG_ERROR("/api/run manifest parse failed: {}", ex.what());
+    } catch (const std::exception& ex) {
+        res.status = 500;
+        json err;
+        err["error"] = "Internal server error";
+        res.set_content(err.dump(4), "application/json");
+        SPDLOG_ERROR("/api/run failed: {}", ex.what());
+    }
+}
+
+void Server::handleEvents(const httplib::Request&, httplib::Response& res) {
+    res.set_header("Cache-Control", "no-store");
+    res.set_header("Connection", "keep-alive");
+
+    auto session = m_session;
+
+    res.set_chunked_content_provider(
+        "text/event-stream", [session](size_t /*offset*/, httplib::DataSink& sink) -> bool {
+            if (!session) {
+                if (!sink.write("event: error\ndata: {\"error\":\"No active run\"}\n\n", 47)) {
+                    return false;
+                }
+                sink.done();
+                return false;
+            }
+
+            std::unique_lock<std::mutex> lock(session->mtx);
+            session->cv.wait(lock, [session]() { return session->latest.has_value() || session->complete; });
+
+            if (session->latest.has_value()) {
+                auto j = stateToJson(*session->latest);
+                std::string data = "event: state\ndata: " + j.dump() + "\n\n";
+                if (!sink.write(data.data(), data.size())) {
+                    return false;
+                }
+                session->latest.reset();
+            }
+
+            if (session->complete) {
+                std::string data = "event: complete\ndata: " + session->results.dump() + "\n\n";
+                if (!sink.write(data.data(), data.size())) {
+                    return false;
+                }
+                sink.done();
+                return false;
+            }
+
+            return true;
+        });
 }
 
 }  // namespace chaos::orchestrator::interfaces::web

@@ -1,44 +1,51 @@
-/**
- * @file Server.hpp
- * @brief HTTP server exposing the web API.
- */
-
 #pragma once
 
 #include <httplib.h>
 
+#include <condition_variable>
+#include <memory>
+#include <mutex>
+#include <nlohmann/json.hpp>
+#include <optional>
+
 #include "containers/IContainerEngine.hpp"
+#include "shared/TargetState.hpp"
 
 namespace chaos::orchestrator::interfaces::web {
 
+using json = nlohmann::json;
+
 /**
- * @brief HTTP server exposing the web API.
+ * Shared mutable state for a single chaos run, observable via SSE.
  */
+struct RunSession {
+    std::mutex mtx;
+    std::condition_variable cv;
+    std::optional<shared::TargetState> latest;
+    bool running = false;
+    bool complete = false;
+    json results;
+    std::string error;
+};
+
 class Server {
 public:
-    /**
-     * @brief Construct the server with a container engine dependency.
-     * @param engine Engine used to retrieve container data.
-     */
     explicit Server(std::shared_ptr<containers::IContainerEngine> engine);
     ~Server() = default;
 
-    /**
-     * @brief Start listening on the given port.
-     * @param port TCP port to bind on localhost (127.0.0.1).
-     */
     void listen(int port);
 
 private:
-    /** @brief The underlying HTTP server. */
     httplib::Server m_server;
-    /** @brief The container engine instance. */
     std::shared_ptr<containers::IContainerEngine> m_engine;
 
-    /**
-     * @brief Register all HTTP routes.
-     */
+    std::shared_ptr<RunSession> m_session;
+
     void setupRoutes();
+    void handleRun(const httplib::Request& req, httplib::Response& res);
+    void handleEvents(const httplib::Request& req, httplib::Response& res);
+    void handleTargets(const httplib::Request& req, httplib::Response& res);
+    void handleLimits(const httplib::Request& req, httplib::Response& res);
 };
 
 }  // namespace chaos::orchestrator::interfaces::web

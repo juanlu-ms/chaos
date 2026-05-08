@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "../containers/IContainerEngine.hpp"
 #include "../shared/TargetState.hpp"
@@ -38,6 +39,11 @@ public:
      */
     shared::TargetState observe(const std::string_view containerId) const;
 
+    /**
+     * @brief Fetch the IP. Called once at run setup, not on every observe tick.
+     */
+    std::optional<std::string> getContainerIp(const std::string_view containerId) const;
+
 private:
     std::shared_ptr<containers::IContainerEngine> engine_;
 
@@ -45,7 +51,7 @@ private:
     std::string getLogs(const std::string_view containerId) const;
     std::optional<double> getMemoryUsage(const std::string_view containerId) const;
     std::optional<double> getCpuUsage(const std::string_view containerId) const;
-    std::optional<std::string> getContainerIp(const std::string_view containerId) const;
+    std::pair<double, double> getNetworkBps(const std::string_view containerId) const;
 };
 
 }  // namespace chaos::orchestrator::observability

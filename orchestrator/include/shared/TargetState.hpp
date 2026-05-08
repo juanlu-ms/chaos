@@ -25,8 +25,8 @@ struct TargetState {
     std::optional<double> memory_usage_mb;
     std::optional<std::string> container_ip;
     std::vector<std::string> recent_logs;
-    std::optional<double> network_rx_bytes;
-    std::optional<double> network_tx_bytes;
+    std::optional<double> network_rx_bps;
+    std::optional<double> network_tx_bps;
 };
 
 }  // namespace chaos::orchestrator::shared

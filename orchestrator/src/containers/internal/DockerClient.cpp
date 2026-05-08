@@ -458,6 +458,14 @@ std::string DockerClient::getLogs(const std::string_view containerId) const {
         throw std::invalid_argument("Container ID must not be empty");
     }
 
+    // Check cache first — logs don't change every 500ms.
+    {
+        const auto now = std::chrono::steady_clock::now();
+        if (cached_logs_valid_ && (now - cached_logs_at_) < LOGS_TTL) {
+            return cached_logs_;
+        }
+    }
+
     SPDLOG_DEBUG("Fetching logs for container: {}", containerId);
 
     // tail=50 avoids dumping the entire container log on every poll; demuxing
@@ -478,22 +486,26 @@ std::string DockerClient::getLogs(const std::string_view containerId) const {
     //   bytes 1-3: padding (zero)
     //   bytes 4-7: payload length (big-endian uint32)
     // Strip these headers and extract the raw log text.
-    const auto& body = response.body;
     std::string result;
-    result.reserve(body.size());
+    result.reserve(response.body.size());
 
     size_t i = 0;
-    while (i + 8 <= body.size()) {
-        const uint32_t len = (static_cast<uint32_t>(static_cast<uint8_t>(body[i + 4])) << 24) |
-                             (static_cast<uint32_t>(static_cast<uint8_t>(body[i + 5])) << 16) |
-                             (static_cast<uint32_t>(static_cast<uint8_t>(body[i + 6])) << 8) |
-                             static_cast<uint32_t>(static_cast<uint8_t>(body[i + 7]));
+    while (i + 8 <= response.body.size()) {
+        const uint32_t len = (static_cast<uint32_t>(static_cast<uint8_t>(response.body[i + 4])) << 24) |
+                             (static_cast<uint32_t>(static_cast<uint8_t>(response.body[i + 5])) << 16) |
+                             (static_cast<uint32_t>(static_cast<uint8_t>(response.body[i + 6])) << 8) |
+                             static_cast<uint32_t>(static_cast<uint8_t>(response.body[i + 7]));
 
-        const size_t remaining = body.size() - i - 8;
+        const size_t remaining = response.body.size() - i - 8;
         const size_t clen = (len <= remaining) ? static_cast<size_t>(len) : remaining;
-        result.append(body, i + 8, clen);
+        result.append(response.body, i + 8, clen);
         i += 8 + clen;
     }
+
+    // Cache the demuxed result.
+    cached_logs_ = result;
+    cached_logs_at_ = std::chrono::steady_clock::now();
+    cached_logs_valid_ = true;
 
     return result;
 }
@@ -605,6 +617,42 @@ SystemInfo DockerClient::getSystemInfo() const {
         info.memTotal = jsonResponse["MemTotal"].get<int64_t>();
     }
     return info;
+}
+
+std::pair<double, double> DockerClient::getContainerNetworkBps(const std::string_view containerId) const {
+    SPDLOG_DEBUG("Fetching network I/O for container: {}", containerId);
+
+    const std::string endpoint = fmt::format("/containers/{}/stats?stream=false", containerId);
+    const auto raw = getCached(endpoint, cached_stats_, cached_stats_at_, cached_stats_valid_, STATS_TTL);
+    HttpResponse fakeResp{200, raw};
+    auto jsonResponse = parseResponse(fakeResp);
+
+    double rx_bytes = 0, tx_bytes = 0;
+    if (jsonResponse.contains("networks") && jsonResponse["networks"].is_object()) {
+        for (const auto& [iface, net] : jsonResponse["networks"].items()) {
+            if (net.contains("rx_bytes") && net["rx_bytes"].is_number())
+                rx_bytes += net["rx_bytes"].get<double>();
+            if (net.contains("tx_bytes") && net["tx_bytes"].is_number())
+                tx_bytes += net["tx_bytes"].get<double>();
+        }
+    }
+
+    // Compute B/s delta from previous cumulative values.
+    auto now = std::chrono::steady_clock::now();
+    double rx_bps = 0, tx_bps = 0;
+    if (prev_net_valid_) {
+        auto dt = std::chrono::duration_cast<std::chrono::duration<double>>(now - prev_net_timestamp_).count();
+        if (dt > 0.001) {
+            rx_bps = (rx_bytes - prev_net_rx_) / dt;
+            tx_bps = (tx_bytes - prev_net_tx_) / dt;
+        }
+    }
+    prev_net_rx_ = rx_bytes;
+    prev_net_tx_ = tx_bytes;
+    prev_net_timestamp_ = now;
+    prev_net_valid_ = true;
+
+    return {rx_bps, tx_bps};
 }
 
 std::string DockerClient::getCached(const std::string& endpoint, std::string& cacheBody,

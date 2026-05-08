@@ -34,8 +34,8 @@ json stateToJson(const shared::TargetState& s, const std::string& phase = "",
     if (s.memory_usage_mb) j["memory_usage_mb"] = *s.memory_usage_mb;
     if (s.container_ip) j["container_ip"] = *s.container_ip;
     j["recent_logs"] = s.recent_logs;
-    if (s.network_rx_bytes) j["network_rx_bytes"] = *s.network_rx_bytes;
-    if (s.network_tx_bytes) j["network_tx_bytes"] = *s.network_tx_bytes;
+    if (s.network_rx_bps) j["network_rx_bps"] = *s.network_rx_bps;
+    if (s.network_tx_bps) j["network_tx_bps"] = *s.network_tx_bps;
     if (!phase.empty()) j["phase"] = phase;
     if (test_start != std::chrono::steady_clock::time_point{}) {
         j["backend_elapsed_ms"] = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -341,6 +341,10 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                 observability::ObservabilityEngine obs(engine);
                 shared::TargetState lastKnownState;
 
+                // Fetch IP once at setup — doesn't change during a run.
+                auto ip = obs.getContainerIp(manifest.target.id);
+                if (ip) lastKnownState.container_ip = ip;
+
                 auto test_start = std::chrono::steady_clock::now();
                 {
                     std::lock_guard<std::mutex> lock(session->mtx);
@@ -351,6 +355,7 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                 // Quick baseline: 2 seconds (4 ticks)
                 for (int i = 0; i < 4; ++i) {
                     auto ts = obs.observe(manifest.target.id);
+                    if (lastKnownState.container_ip) ts.container_ip = lastKnownState.container_ip;
                     {
                         std::lock_guard<std::mutex> lock(session->mtx);
                         session->latest = ts;
@@ -372,6 +377,7 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                     SPDLOG_INFO("Injecting faults for {}s. Monitoring real-time state...", duration.count());
                     while (std::chrono::steady_clock::now() - test_start < duration + std::chrono::seconds(2)) {
                         lastKnownState = obs.observe(manifest.target.id);
+                        if (ip) lastKnownState.container_ip = ip;
                         {
                             std::lock_guard<std::mutex> lock(session->mtx);
                             session->latest = lastKnownState;

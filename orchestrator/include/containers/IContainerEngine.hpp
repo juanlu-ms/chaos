@@ -176,12 +176,17 @@ public:
     [[nodiscard]] virtual double getContainerCpuUsage(const std::string_view containerId) const = 0;
 
     /**
-     * @brief Fetch the primary IP address of a running container.
+     * @brief Fetch network I/O (rx + tx) in bytes per second for a running container.
+     * @param containerId Docker container ID.
+     * @return Pair of (rx_bps, tx_bps).
+     * @throws ContainerEngineError On transport, API or parser failures.
+     */
+    [[nodiscard]] virtual std::pair<double, double> getContainerNetworkBps(const std::string_view containerId) const = 0;
+
+    /**
+     * @brief Fetch the primary IP address of a running container (call once at setup).
      * @param containerId Docker container ID.
      * @return IPv4 address as a string.
-     * @throws std::invalid_argument On empty containerId.
-     * @throws ContainerEngineApiError On non-200 HTTP response.
-     * @throws ContainerEngineParseError On unexpected response format.
      */
     [[nodiscard]] virtual std::string getContainerIp(const std::string_view containerId) const = 0;
 

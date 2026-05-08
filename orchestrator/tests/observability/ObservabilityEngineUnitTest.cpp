@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "MockContainerEngine.hpp"
 #include "containers/Container.hpp"
@@ -30,7 +31,8 @@ TEST(ObservabilityEngineTests, ObserveReturnsFullStateWhenRunning) {
     EXPECT_CALL(*mockEngine, getLogs(std::string_view(kContainerId))).WillOnce(Return("log line"));
     EXPECT_CALL(*mockEngine, getContainerMemoryUsage(std::string_view(kContainerId))).WillOnce(Return(128.5));
     EXPECT_CALL(*mockEngine, getContainerCpuUsage(std::string_view(kContainerId))).WillOnce(Return(12.25));
-    EXPECT_CALL(*mockEngine, getContainerIp(std::string_view(kContainerId))).WillOnce(Return("10.0.0.5"));
+    EXPECT_CALL(*mockEngine, getContainerNetworkBps(std::string_view(kContainerId)))
+        .WillOnce(Return(std::pair{1024.0, 2048.0}));
 
     observability::ObservabilityEngine obs(mockEngine);
     const auto state = obs.observe(kContainerId);
@@ -43,8 +45,10 @@ TEST(ObservabilityEngineTests, ObserveReturnsFullStateWhenRunning) {
     EXPECT_DOUBLE_EQ(state.memory_usage_mb.value(), 128.5);
     ASSERT_TRUE(state.cpu_usage_percent.has_value());
     EXPECT_DOUBLE_EQ(state.cpu_usage_percent.value(), 12.25);
-    ASSERT_TRUE(state.container_ip.has_value());
-    EXPECT_EQ(state.container_ip.value(), "10.0.0.5");
+    ASSERT_TRUE(state.network_rx_bps.has_value());
+    EXPECT_DOUBLE_EQ(state.network_rx_bps.value(), 1024.0);
+    ASSERT_TRUE(state.network_tx_bps.has_value());
+    EXPECT_DOUBLE_EQ(state.network_tx_bps.value(), 2048.0);
 }
 
 /**
@@ -57,7 +61,7 @@ TEST(ObservabilityEngineTests, ObserveSkipsResourceMetricsWhenNotRunning) {
     EXPECT_CALL(*mockEngine, getLogs(std::string_view(kContainerId))).WillOnce(Return("logs"));
     EXPECT_CALL(*mockEngine, getContainerMemoryUsage(_)).Times(0);
     EXPECT_CALL(*mockEngine, getContainerCpuUsage(_)).Times(0);
-    EXPECT_CALL(*mockEngine, getContainerIp(_)).Times(0);
+    EXPECT_CALL(*mockEngine, getContainerNetworkBps(_)).Times(0);
 
     observability::ObservabilityEngine obs(mockEngine);
     const auto state = obs.observe(kContainerId);
@@ -80,15 +84,16 @@ TEST(ObservabilityEngineTests, ObserveReturnsNulloptWhenUsageLookupsFail) {
         .WillOnce(Throw(containers::ContainerEngineApiError("no stats")));
     EXPECT_CALL(*mockEngine, getContainerCpuUsage(std::string_view(kContainerId)))
         .WillOnce(Throw(containers::ContainerEngineTransportError("no cpu")));
-    EXPECT_CALL(*mockEngine, getContainerIp(std::string_view(kContainerId)))
-        .WillOnce(Throw(containers::ContainerEngineParseError("no ip")));
+    EXPECT_CALL(*mockEngine, getContainerNetworkBps(std::string_view(kContainerId)))
+        .WillOnce(Throw(containers::ContainerEngineApiError("no net")));
 
     observability::ObservabilityEngine obs(mockEngine);
     const auto state = obs.observe(kContainerId);
 
     EXPECT_FALSE(state.memory_usage_mb.has_value());
     EXPECT_FALSE(state.cpu_usage_percent.has_value());
-    EXPECT_FALSE(state.container_ip.has_value());
+    EXPECT_FALSE(state.network_rx_bps.has_value());
+    EXPECT_FALSE(state.network_tx_bps.has_value());
 }
 
 /**

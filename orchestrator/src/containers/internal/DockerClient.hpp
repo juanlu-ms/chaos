@@ -11,6 +11,7 @@
 #include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "containers/IContainerEngine.hpp"
@@ -177,6 +178,12 @@ public:
     [[nodiscard]] std::string getLogs(const std::string_view containerId) const override;
 
     /**
+     * @brief Compute network I/O rate (B/s) from cumulative Docker stats.
+     * @return Pair of (rx_bps, tx_bps).
+     */
+    [[nodiscard]] std::pair<double, double> getContainerNetworkBps(const std::string_view containerId) const override;
+
+    /**
      * @brief Fetch the memory usage of a running container in MB.
      * @param containerId Docker container ID.
      * @return Memory usage in MB.
@@ -223,8 +230,9 @@ private:
     // public methods each (status+ip, memory+cpu).  Caching avoids
     // doubling the HTTP calls on every observation tick.
 
-    static constexpr auto INSPECT_TTL = std::chrono::milliseconds(1500);
-    static constexpr auto STATS_TTL = std::chrono::milliseconds(800);
+    static constexpr auto INSPECT_TTL = std::chrono::milliseconds(2000);
+    static constexpr auto STATS_TTL  = std::chrono::milliseconds(2000);
+    static constexpr auto LOGS_TTL   = std::chrono::milliseconds(1500);
 
     mutable std::string cached_inspect_;
     mutable std::chrono::steady_clock::time_point cached_inspect_at_;
@@ -233,6 +241,17 @@ private:
     mutable std::string cached_stats_;
     mutable std::chrono::steady_clock::time_point cached_stats_at_;
     mutable bool cached_stats_valid_ = false;
+
+    mutable std::string cached_logs_;
+    mutable std::chrono::steady_clock::time_point cached_logs_at_;
+    mutable bool cached_logs_valid_ = false;
+
+    // Network B/s tracking: store previous cumulative bytes and timestamp
+    // so we can compute the delta on each call.
+    mutable double prev_net_rx_ = 0;
+    mutable double prev_net_tx_ = 0;
+    mutable std::chrono::steady_clock::time_point prev_net_timestamp_;
+    mutable bool prev_net_valid_ = false;
 
     /**
      * @brief GET helper with transparent TTL caching.

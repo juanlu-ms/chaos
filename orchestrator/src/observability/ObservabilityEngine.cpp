@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <string>
+#include <utility>
 
 namespace chaos::orchestrator::observability {
 
@@ -46,11 +47,18 @@ shared::TargetState ObservabilityEngine::observe(const std::string_view containe
         SPDLOG_DEBUG("Container '{}' is not running. Skipping resource usage metrics.", containerId);
         state.cpu_usage_percent = std::nullopt;
         state.memory_usage_mb = std::nullopt;
-        state.container_ip = std::nullopt;
     } else {
         state.cpu_usage_percent = getCpuUsage(containerId);
         state.memory_usage_mb = getMemoryUsage(containerId);
-        state.container_ip = getContainerIp(containerId);
+        try {
+            auto [rx, tx] = getNetworkBps(containerId);
+            state.network_rx_bps = rx;
+            state.network_tx_bps = tx;
+        } catch (const containers::ContainerEngineError& e) {
+            SPDLOG_ERROR("ObservabilityEngine: error fetching network I/O for '{}': {}", containerId, e.what());
+            state.network_rx_bps = std::nullopt;
+            state.network_tx_bps = std::nullopt;
+        }
     }
 
     return state;
@@ -96,6 +104,11 @@ std::optional<std::string> ObservabilityEngine::getContainerIp(const std::string
                      e.what());
         return std::nullopt;
     }
+}
+
+std::pair<double, double> ObservabilityEngine::getNetworkBps(const std::string_view containerId) const {
+    SPDLOG_DEBUG("ObservabilityEngine: getting network I/O for container '{}'", containerId);
+    return engine_->getContainerNetworkBps(containerId);
 }
 
 }  // namespace chaos::orchestrator::observability

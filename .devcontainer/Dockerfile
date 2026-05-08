@@ -21,6 +21,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     stress-ng \
     && apt-get clean -y && rm -rf /var/lib/apt/lists/*
 
+# Bun
+RUN curl -fsSL https://bun.sh/install | bash \
+    && ln -s /root/.bun/bin/bun /usr/local/bin/bun \
+    && /usr/local/bin/bun --version
+
 # vcpkg
 ENV VCPKG_ROOT=/vcpkg
 ENV PATH=$VCPKG_ROOT:$PATH

@@ -74,6 +74,7 @@ add_executable(orchestrator_unit_tests
     tests/observability/ValidationEngineUnitTest.cpp
     tests/perturbations/PerturbationEngineUnitTest.cpp
     tests/perturbations/PerturbationTests.cpp
+    tests/shared/StateBroadcasterUnitTest.cpp
 )
 
 target_include_directories(orchestrator_unit_tests PRIVATE

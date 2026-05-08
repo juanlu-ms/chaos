@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <mutex>
 #include <vector>
@@ -13,15 +14,39 @@ namespace chaos::orchestrator::shared {
  */
 class StateBroadcaster {
 public:
+    /**
+     * @brief Opaque handle returned by subscribe().
+     */
+    struct Handle {
+        uint64_t id = 0;
+        bool operator==(const Handle& o) const { return id == o.id; }
+        bool operator!=(const Handle& o) const { return id != o.id; }
+        explicit operator bool() const { return id != 0; }
+    };
+
     using StateCallback = std::function<void(const TargetState&)>;
 
     /**
      * @brief Register a subscriber to receive state updates.
      * @param callback Callback invoked on broadcast.
+     * @return Handle that can be used to unsubscribe.
      */
-    void subscribe(StateCallback callback) {
+    Handle subscribe(StateCallback callback) {
         std::lock_guard<std::mutex> lock(mutex_);
-        subscribers_.push_back(std::move(callback));
+        auto id = ++next_id_;
+        subscribers_.push_back({id, std::move(callback)});
+        return Handle{id};
+    }
+
+    /**
+     * @brief Remove a previously registered subscriber.
+     * @param handle Handle returned by subscribe().
+     */
+    void unsubscribe(Handle handle) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it =
+            std::remove_if(subscribers_.begin(), subscribers_.end(), [&](const Entry& e) { return e.id == handle.id; });
+        subscribers_.erase(it, subscribers_.end());
     }
 
     /**
@@ -29,20 +54,30 @@ public:
      * @param state Latest observed target state.
      */
     void broadcast(const TargetState& state) {
-        std::vector<StateCallback> snapshot;
+        std::vector<Entry> snapshot;
         {
             std::lock_guard<std::mutex> lock(mutex_);
             snapshot = subscribers_;
         }
 
-        for (const auto& sub : snapshot) {
-            sub(state);
+        for (const auto& entry : snapshot) {
+            try {
+                entry.callback(state);
+            } catch (...) {
+                // swallow — one bad callback doesn't starve others
+            }
         }
     }
 
 private:
+    struct Entry {
+        uint64_t id;
+        StateCallback callback;
+    };
+
     std::mutex mutex_;
-    std::vector<StateCallback> subscribers_;
+    uint64_t next_id_ = 0;
+    std::vector<Entry> subscribers_;
 };
 
 }  // namespace chaos::orchestrator::shared

@@ -8,11 +8,13 @@
 #include <future>
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <thread>
 #include <utility>
 #include <vector>
 
+#include "containers/internal/CgroupMetricsGatherer.hpp"
 #include "manifests/ManifestParser.hpp"
 #include "observability/ObservabilityEngine.hpp"
 #include "perturbations/PerturbationEngine.hpp"
@@ -347,6 +349,9 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
 
         std::thread([engine = m_engine, session, manifest = std::move(manifest)]() {
             try {
+                using namespace std::chrono;
+                using namespace std::chrono_literals;
+
                 perturbations::PerturbationFactory factory;
                 std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbation_instances;
                 for (const auto& spec : manifest.perturbations) {
@@ -356,114 +361,128 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                 observability::ObservabilityEngine obs(engine);
                 shared::TargetState lastKnownState;
 
-                // Fetch IP once at setup — doesn't change during a run.
+                // Fetch IP once at setup.
                 auto ip = obs.getContainerIp(manifest.target.id);
                 if (ip) lastKnownState.container_ip = ip;
 
-                auto test_start = std::chrono::steady_clock::now();
+                auto test_start = steady_clock::now();
                 {
                     std::lock_guard<std::mutex> lock(session->mtx);
                     session->phase = "normal";
                     session->test_start = test_start;
                 }
 
-                // Quick baseline: 2 seconds of wall-clock time.
-                // Each tick sends a partial SSE event as soon as status+logs
-                // arrive, then a full event when CPU/memory/network follow.
-                auto baseline_end = test_start + std::chrono::seconds(2);
-                while (std::chrono::steady_clock::now() < baseline_end) {
-                    // Phase 1 — start logs and CPU in parallel, get status synchronously.
-                    auto logsFut = std::async(std::launch::async, [&]() { return obs.getLogs(manifest.target.id); });
-                    auto cpuFut  = std::async(std::launch::async, [&]() { return obs.getCpuUsage(manifest.target.id); });
+                // Optional cgroup-based metrics (bypasses Docker API).
+                containers::internal::CgroupMetricsGatherer cgroup;
+                const bool useCgroup = containers::internal::CgroupMetricsGatherer::resolveCgroupPath(
+                                           manifest.target.id)
+                                           .has_value();
+                if (useCgroup) {
+                    SPDLOG_INFO("Using cgroup v2 for CPU/memory metrics");
+                }
 
-                    lastKnownState.status = obs.getStatus(manifest.target.id);
-                    {
-                        const std::string rawLogs = logsFut.get();
-                        lastKnownState.recent_logs.clear();
-                        if (!rawLogs.empty()) parseLogLines(rawLogs, lastKnownState.recent_logs);
-                    }
-                    // Partial event: status + logs arrive before CPU/memory/network.
-                    {
-                        std::lock_guard<std::mutex> lock(session->mtx);
-                        session->latest = lastKnownState;
-                    }
-                    session->cv.notify_all();
+                // ═══════════════════════════════════════════════════════
+                //  Three independent background workers — each polls its
+                //  own data source at its own rate and pushes updates to
+                //  the SSE handler via session->latest.
+                // ═══════════════════════════════════════════════════════
 
-                    // Phase 2 — CPU/memory/network (CPU already running).
-                    if (lastKnownState.status == shared::ContainerStatus::Running) {
-                        lastKnownState.cpu_usage_percent = cpuFut.get();
-                        lastKnownState.memory_usage_mb   = obs.getMemoryUsage(manifest.target.id);
+                // ── Worker 1: Metrics (CPU + memory + status) ────────
+                std::jthread metricsWorker([&](std::stop_token st) {
+                    while (!st.stop_requested() && session->running) {
+                        auto tick = steady_clock::now();
+                        auto state = lastKnownState;
+
+                        state.status = obs.getStatus(manifest.target.id);
+                        if (state.status == shared::ContainerStatus::Running) {
+                            if (useCgroup) {
+                                auto cpu = cgroup.getCpuUsagePercent(manifest.target.id);
+                                auto mem = cgroup.getMemoryUsageMb(manifest.target.id);
+                                if (cpu) state.cpu_usage_percent = cpu;
+                                if (mem) state.memory_usage_mb = mem;
+                            } else {
+                                state.cpu_usage_percent = obs.getCpuUsage(manifest.target.id);
+                                state.memory_usage_mb   = obs.getMemoryUsage(manifest.target.id);
+                            }
+                        }
+                        {
+                            std::lock_guard<std::mutex> lock(session->mtx);
+                            session->latest = std::move(state);
+                        }
+                        session->cv.notify_all();
+
+                        auto elapsed = steady_clock::now() - tick;
+                        auto remaining = 100ms - elapsed;
+                        if (remaining > 0ms)
+                            std::this_thread::sleep_for(remaining);
+                    }
+                });
+
+                // ── Worker 2: Logs ───────────────────────────────────
+                std::jthread logsWorker([&](std::stop_token st) {
+                    while (!st.stop_requested() && session->running) {
+                        auto tick = steady_clock::now();
+                        auto rawLogs = obs.getLogs(manifest.target.id);
+                        auto state = lastKnownState;
+                        parseLogLines(rawLogs, state.recent_logs);
+                        {
+                            std::lock_guard<std::mutex> lock(session->mtx);
+                            session->latest = std::move(state);
+                        }
+                        session->cv.notify_all();
+
+                        auto elapsed = steady_clock::now() - tick;
+                        auto remaining = 1500ms - elapsed;
+                        if (remaining > 0ms)
+                            std::this_thread::sleep_for(remaining);
+                    }
+                });
+
+                // ── Worker 3: Network I/O ────────────────────────────
+                std::jthread netWorker([&](std::stop_token st) {
+                    while (!st.stop_requested() && session->running) {
+                        auto tick = steady_clock::now();
                         try {
                             auto [rx, tx] = obs.getNetworkBps(manifest.target.id);
-                            lastKnownState.network_rx_bps = rx;
-                            lastKnownState.network_tx_bps = tx;
+                            auto state = lastKnownState;
+                            state.network_rx_bps = rx;
+                            state.network_tx_bps = tx;
+                            {
+                                std::lock_guard<std::mutex> lock(session->mtx);
+                                session->latest = std::move(state);
+                            }
+                            session->cv.notify_all();
                         } catch (...) {}
+                        auto elapsed = steady_clock::now() - tick;
+                        auto remaining = 1000ms - elapsed;
+                        if (remaining > 0ms)
+                            std::this_thread::sleep_for(remaining);
                     }
-                    // Full event with all metrics.
-                    {
-                        std::lock_guard<std::mutex> lock(session->mtx);
-                        session->latest = lastKnownState;
-                    }
-                    session->cv.notify_all();
+                });
 
-                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                }
+                // ═══════════════════════════════════════════════════════
+                //  Phase manager — runs on the calling thread.
+                // ═══════════════════════════════════════════════════════
 
+                // Baseline: 2 seconds of "normal" phase.
+                std::this_thread::sleep_for(2s);
+                // Start fault injection.
                 perturbations::PerturbationEngine pert_engine;
                 const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
-                pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration);
-
-                {
-                    std::lock_guard<std::mutex> lock(session->mtx);
-                    session->phase = "chaos";
-                }
-
                 if (duration.count() > 0) {
-                    SPDLOG_INFO("Injecting faults for {}s. Monitoring real-time state...", duration.count());
-                    while (std::chrono::steady_clock::now() - test_start < duration + std::chrono::seconds(2)) {
-                        auto logsFut = std::async(std::launch::async, [&]() { return obs.getLogs(manifest.target.id); });
-                        auto cpuFut  = std::async(std::launch::async, [&]() { return obs.getCpuUsage(manifest.target.id); });
-
-                        lastKnownState.status = obs.getStatus(manifest.target.id);
-                        {
-                            const std::string rawLogs = logsFut.get();
-                            lastKnownState.recent_logs.clear();
-                            if (!rawLogs.empty()) parseLogLines(rawLogs, lastKnownState.recent_logs);
-                        }
-                        // Partial event.
-                        {
-                            std::lock_guard<std::mutex> lock(session->mtx);
-                            session->latest = lastKnownState;
-                        }
-                        session->cv.notify_all();
-
-                        if (lastKnownState.status == shared::ContainerStatus::Running) {
-                            lastKnownState.cpu_usage_percent = cpuFut.get();
-                            lastKnownState.memory_usage_mb   = obs.getMemoryUsage(manifest.target.id);
-                            try {
-                                auto [rx, tx] = obs.getNetworkBps(manifest.target.id);
-                                lastKnownState.network_rx_bps = rx;
-                                lastKnownState.network_tx_bps = tx;
-                            } catch (...) {}
-                        }
-                        // Full event.
-                        {
-                            std::lock_guard<std::mutex> lock(session->mtx);
-                            session->latest = lastKnownState;
-                        }
-                        session->cv.notify_all();
-
-                        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                    }
-                } else {
-                    lastKnownState = obs.observe(manifest.target.id);
+                    pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration);
+                    SPDLOG_INFO("Injecting faults for {}s.", duration.count());
                     {
                         std::lock_guard<std::mutex> lock(session->mtx);
-                        session->latest = lastKnownState;
+                        session->phase = "chaos";
                     }
                     session->cv.notify_all();
+
+                    // Wait for remaining chaos time + 2s recovery window.
+                    std::this_thread::sleep_for(duration + 2s);
                 }
 
+                // Teardown and recovery.
                 pert_engine.waitForTeardown();
                 {
                     std::lock_guard<std::mutex> lock(session->mtx);
@@ -472,6 +491,7 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                 }
                 session->cv.notify_all();
 
+                // ── Validation ───────────────────────────────────────
                 const auto results = validation::validate(lastKnownState, manifest.expectations);
 
                 bool passed = std::ranges::all_of(results, [](const auto& r) { return r.passed; });
@@ -490,6 +510,8 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                     session->complete = true;
                 }
                 session->cv.notify_all();
+
+                // jthread destructors call request_stop() + join() here.
             } catch (const std::exception& ex) {
                 {
                     std::lock_guard<std::mutex> lock(session->mtx);
@@ -545,7 +567,8 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& res) {
             }
 
             std::unique_lock<std::mutex> lock(session->mtx);
-            session->cv.wait(lock, [session]() { return session->latest.has_value() || session->complete; });
+            session->cv.wait_for(lock, std::chrono::milliseconds(100),
+                                 [session]() { return session->latest.has_value() || session->complete; });
 
             if (session->latest.has_value()) {
                 auto j = stateToJson(*session->latest, session->phase, session->test_start);

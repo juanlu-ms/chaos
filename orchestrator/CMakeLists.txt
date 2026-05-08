@@ -9,6 +9,7 @@ find_package(LibArchive REQUIRED)
 set(ORCHESTRATOR_SOURCES
     src/containers/ContainerEngineFactory.cpp
     src/containers/internal/DockerClient.cpp
+    src/containers/internal/CgroupMetricsGatherer.cpp
     src/interfaces/cli/CliParser.cpp
     src/interfaces/tui/TuiApp.cpp
     src/interfaces/web/Server.cpp

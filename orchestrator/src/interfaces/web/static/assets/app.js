@@ -115,8 +115,11 @@
   };
 
   const updatePerturbationType = (idx, type) => {
+    const info = PERTURBATION_TYPES.find(t => t.type === type) || PERTURBATION_TYPES[0];
+    const params = {};
+    info.params.forEach(p => { params[p.key] = p.placeholder; });
     perturbations[idx].type = type;
-    perturbations[idx].params = {};
+    perturbations[idx].params = params;
     renderPerturbations();
   };
 

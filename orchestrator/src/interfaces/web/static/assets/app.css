@@ -215,7 +215,22 @@ body {
 }
 
 .perturbation-row .pert-type { flex: 0 0 140px; }
-.perturbation-row .pert-param { flex: 1 1 120px; min-width: 80px; }
+.pert-param-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 130px;
+  min-width: 100px;
+}
+.pert-param-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.pert-param-group .pert-param {
+  flex: none;
+  width: 100%;
+}
 .expectation-row .expect-type { flex: 0 0 170px; }
 .expectation-row .expect-param { flex: 1; min-width: 0; }
 

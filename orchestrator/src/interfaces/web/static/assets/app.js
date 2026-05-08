@@ -5,14 +5,14 @@
     { type: 'cpu_cap', label: 'CPU Cap', params: [{ key: 'cpu_cores', label: 'CPU Cores', placeholder: '1' }] },
     { type: 'network_delay', label: 'Network Delay', params: [{ key: 'delay_ms', label: 'Delay (ms)', placeholder: '1000' }] },
     { type: 'network_cutoff', label: 'Network Cutoff', params: [
-      { key: 'dst_ip', label: 'Dest IP', placeholder: '(optional) target IP' },
-      { key: 'dst_port', label: 'Dest Port', placeholder: '(optional) target port' },
-      { key: 'src_port', label: 'Source Port', placeholder: '(optional) source port' },
+      { key: 'dst_ip', label: 'Dest IP', placeholder: 'target IP' },
+      { key: 'dst_port', label: 'Dest Port', placeholder: 'target port' },
+      { key: 'src_port', label: 'Source Port', placeholder: 'source port' },
     ]},
     { type: 'garbage_packet', label: 'Garbage Packet', params: [
-      { key: 'corrupt_pct', label: 'Corrupt %', placeholder: '(optional) e.g. 25' },
-      { key: 'loss_pct', label: 'Loss %', placeholder: '(optional) e.g. 10' },
-      { key: 'duplicate_pct', label: 'Duplicate %', placeholder: '(optional) e.g. 5' },
+      { key: 'corrupt_pct', label: 'Corrupt %', placeholder: 'e.g. 25' },
+      { key: 'loss_pct', label: 'Loss %', placeholder: 'e.g. 10' },
+      { key: 'duplicate_pct', label: 'Duplicate %', placeholder: 'e.g. 5' },
       { key: 'iface', label: 'Interface', placeholder: 'eth0' },
     ]},
   ];
@@ -107,8 +107,8 @@
       const info = PERTURBATION_TYPES.find(t => t.type === p.type) || PERTURBATION_TYPES[0];
       const paramHtml = info.params.map(pr => {
         const val = p.params[pr.key] || '';
-        return `<input class="pert-param" data-idx="${i}" data-key="${pr.key}" placeholder="${escapeHtml(pr.placeholder)}" value="${escapeHtml(val)}">`;
-      }).join(' ');
+        return `<label class="pert-param-group"><span class="pert-param-label">${escapeHtml(pr.label)}</span><input class="pert-param" data-idx="${i}" data-key="${pr.key}" placeholder="${escapeHtml(pr.placeholder)}" value="${escapeHtml(val)}"></label>`;
+      }).join('');
       return `<div class="perturbation-row">
         <select class="pert-type" data-idx="${i}">
           ${PERTURBATION_TYPES.map(t =>

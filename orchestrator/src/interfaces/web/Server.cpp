@@ -385,6 +385,7 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                 pert_engine.waitForTeardown();
                 {
                     std::lock_guard<std::mutex> lock(session->mtx);
+                    session->latest = lastKnownState;
                     session->phase = "recovery";
                 }
                 session->cv.notify_all();

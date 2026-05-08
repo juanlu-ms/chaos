@@ -439,14 +439,10 @@ shared::ContainerStatus DockerClient::getStatus(const std::string_view container
     SPDLOG_DEBUG("DockerClient: getting status for container {}", containerId);
 
     const std::string endpoint = fmt::format("/containers/{}/json", containerId);
-    const auto response = request_(HttpMethod::GET, endpoint, "");
-    if (response.status != 200) {
-        throw containers::ContainerEngineApiError(fmt::format("Failed to get status for container '{}': HTTP {} - {}",
-                                                              containerId, response.status, response.body));
-    }
-
-    if (auto jsonResponse = parseResponse(response);
-        jsonResponse.contains("State") && jsonResponse["State"].is_object() &&
+    const auto raw = getCached(endpoint, cached_inspect_, cached_inspect_at_, cached_inspect_valid_, INSPECT_TTL);
+    HttpResponse fakeResp{200, raw};
+    auto jsonResponse = parseResponse(fakeResp);
+    if (jsonResponse.contains("State") && jsonResponse["State"].is_object() &&
         jsonResponse["State"].contains("Status") && jsonResponse["State"]["Status"].is_string()) {
         std::string stateStr = jsonResponse["State"]["Status"].get<std::string>();
         SPDLOG_INFO("DockerClient: container {} status is {}", containerId, stateStr);
@@ -512,15 +508,10 @@ double DockerClient::getContainerMemoryUsage(const std::string_view containerId)
     SPDLOG_DEBUG("Fetching memory usage for container: {}", containerId);
 
     const std::string endpoint = fmt::format("/containers/{}/stats?stream=false", containerId);
-    const auto response = request_(HttpMethod::GET, endpoint, "");
-
-    if (response.status != 200) {
-        throw containers::ContainerEngineApiError(
-            fmt::format("Failed to get memory stats for container '{}': HTTP {}", containerId, response.status));
-    }
-
-    if (auto jsonResponse = parseResponse(response);
-        jsonResponse.contains("memory_stats") && jsonResponse["memory_stats"].is_object() &&
+    const auto raw = getCached(endpoint, cached_stats_, cached_stats_at_, cached_stats_valid_, STATS_TTL);
+    HttpResponse fakeResp{200, raw};
+    auto jsonResponse = parseResponse(fakeResp);
+    if (jsonResponse.contains("memory_stats") && jsonResponse["memory_stats"].is_object() &&
         jsonResponse["memory_stats"].contains("usage") && jsonResponse["memory_stats"]["usage"].is_number()) {
         const double memoryUsageBytes = jsonResponse["memory_stats"]["usage"].get<double>();
         const double memoryUsageMb = memoryUsageBytes / (1024 * 1024);
@@ -540,16 +531,10 @@ double DockerClient::getContainerCpuUsage(const std::string_view containerId) co
     SPDLOG_DEBUG("Fetching CPU usage for container: {}", containerId);
 
     const std::string endpoint = fmt::format("/containers/{}/stats?stream=false", containerId);
-    const auto response = request_(HttpMethod::GET, endpoint, "");
-
-    if (response.status != 200) {
-        throw containers::ContainerEngineApiError(
-            fmt::format("Failed to get CPU stats for container '{}': HTTP {}", containerId, response.status));
-    }
-
-    // TODO: Extract json validation into a helper function to make this more readable
-    if (auto jsonResponse = parseResponse(response);
-        jsonResponse.contains("cpu_stats") && jsonResponse["cpu_stats"].is_object() &&
+    const auto raw = getCached(endpoint, cached_stats_, cached_stats_at_, cached_stats_valid_, STATS_TTL);
+    HttpResponse fakeResp{200, raw};
+    auto jsonResponse = parseResponse(fakeResp);
+    if (jsonResponse.contains("cpu_stats") && jsonResponse["cpu_stats"].is_object() &&
         jsonResponse["cpu_stats"].contains("cpu_usage") && jsonResponse["cpu_stats"]["cpu_usage"].is_object() &&
         jsonResponse["cpu_stats"]["cpu_usage"].contains("total_usage") &&
         jsonResponse["cpu_stats"]["cpu_usage"]["total_usage"].is_number() &&
@@ -588,15 +573,11 @@ std::string DockerClient::getContainerIp(const std::string_view containerId) con
     SPDLOG_DEBUG("Fetching IP for container: {}", containerId);
 
     const std::string endpoint = fmt::format("/containers/{}/json", containerId);
-    const auto response = request_(HttpMethod::GET, endpoint, "");
+    const auto raw = getCached(endpoint, cached_inspect_, cached_inspect_at_, cached_inspect_valid_, INSPECT_TTL);
+    HttpResponse fakeResp{200, raw};
+    auto jsonResponse = parseResponse(fakeResp);
 
-    if (response.status != 200) {
-        throw containers::ContainerEngineApiError(
-            fmt::format("Failed to inspect container '{}': HTTP {}", containerId, response.status));
-    }
-
-    if (auto jsonResponse = parseResponse(response);
-        jsonResponse.contains("NetworkSettings") && jsonResponse["NetworkSettings"].contains("Networks")) {
+    if (jsonResponse.contains("NetworkSettings") && jsonResponse["NetworkSettings"].contains("Networks")) {
         auto& networks = jsonResponse["NetworkSettings"]["Networks"];
         if (networks.is_object() && !networks.empty()) {
             auto firstNetwork = networks.begin().value();
@@ -611,7 +592,7 @@ std::string DockerClient::getContainerIp(const std::string_view containerId) con
     }
 
     throw containers::ContainerEngineParseError(
-        fmt::format("Could not find IPAddress in inspect response for container '{}'", containerId));
+        fmt::format("Docker inspect response missing IP for container '{}'", containerId));
 }
 
 SystemInfo DockerClient::getSystemInfo() const {
@@ -626,6 +607,27 @@ SystemInfo DockerClient::getSystemInfo() const {
         info.memTotal = jsonResponse["MemTotal"].get<int64_t>();
     }
     return info;
+}
+
+std::string DockerClient::getCached(
+    const std::string& endpoint,
+    std::string& cacheBody,
+    std::chrono::steady_clock::time_point& cacheTime,
+    bool& cacheValid,
+    std::chrono::milliseconds ttl) const {
+    const auto now = std::chrono::steady_clock::now();
+    if (cacheValid && (now - cacheTime) < ttl) {
+        return cacheBody;
+    }
+    const auto response = request_(HttpMethod::GET, endpoint, "");
+    if (response.status != 200) {
+        throw containers::ContainerEngineApiError(
+            fmt::format("Docker API GET {} failed: HTTP {}", endpoint, response.status));
+    }
+    cacheBody = response.body;
+    cacheTime = now;
+    cacheValid = true;
+    return cacheBody;
 }
 
 nlohmann::json DockerClient::parseResponse(const HttpResponse& response) const {

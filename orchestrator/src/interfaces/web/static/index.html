@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CHAOS — Resilience Testing</title>
+  <link rel="stylesheet" href="/assets/theme.css">
   <link rel="stylesheet" href="/assets/app.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,67 +14,171 @@
   <nav class="topbar">
     <span class="logo">CHAOS</span>
     <span class="badge" id="status-badge">Connecting...</span>
-    <div class="nav-links">
-      <button class="nav-btn active" data-view="dashboard">Dashboard</button>
-      <button class="nav-btn" data-view="builder">Manifest Builder</button>
+    <div class="step-indicator">
+      <button class="step-tab active" data-step="1">1. Configure</button>
+      <span class="step-arrow">→</span>
+      <button class="step-tab" data-step="2">2. Monitor</button>
+      <span class="step-arrow">→</span>
+      <button class="step-tab" data-step="3">3. Results</button>
     </div>
+    <select class="theme-select" id="theme-select">
+      <option value="amber">Amber</option>
+      <option value="dark">Dark</option>
+      <option value="cyber">Cyber</option>
+    </select>
   </nav>
 
-  <!-- DASHBOARD -->
-  <section id="view-dashboard" class="view active">
-    <header class="section-header">
-      <h2>Targets</h2>
-      <button class="btn sm" id="refresh-targets">Refresh</button>
-    </header>
-    <div class="target-grid" id="target-grid">
-      <div class="empty-state">No containers detected.</div>
-    </div>
-    <header class="section-header"><h2>System Limits</h2></header>
-    <div class="limits-card" id="limits-card">
-      <div class="metric"><span class="label">CPU Cores</span><span class="value" id="limit-cpu">--</span></div>
-      <div class="metric"><span class="label">Memory</span><span class="value" id="limit-mem">--</span></div>
-    </div>
-  </section>
-
-  <!-- MANIFEST BUILDER + MONITOR -->
-  <section id="view-builder" class="view">
-    <div class="builder-layout">
-      <div class="builder-form">
+  <!-- Step 1: Manifest Configurator -->
+  <section class="step active" id="step-1">
+    <div class="config-scroll">
+      <div class="config-form">
         <h2>New Chaos Scenario</h2>
+
         <label>Test Name</label>
         <input type="text" id="field-name" placeholder="my-resilience-test" value="Untitled Test">
+
         <label>Target Container</label>
-        <select id="field-target"></select>
+        <select id="field-target"><option value="" disabled selected>Loading...</option></select>
+
         <label>Duration (seconds)</label>
-        <input type="number" id="field-duration" min="0" max="3600" value="10">
+        <input type="number" id="field-duration" min="1" max="3600" value="10">
+
         <fieldset>
-          <legend>Perturbations <button class="btn xs" id="add-perturbation">+ Add</button></legend>
+          <legend>
+            Perturbations
+            <button class="btn xs" id="add-perturbation" type="button">+ Add</button>
+          </legend>
           <div id="perturbation-list"></div>
         </fieldset>
+
         <fieldset>
-          <legend>Expectations</legend>
+          <legend>
+            Expectations
+            <button class="btn xs" id="add-expectation" type="button">+ Add</button>
+          </legend>
           <div id="expectation-list"></div>
-          <button class="btn xs" id="add-expectation">+ Add Expectation</button>
         </fieldset>
-        <button class="btn primary" id="run-btn">▶ Run Scenario</button>
+
+        <button class="btn primary" id="run-btn">▶ Run Chaos Test</button>
       </div>
-      <div class="monitor-panel" id="monitor-panel" style="display:none">
-        <h2>Live Monitor <span class="chip pending" id="run-status-chip">Pending</span></h2>
-        <div class="state-card" id="state-card">
-          <div class="metric"><span class="label">Status</span><span class="value" id="mon-status">--</span></div>
-          <div class="metric"><span class="label">CPU</span><span class="value" id="mon-cpu">--</span></div>
-          <div class="metric"><span class="label">Memory</span><span class="value" id="mon-mem">--</span></div>
-          <progress id="mon-progress" value="0" max="100"></progress>
+    </div>
+  </section>
+
+  <!-- Step 2: Live Monitor -->
+  <section class="step" id="step-2">
+    <div class="monitor-header">
+      <div class="monitor-header-left">
+        <span class="monitor-title" id="mon-test-name">Running: --</span>
+        <span class="monitor-timer" id="mon-timer">00:00</span>
+      </div>
+      <button class="btn abort" id="abort-btn">✕ Abort</button>
+    </div>
+    <div class="monitor-body">
+      <div class="monitor-charts">
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <span class="chart-label">CPU Usage (%)</span>
+            <span class="chart-value" id="mon-cpu-val">--</span>
+          </div>
+          <canvas id="chart-cpu"></canvas>
         </div>
-        <pre class="log-view" id="mon-logs">Waiting for state updates...</pre>
-        <div id="results-panel" style="display:none">
-          <h3>Results</h3>
-          <ul id="result-list"></ul>
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <span class="chart-label">Memory Usage (MB)</span>
+            <span class="chart-value" id="mon-mem-val">--</span>
+          </div>
+          <canvas id="chart-mem"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <span class="chart-label">Network I/O (bytes)</span>
+            <span class="chart-value" id="mon-net-val">--</span>
+          </div>
+          <canvas id="chart-net"></canvas>
+        </div>
+      </div>
+      <div class="monitor-sidebar">
+        <div class="info-card" id="mon-info-card">
+          <h4>Container Info</h4>
+          <div class="info-row"><span class="info-label">Status</span><span class="info-value" id="mon-info-status">--</span></div>
+          <div class="info-row"><span class="info-label">CPU</span><span class="info-value" id="mon-info-cpu">--</span></div>
+          <div class="info-row"><span class="info-label">Memory</span><span class="info-value" id="mon-info-mem">--</span></div>
+          <div class="info-row"><span class="info-label">Network</span><span class="info-value" id="mon-info-net">--</span></div>
+        </div>
+        <div class="monitor-logs-container">
+          <h4>Logs</h4>
+          <pre class="log-view" id="mon-logs">Waiting for state updates...</pre>
         </div>
       </div>
     </div>
   </section>
 
+  <!-- Step 3: Results -->
+  <section class="step" id="step-3">
+    <div class="results-summary" id="results-summary">
+      <div class="summary-card">
+        <span class="label">Duration</span>
+        <span class="value" id="r-duration">--</span>
+      </div>
+      <div class="summary-card">
+        <span class="label">Target</span>
+        <span class="value" id="r-target">--</span>
+      </div>
+      <div class="summary-card">
+        <span class="label">Perturbations</span>
+        <span class="value" id="r-perturbations">--</span>
+      </div>
+      <div class="summary-card">
+        <span class="label">Result</span>
+        <span class="value" id="r-result">--</span>
+      </div>
+    </div>
+
+    <div class="timeline-legend">
+      <span class="legend-item normal">Normal</span>
+      <span class="legend-item chaos">Chaos</span>
+      <span class="legend-item recovery">Recovery</span>
+    </div>
+
+    <div class="timeline-charts">
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <span class="chart-label">CPU Usage Timeline (%)</span>
+        </div>
+        <canvas id="timeline-cpu"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <span class="chart-label">Memory Usage Timeline (MB)</span>
+        </div>
+        <canvas id="timeline-mem"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <span class="chart-label">Network I/O Timeline (bytes)</span>
+        </div>
+        <canvas id="timeline-net"></canvas>
+      </div>
+    </div>
+
+    <div class="results-bottom">
+      <div class="results-expectations">
+        <h3>Expectations</h3>
+        <div id="r-expectations"></div>
+      </div>
+      <div class="results-logs">
+        <h3>Run Logs</h3>
+        <pre class="log-view" id="r-logs"></pre>
+      </div>
+    </div>
+
+    <div class="results-actions">
+      <button class="btn primary" id="r-run-again">▶ Run Again</button>
+      <button class="btn" id="r-modify">Modify Manifest</button>
+    </div>
+  </section>
+
+  <script src="/assets/charts.js"></script>
   <script src="/assets/app.js"></script>
 </body>
 </html>

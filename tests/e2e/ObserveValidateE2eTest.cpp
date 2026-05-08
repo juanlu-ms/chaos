@@ -14,7 +14,7 @@ using chaos::orchestrator::manifests::Expectation;
 using chaos::orchestrator::manifests::Parameters;
 using chaos::orchestrator::observability::ObservabilityEngine;
 using chaos::orchestrator::shared::ContainerStatus;
-using chaos::orchestrator::validation::ValidationEngine;
+using chaos::orchestrator::validation::validate;
 
 class ObserveValidateE2eTest : public ::testing::Test {
 protected:
@@ -58,7 +58,7 @@ TEST_F(ObserveValidateE2eTest, ValidateContainerRunningExpectation) {
         {"container_running", Parameters{}},
     };
 
-    const auto results = ValidationEngine::validate(state, expectations);
+    const auto results = validate(state, expectations);
     ASSERT_EQ(results.size(), 1u);
     EXPECT_TRUE(results[0].passed);
     EXPECT_EQ(results[0].expectationType, "container_running");
@@ -72,7 +72,7 @@ TEST_F(ObserveValidateE2eTest, ValidateContainerNotRunningFails) {
         {"container_not_running", Parameters{}},
     };
 
-    const auto results = ValidationEngine::validate(state, expectations);
+    const auto results = validate(state, expectations);
     ASSERT_EQ(results.size(), 1u);
     EXPECT_FALSE(results[0].passed);
 }

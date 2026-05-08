@@ -8,8 +8,8 @@
 #include <string>
 #include <vector>
 
-#include "manifests/Manifest.hpp"
-#include "shared/TargetState.hpp"
+#include "../manifests/Manifest.hpp"
+#include "../shared/TargetState.hpp"
 
 namespace chaos::orchestrator::validation {
 
@@ -26,28 +26,17 @@ struct ValidationResult {
 };
 
 /**
- * @brief Evaluates a list of manifest Expectations using an ObservabilityEngine.
+ * @brief Evaluate all expectations against the current container state.
+ * @param targetState The observed state of the target container to validate against.
+ * @param expectations List of expectations from the manifest.
+ * @return One ValidationResult per expectation, in order.
  *
  * Supports expectation types:
- * - container_running
- * - container_not_running
- * - log_contains
- * - log_not_contains
- * - http_status
- * - http_latency
+ * - container_running / container_not_running
+ * - log_contains / log_not_contains
+ * - http_status / http_latency
  */
-class ValidationEngine {
-public:
-    ValidationEngine();
-
-    /**
-     * @brief Evaluate all expectations against the current container state.
-     * @param targetState The observed state of the target container to validate against.
-     * @param expectations List of expectations from the manifest.
-     * @return One ValidationResult per expectation, in order.
-     */
-    static std::vector<ValidationResult> validate(const shared::TargetState& targetState,
-                                                  const std::vector<manifests::Expectation>& expectations);
-};
+[[nodiscard]] std::vector<ValidationResult> validate(const shared::TargetState& targetState,
+                                                     const std::vector<manifests::Expectation>& expectations);
 
 }  // namespace chaos::orchestrator::validation

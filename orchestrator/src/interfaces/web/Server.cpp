@@ -1,8 +1,9 @@
+#include "interfaces/web/Server.hpp"
+
 #include <spdlog/spdlog.h>
 
 #include <chrono>
 #include <filesystem>
-#include <interfaces/web/Server.hpp>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
@@ -197,7 +198,7 @@ void Server::setupRoutes() {
 
             pert_engine.waitForTeardown();
 
-            const auto results = validation::ValidationEngine::validate(lastKnownState, manifest.expectations);
+            const auto results = validation::validate(lastKnownState, manifest.expectations);
 
             bool passed = std::ranges::all_of(results, [](const auto& r) { return r.passed; });
             json j;

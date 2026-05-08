@@ -16,7 +16,7 @@ using chaos::orchestrator::manifests::Parameters;
 using chaos::orchestrator::observability::ObservabilityEngine;
 using chaos::orchestrator::perturbations::PerturbationEngine;
 using chaos::orchestrator::perturbations::PerturbationFactory;
-using chaos::orchestrator::validation::ValidationEngine;
+using chaos::orchestrator::validation::validate;
 
 class ManifestE2eTest : public ::testing::Test {
 protected:
@@ -72,7 +72,7 @@ TEST_F(ManifestE2eTest, ManifestWithKillRunsToCompletion) {
     ObservabilityEngine observer(engine_);
     const auto state = observer.observe(containerId_);
 
-    const auto results = ValidationEngine::validate(state, manifest.expectations);
+    const auto results = validate(state, manifest.expectations);
     ASSERT_EQ(results.size(), 1u);
     EXPECT_TRUE(results[0].passed);
 }
@@ -105,7 +105,7 @@ TEST_F(ManifestE2eTest, ManifestWithMemoryCapRunsToCompletion) {
     ObservabilityEngine observer(engine_);
     const auto state = observer.observe(containerId_);
 
-    const auto results = ValidationEngine::validate(state, manifest.expectations);
+    const auto results = validate(state, manifest.expectations);
     ASSERT_EQ(results.size(), 1u);
     EXPECT_TRUE(results[0].passed);
 }

@@ -27,9 +27,7 @@ struct ArchiveWriteDeleter {
 };
 
 struct ArchiveEntryDeleter {
-    void operator()(archive_entry* e) const noexcept {
-        archive_entry_free(e);
-    }
+    void operator()(archive_entry* e) const noexcept { archive_entry_free(e); }
 };
 
 using ArchiveWritePtr = std::unique_ptr<archive, ArchiveWriteDeleter>;
@@ -520,6 +518,7 @@ double DockerClient::getContainerCpuUsage(const std::string_view containerId) co
             fmt::format("Failed to get CPU stats for container '{}': HTTP {}", containerId, response.status));
     }
 
+    // TODO: Extract json validation into a helper function to make this more readable
     if (auto jsonResponse = parseResponse(response);
         jsonResponse.contains("cpu_stats") && jsonResponse["cpu_stats"].is_object() &&
         jsonResponse["cpu_stats"].contains("cpu_usage") && jsonResponse["cpu_stats"]["cpu_usage"].is_object() &&

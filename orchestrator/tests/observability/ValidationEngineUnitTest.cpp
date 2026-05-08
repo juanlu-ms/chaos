@@ -33,8 +33,7 @@ shared::TargetState makeTargetState(std::string id, shared::ContainerStatus stat
  */
 TEST(ValidationEngineTests, ContainerRunningPassesWhenRunning) {
     auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
-    const auto results =
-        validation::validate(state, {manifests::Expectation{"container_running", {}}});
+    const auto results = validation::validate(state, {manifests::Expectation{"container_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_TRUE(results[0].passed);
@@ -46,8 +45,7 @@ TEST(ValidationEngineTests, ContainerRunningPassesWhenRunning) {
  */
 TEST(ValidationEngineTests, ContainerRunningFailsWhenNotRunning) {
     auto state = makeTargetState("ctr", shared::ContainerStatus::Exited);
-    const auto results =
-        validation::validate(state, {manifests::Expectation{"container_running", {}}});
+    const auto results = validation::validate(state, {manifests::Expectation{"container_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_FALSE(results[0].passed);
@@ -58,8 +56,7 @@ TEST(ValidationEngineTests, ContainerRunningFailsWhenNotRunning) {
  */
 TEST(ValidationEngineTests, ContainerNotRunningPassesWhenStopped) {
     auto state = makeTargetState("ctr", shared::ContainerStatus::Exited);
-    const auto results =
-        validation::validate(state, {manifests::Expectation{"container_not_running", {}}});
+    const auto results = validation::validate(state, {manifests::Expectation{"container_not_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_TRUE(results[0].passed);
@@ -70,8 +67,7 @@ TEST(ValidationEngineTests, ContainerNotRunningPassesWhenStopped) {
  */
 TEST(ValidationEngineTests, ContainerNotRunningFailsWhenRunning) {
     auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
-    const auto results =
-        validation::validate(state, {manifests::Expectation{"container_not_running", {}}});
+    const auto results = validation::validate(state, {manifests::Expectation{"container_not_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_FALSE(results[0].passed);

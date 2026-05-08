@@ -82,7 +82,7 @@ void Server::setupRoutes() {
             SPDLOG_INFO("/containers served: {} items", containers.size());
         } catch (const std::exception& ex) {
             json err;
-            err["error"] = ex.what();
+            err["error"] = "Failed to list containers";
             res.status = 500;
             res.set_content(err.dump(4), "application/json");
             SPDLOG_ERROR("/containers failed: {}", ex.what());
@@ -107,7 +107,7 @@ void Server::setupRoutes() {
             res.set_content(j.dump(4), "application/json");
         } catch (const std::exception& ex) {
             json err;
-            err["error"] = ex.what();
+            err["error"] = "Failed to stop container";
             res.status = 500;
             res.set_content(err.dump(4), "application/json");
             SPDLOG_ERROR("/containers/{}/stop failed: {}", containerId, ex.what());
@@ -132,7 +132,7 @@ void Server::setupRoutes() {
             res.set_content(j.dump(4), "application/json");
         } catch (const std::exception& ex) {
             json err;
-            err["error"] = ex.what();
+            err["error"] = "Failed to kill container";
             res.status = 500;
             res.set_content(err.dump(4), "application/json");
             SPDLOG_ERROR("/containers/{}/kill failed: {}", containerId, ex.what());
@@ -152,8 +152,9 @@ void Server::setupRoutes() {
         } catch (const std::exception& ex) {
             res.status = 500;
             json err;
-            err["error"] = ex.what();
+            err["error"] = "Failed to get logs";
             res.set_content(err.dump(4), "application/json");
+            SPDLOG_ERROR("/containers/{}/logs failed: {}", id, ex.what());
         }
     });
 
@@ -212,13 +213,15 @@ void Server::setupRoutes() {
         } catch (const manifests::ManifestParserError& ex) {
             res.status = 400;
             json err;
-            err["error"] = ex.what();
+            err["error"] = "Invalid manifest";
             res.set_content(err.dump(4), "application/json");
+            SPDLOG_ERROR("/run manifest parse failed: {}", ex.what());
         } catch (const std::exception& ex) {
             res.status = 500;
             json err;
-            err["error"] = ex.what();
+            err["error"] = "Internal server error";
             res.set_content(err.dump(4), "application/json");
+            SPDLOG_ERROR("/run failed: {}", ex.what());
         }
     });
 }

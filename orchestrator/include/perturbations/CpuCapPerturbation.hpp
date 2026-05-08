@@ -28,13 +28,13 @@ public:
     ~CpuCapPerturbation() override = default;
 
     /**
-     * @brief Applies the CPU cap by modifying the container's cgroup quotas.
+     * @brief Applies the CPU cap via the Docker Update API.
      * @throws std::system_error On failure to cap CPU.
      */
     void apply() override;
 
     /**
-     * @brief Reverts the CPU cap by restoring the container's cgroup quotas.
+     * @brief Reverts the CPU cap by restoring the container's default quota.
      * @throws std::system_error On failure to revert CPU cap.
      */
     void revert() override;

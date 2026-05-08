@@ -54,6 +54,10 @@ if(UNIX)
     )
 endif()
 
+if(CHAOS_CLANG_TIDY)
+    set_target_properties(orchestrator_core PROPERTIES CXX_CLANG_TIDY "${CHAOS_CLANG_TIDY}")
+endif()
+
 add_executable(orchestrator_app src/main.cpp)
 target_include_directories(orchestrator_app PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -104,5 +108,5 @@ target_link_libraries(orchestrator_smoke_tests PRIVATE
 )
 
 include(GoogleTest)
-gtest_discover_tests(orchestrator_unit_tests)
-gtest_discover_tests(orchestrator_smoke_tests)
+gtest_discover_tests(orchestrator_unit_tests PROPERTIES LABELS "unit")
+gtest_discover_tests(orchestrator_smoke_tests PROPERTIES LABELS "smoke")

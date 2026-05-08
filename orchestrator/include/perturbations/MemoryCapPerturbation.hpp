@@ -28,13 +28,13 @@ public:
     ~MemoryCapPerturbation() override = default;
 
     /**
-     * @brief Applies the memory cap by modifying the container's cgroup.
+     * @brief Applies the memory cap via the Docker Update API.
      * @throws std::system_error On failure to cap memory.
      */
     void apply() override;
 
     /**
-     * @brief Reverts the memory cap by removing the cgroup restriction.
+     * @brief Reverts the memory cap by restoring the system default.
      * @throws std::system_error On failure to revert memory cap.
      */
     void revert() override;

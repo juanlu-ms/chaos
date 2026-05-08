@@ -24,7 +24,7 @@ public:
      * @brief Creates the concrete perturbation based on the spec type.
      * @param engine The container engine used to interact with the target.
      * @param target The target specification.
-     * @param spec The parsed perturbation definition (e.g., type="MemoryCap").
+     * @param spec The parsed perturbation definition (e.g., type="memory_cap").
      * @return Unique pointer to the instantiated IPerturbation.
      * @throws std::invalid_argument If the type is not recognized.
      */

@@ -16,4 +16,4 @@ target_compile_definitions(chaos_e2e_tests PRIVATE
 )
 
 include(GoogleTest)
-gtest_discover_tests(chaos_e2e_tests)
+gtest_discover_tests(chaos_e2e_tests PROPERTIES LABELS "e2e")

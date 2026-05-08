@@ -1,15 +1,12 @@
-/**
- * @file TuiApp.cpp
- * @brief Terminal User Interface implementation for the chaos orchestrator.
- */
-
 #include "interfaces/tui/TuiApp.hpp"
 
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <filesystem>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/event.hpp>
@@ -23,11 +20,13 @@
 #include <vector>
 
 #include "containers/Container.hpp"
-#include "manifests/ManifestParser.hpp"
+#include "manifests/Manifest.hpp"
 #include "observability/ObservabilityEngine.hpp"
 #include "perturbations/PerturbationEngine.hpp"
 #include "perturbations/PerturbationFactory.hpp"
+#include "shared/ContainerStatus.hpp"
 #include "shared/StateBroadcaster.hpp"
+#include "shared/TargetState.hpp"
 #include "validation/ValidationEngine.hpp"
 
 namespace chaos::orchestrator::interfaces::tui {
@@ -35,26 +34,31 @@ namespace chaos::orchestrator::interfaces::tui {
 namespace {
 
 struct SharedState {
-    std::mutex state_mutex;
+    std::mutex mtx;
     std::vector<containers::Container> containers;
     std::vector<std::string> container_labels;
-    int selected = 0;
-    std::string manifest_path;
-    std::vector<std::string> output_lines;
+    int selected_target = 0;
+    std::optional<shared::TargetState> latest_state;
+    enum Mode { Dashboard, Wizard } mode = Dashboard;
+    int wizard_step = 0;
+    std::string test_name = "chaos-test";
+    std::string target_id;
+    std::vector<manifests::Perturbation> perturbations;
+    std::vector<manifests::Expectation> expectations;
+    int duration_s = 30;
     std::atomic<bool> run_in_progress{false};
+    std::vector<std::string> output_lines;
     std::atomic<int> wait_elapsed{0};
     std::atomic<int> wait_total{0};
-    std::atomic<float> log_scroll{1.0F};
 };
 
 void post_refresh(ftxui::ScreenInteractive& screen) { screen.PostEvent(ftxui::Event::Custom); }
 
-void push_output_line(SharedState& state, ftxui::ScreenInteractive& screen, std::string line) {
+void push_line(SharedState& state, ftxui::ScreenInteractive& screen, std::string line) {
     {
-        std::lock_guard lock(state.state_mutex);
+        std::lock_guard lock(state.mtx);
         state.output_lines.push_back(std::move(line));
     }
-    state.log_scroll = 1.0F;
     post_refresh(screen);
 }
 
@@ -69,359 +73,339 @@ std::vector<std::string> build_labels(const std::vector<containers::Container>& 
 }
 
 void refresh_containers(const std::shared_ptr<containers::IContainerEngine>& engine, SharedState& state,
-                        const auto& push_output, ftxui::ScreenInteractive& screen) {
+                        ftxui::ScreenInteractive& screen) {
     try {
         auto fresh = engine->listContainers();
         auto labels = build_labels(fresh);
-
-        std::lock_guard lock(state.state_mutex);
-        state.containers = std::move(fresh);
-        state.container_labels = std::move(labels);
-        if (!state.container_labels.empty() && state.selected >= static_cast<int>(state.container_labels.size())) {
-            state.selected = static_cast<int>(state.container_labels.size()) - 1;
+        {
+            std::lock_guard lock(state.mtx);
+            state.containers = std::move(fresh);
+            state.container_labels = std::move(labels);
+            if (state.selected_target >= static_cast<int>(state.container_labels.size())) {
+                state.selected_target = std::max(0, static_cast<int>(state.container_labels.size()) - 1);
+            }
         }
-    } catch (const containers::ContainerEngineTransportError& ex) {
-        push_output(fmt::format("ERROR listing containers (transport): {}", ex.what()));
-    } catch (const containers::ContainerEngineApiError& ex) {
-        push_output(fmt::format("ERROR listing containers (api): {}", ex.what()));
-    } catch (const containers::ContainerEngineParseError& ex) {
-        push_output(fmt::format("ERROR listing containers (parse): {}", ex.what()));
     } catch (const containers::ContainerEngineError& ex) {
-        push_output(fmt::format("ERROR listing containers: {}", ex.what()));
+        push_line(state, screen, fmt::format("ERROR: {}", ex.what()));
     }
     post_refresh(screen);
 }
 
-std::optional<containers::Container> selected_container(SharedState& state) {
-    std::lock_guard lock(state.state_mutex);
-    if (state.containers.empty() || state.selected < 0 || state.selected >= static_cast<int>(state.containers.size())) {
-        return std::nullopt;
-    }
-    return state.containers[static_cast<std::size_t>(state.selected)];
-}
+ftxui::Element render_dashboard(SharedState& state) {
+    using namespace ftxui;
 
-void reset_run_output(SharedState& state, ftxui::ScreenInteractive& screen) {
-    state.wait_elapsed.store(0);
-    state.wait_total.store(0);
+    std::vector<std::string> labels;
+    int selected = 0;
+    std::optional<shared::TargetState> latest;
     {
-        std::lock_guard lock(state.state_mutex);
-        state.output_lines.clear();
+        std::lock_guard lock(state.mtx);
+        labels = state.container_labels;
+        selected = state.selected_target;
+        latest = state.latest_state;
     }
-    state.log_scroll = 1.0F;
-    post_refresh(screen);
+
+    Elements container_elems;
+    if (labels.empty()) {
+        container_elems.push_back(text("  (no containers)") | dim);
+    } else {
+        for (int i = 0; i < static_cast<int>(labels.size()); ++i) {
+            auto prefix = (i == selected) ? text(" > ") | bold : text("   ");
+            auto line = text(labels[static_cast<std::size_t>(i)]);
+            if (i == selected) {
+                line = line | bold | inverted;
+            }
+            container_elems.push_back(hbox({prefix, line}));
+        }
+    }
+
+    Elements right_elems;
+    right_elems.push_back(text(" Target State") | bold);
+    right_elems.push_back(separator());
+    if (latest.has_value()) {
+        const auto& ts = latest.value();
+        right_elems.push_back(text(fmt::format(" ID:     {}", ts.container_id)));
+        right_elems.push_back(text(fmt::format(" Status: {}", shared::toString(ts.status))));
+        if (ts.cpu_usage_percent.has_value()) {
+            right_elems.push_back(text(fmt::format(" CPU:    {:.1f}%", ts.cpu_usage_percent.value())));
+        }
+        if (ts.memory_usage_mb.has_value()) {
+            right_elems.push_back(text(fmt::format(" Memory: {:.1f} MB", ts.memory_usage_mb.value())));
+        }
+        if (ts.container_ip.has_value()) {
+            right_elems.push_back(text(fmt::format(" IP:     {}", ts.container_ip.value())));
+        }
+    } else {
+        right_elems.push_back(text(" (no state data)") | dim);
+    }
+
+    return vbox({
+        hbox({
+            text(" CHAOS TUI -- Dashboard") | bold | flex,
+            text(" [Tab] Wizard  [r] Refresh  [q] Quit ") | dim,
+        }) | color(Color::White) |
+            bgcolor(Color::Blue),
+        hbox({
+            vbox({
+                text(" CONTAINERS") | bold,
+                separator(),
+                vbox(std::move(container_elems)) | vscroll_indicator | frame | flex,
+            }) | border |
+                flex,
+            vbox(std::move(right_elems)) | border | size(WIDTH, GREATER_THAN, 40),
+        }) | flex,
+    });
 }
 
-void wait_manifest_duration(const manifests::ChaosManifest& manifest, SharedState& state,
-                            ftxui::ScreenInteractive& screen, const auto& push_output,
-                            const std::stop_token& stop_token) {
-    if (!manifest.duration_s.has_value() || manifest.duration_s.value() <= 0) {
-        return;
+ftxui::Element render_wizard(SharedState& state) {
+    using namespace ftxui;
+
+    int step = 0;
+    {
+        std::lock_guard lock(state.mtx);
+        step = state.wizard_step;
     }
 
-    const auto secs = static_cast<int>(manifest.duration_s.value());
-    state.wait_total.store(secs);
-    state.wait_elapsed.store(0);
-    post_refresh(screen);
+    constexpr std::array<const char*, 4> step_names = {"Target", "Perturbations", "Expectations", "Run"};
 
-    for (int i = 0; i < secs && !stop_token.stop_requested(); ++i) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        state.wait_elapsed.store(i + 1);
-        post_refresh(screen);
+    auto header = hbox({
+                      text(" CHAOS TUI -- Wizard") | bold | flex,
+                      text(" [Tab] Dashboard  [q] Back  [Enter] Confirm ") | dim,
+                  }) |
+                  color(Color::White) | bgcolor(Color::Blue);
+
+    Elements steps;
+    for (int i = 0; i < 4; ++i) {
+        auto s = fmt::format(" Step {}/4: {}", i + 1, step_names[static_cast<std::size_t>(i)]);
+        steps.push_back((i == step) ? text(s) | bold : text(s) | dim);
+        if (i < 3) {
+            steps.push_back(text(" -> ") | dim);
+        }
+    }
+    auto step_bar = hbox(std::move(steps));
+
+    Element content;
+
+    switch (step) {
+        case 0: {
+            std::lock_guard lock(state.mtx);
+            Elements elems;
+            if (state.container_labels.empty()) {
+                elems.push_back(text("  (no containers)") | dim);
+            } else {
+                for (int i = 0; i < static_cast<int>(state.container_labels.size()); ++i) {
+                    auto prefix = (i == state.selected_target) ? text(" > ") | bold : text("   ");
+                    auto line = text(state.container_labels[static_cast<std::size_t>(i)]);
+                    if (i == state.selected_target) {
+                        line = line | bold | inverted;
+                    }
+                    elems.push_back(hbox({prefix, line}));
+                }
+            }
+            content = vbox({
+                          text(" Select Target Container") | bold,
+                          separator(),
+                          vbox(std::move(elems)) | vscroll_indicator | frame | flex,
+                          separator(),
+                          text(" arrow keys to navigate, Enter to confirm ") | dim,
+                      }) |
+                      border | flex;
+            break;
+        }
+        case 1: {
+            std::lock_guard lock(state.mtx);
+            Elements elems;
+            for (const auto& p : state.perturbations) {
+                elems.push_back(text(fmt::format("  - {} ({} params)", p.type, p.parameters.size())));
+            }
+            if (elems.empty()) {
+                elems.push_back(text("  (no perturbations)") | dim);
+            }
+            content = vbox({
+                          text(" Configure Perturbations") | bold,
+                          separator(),
+                          vbox(std::move(elems)) | flex,
+                          separator(),
+                          text(" [a] Add kill  [d] Delete last  [Enter] Confirm  [Backspace] Back ") | dim,
+                      }) |
+                      border | flex;
+            break;
+        }
+        case 2: {
+            std::lock_guard lock(state.mtx);
+            Elements elems;
+            for (const auto& e : state.expectations) {
+                elems.push_back(text(fmt::format("  - {} ({} params)", e.type, e.parameters.size())));
+            }
+            if (elems.empty()) {
+                elems.push_back(text("  (no expectations)") | dim);
+            }
+            content = vbox({
+                          text(" Set Expectations") | bold,
+                          separator(),
+                          vbox(std::move(elems)) | flex,
+                          separator(),
+                          text(" [a] Add container_running  [d] Delete last  [Enter] Confirm  [Backspace] Back ") | dim,
+                      }) |
+                      border | flex;
+            break;
+        }
+        case 3: {
+            std::string tname;
+            std::string tid;
+            int dur = 0;
+            bool running = false;
+            int elapsed = 0, total = 0;
+            std::vector<std::string> output;
+            {
+                std::lock_guard lock(state.mtx);
+                tname = state.test_name;
+                tid = state.target_id;
+                dur = state.duration_s;
+                running = state.run_in_progress.load();
+                elapsed = state.wait_elapsed.load();
+                total = state.wait_total.load();
+                output = state.output_lines;
+            }
+
+            Elements summary;
+            summary.push_back(text(fmt::format(" Test Name:       {}", tname)));
+            summary.push_back(text(fmt::format(" Target ID:       {}", tid)));
+            summary.push_back(text(fmt::format(" Perturbations:   {}", state.perturbations.size())));
+            summary.push_back(text(fmt::format(" Expectations:    {}", state.expectations.size())));
+            summary.push_back(text(fmt::format(" Duration:        {}s", dur)));
+
+            Elements output_elems;
+            for (const auto& l : output) {
+                output_elems.push_back(text(l));
+            }
+            if (output_elems.empty() && !running) {
+                output_elems.push_back(text(" (press Enter to start the run)") | dim);
+            }
+
+            if (total > 0) {
+                auto ratio = static_cast<float>(elapsed) / static_cast<float>(total);
+                output_elems.push_back(hbox({
+                                           text(fmt::format(" Running  {}/{}s  ", elapsed, total)),
+                                           gauge(ratio) | flex,
+                                       }) |
+                                       color(Color::Yellow));
+            }
+
+            content = vbox({
+                          text(" Run Chaos Test") | bold,
+                          separator(),
+                          vbox(std::move(summary)) | border,
+                          separator(),
+                          vbox(std::move(output_elems)) | vscroll_indicator | frame | flex,
+                          separator(),
+                          running ? text(" (run in progress...) ") | dim
+                                  : text(" [Enter] Start run  [Backspace] Back ") | dim,
+                      }) |
+                      border | flex;
+            break;
+        }
     }
 
-    state.wait_total.store(0);
-    push_output(fmt::format("  ✓ Waited {}s.", secs));
+    return vbox({
+        header,
+        step_bar,
+        separator(),
+        content | flex,
+    });
 }
 
-struct RunRequest {
-    std::string manifest_path;
-    std::string cwd;
-};
+manifests::ChaosManifest build_manifest(const SharedState& state) {
+    manifests::ChaosManifest m;
+    m.test_name = state.test_name;
+    m.target.id = state.target_id;
+    m.perturbations = state.perturbations;
+    m.expectations = state.expectations;
+    m.duration_s = static_cast<uint32_t>(state.duration_s);
+    return m;
+}
 
 void execute_run(const std::shared_ptr<containers::IContainerEngine>& engine, SharedState& state,
-                 ftxui::ScreenInteractive& screen, const RunRequest& request, const auto& push_output,
-                 const std::stop_token& stop_token) {
-    reset_run_output(state, screen);
+                 ftxui::ScreenInteractive& screen) {
+    manifests::ChaosManifest manifest;
+    {
+        std::lock_guard lock(state.mtx);
+        manifest = build_manifest(state);
+    }
+
+    {
+        std::lock_guard lock(state.mtx);
+        state.output_lines.clear();
+    }
+    state.wait_elapsed.store(0);
+    state.wait_total.store(0);
+    post_refresh(screen);
+
+    auto pl = [&](std::string line) { push_line(state, screen, std::move(line)); };
+
+    auto on_state = [&](const shared::TargetState& ts) {
+        std::lock_guard lock(state.mtx);
+        state.latest_state = ts;
+    };
 
     try {
-        const auto manifest = manifests::ManifestParser::parseFromFile(request.manifest_path);
-        push_output(fmt::format("▶ Running: {}", manifest.test_name));
+        pl(fmt::format("> Running: {}", manifest.test_name));
 
         perturbations::PerturbationFactory factory;
-        std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbation_instances;
+        std::vector<std::unique_ptr<perturbations::IPerturbation>> instances;
         for (const auto& spec : manifest.perturbations) {
-            perturbation_instances.push_back(factory.create(engine, manifest.target, spec));
+            instances.push_back(factory.create(engine, manifest.target, spec));
         }
 
         perturbations::PerturbationEngine pert_engine;
         const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
-        pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration);
+        pert_engine.scheduleAllAsync(std::move(instances), duration);
 
         observability::ObservabilityEngine obs(engine);
-        shared::TargetState lastKnownState;
         shared::StateBroadcaster broadcaster;
+        auto handle = broadcaster.subscribe(on_state);
 
         if (duration.count() > 0) {
-            push_output(fmt::format("  Injecting faults for {}s...", duration.count()));
+            pl(fmt::format("  Injecting faults for {}s...", duration.count()));
             auto start_time = std::chrono::steady_clock::now();
-            while (std::chrono::steady_clock::now() - start_time < duration && !stop_token.stop_requested()) {
-                lastKnownState = obs.observe(manifest.target.id);
-                broadcaster.broadcast(lastKnownState);
-                push_output(fmt::format("  📊 State: {} - {}", shared::toString(lastKnownState.status),
-                                        lastKnownState.container_id));
+            while (std::chrono::steady_clock::now() - start_time < duration) {
+                auto ts = obs.observe(manifest.target.id);
+                broadcaster.broadcast(ts);
+                auto elapsed_s =
+                    std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - start_time)
+                        .count();
+                state.wait_elapsed.store(static_cast<int>(elapsed_s));
+                state.wait_total.store(static_cast<int>(duration.count()));
+                post_refresh(screen);
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
             }
         } else {
-            lastKnownState = obs.observe(manifest.target.id);
-            broadcaster.broadcast(lastKnownState);
+            auto ts = obs.observe(manifest.target.id);
+            broadcaster.broadcast(ts);
         }
 
-        push_output("  Waiting for perturbations to revert...");
-        pert_engine.waitForTeardown();
-        push_output("  ✓ Perturbations reverted.");
+        broadcaster.unsubscribe(handle);
 
-        shared::TargetState targetState = obs.observe(manifest.target.id);
-        const auto results = validation::validate(targetState, manifest.expectations);
+        pl("  Waiting for perturbations to revert...");
+        pert_engine.waitForTeardown();
+        pl("  Reverted.");
+
+        auto final_state = obs.observe(manifest.target.id);
+        auto results = validation::validate(final_state, manifest.expectations);
 
         for (const auto& r : results) {
-            push_output(fmt::format("  {} {}: {}", r.passed ? "✅" : "❌", r.expectationType, r.message));
+            pl(fmt::format("  {}: {}", r.passed ? "PASS" : "FAIL", r.message));
         }
 
-        const auto passed = std::ranges::all_of(results, [](const auto& r) { return r.passed; });
-        push_output(passed ? ">>> PASSED ✅" : ">>> FAILED ❌");
-    } catch (const manifests::ManifestParserError& ex) {
-        push_output(fmt::format("❌ Manifest parse error: {}", ex.what()));
-        push_output(fmt::format("  (Working directory: {})", request.cwd));
-    } catch (const containers::ContainerEngineTransportError& ex) {
-        push_output(fmt::format("❌ Container engine transport error: {}", ex.what()));
-        push_output(fmt::format("  (Working directory: {})", request.cwd));
-    } catch (const containers::ContainerEngineApiError& ex) {
-        push_output(fmt::format("❌ Container engine API error: {}", ex.what()));
-        push_output(fmt::format("  (Working directory: {})", request.cwd));
-    } catch (const containers::ContainerEngineParseError& ex) {
-        push_output(fmt::format("❌ Container engine parse error: {}", ex.what()));
-        push_output(fmt::format("  (Working directory: {})", request.cwd));
-    } catch (const containers::ContainerEngineError& ex) {
-        push_output(fmt::format("❌ Container engine error: {}", ex.what()));
-        push_output(fmt::format("  (Working directory: {})", request.cwd));
-    } catch (const std::filesystem::filesystem_error& ex) {
-        push_output(fmt::format("❌ File error: {}", ex.what()));
-        push_output(fmt::format("  (Working directory: {})", request.cwd));
+        bool all_passed = std::all_of(results.begin(), results.end(), [](const auto& r) { return r.passed; });
+        pl(all_passed ? ">>> PASSED" : ">>> FAILED");
+
+    } catch (const std::exception& ex) {
+        pl(fmt::format("ERROR: {}", ex.what()));
     }
 
     state.wait_total.store(0);
     state.run_in_progress.store(false);
     post_refresh(screen);
-}
-
-ftxui::Element render_log_content(SharedState& state) {
-    using namespace ftxui;
-
-    std::vector<std::string> snapshot;
-    {
-        std::lock_guard lock(state.state_mutex);
-        snapshot = state.output_lines;
-    }
-
-    Elements elems;
-    elems.reserve(snapshot.size() + 2);
-    for (const auto& line : snapshot) {
-        elems.push_back(text(line));
-    }
-
-    if (const auto total = state.wait_total.load(); total > 0) {
-        const auto elapsed = state.wait_elapsed.load();
-        const auto ratio = static_cast<float>(elapsed) / static_cast<float>(total);
-        elems.push_back(hbox({
-                            text(fmt::format("  ⏳ Waiting  {}/{}s  ", elapsed, total)),
-                            gauge(ratio) | flex,
-                        }) |
-                        color(Color::Yellow));
-    }
-
-    if (elems.empty()) {
-        elems.push_back(text("(no output yet)") | dim);
-    }
-
-    return vbox(std::move(elems));
-}
-
-bool handle_log_scroll(ftxui::Event const& e, SharedState& state, ftxui::ScreenInteractive& screen) {
-    constexpr float step = 0.05F;
-    constexpr float page = 0.25F;
-
-    if (e == ftxui::Event::ArrowDown) {
-        state.log_scroll = std::min(1.0F, state.log_scroll + step);
-    } else if (e == ftxui::Event::ArrowUp) {
-        state.log_scroll = std::max(0.0F, state.log_scroll - step);
-    } else if (e == ftxui::Event::PageDown) {
-        state.log_scroll = std::min(1.0F, state.log_scroll + page);
-    } else if (e == ftxui::Event::PageUp) {
-        state.log_scroll = std::max(0.0F, state.log_scroll - page);
-    } else if (e == ftxui::Event::Home) {
-        state.log_scroll = 0.0F;
-    } else if (e == ftxui::Event::End) {
-        state.log_scroll = 1.0F;
-    } else {
-        return false;
-    }
-
-    post_refresh(screen);
-    return true;
-}
-
-struct UiComponents {
-    ftxui::Component container_menu;
-    ftxui::Component btn_refresh;
-    ftxui::Component btn_stop;
-    ftxui::Component btn_kill;
-    ftxui::Component manifest_input;
-    ftxui::Component btn_run;
-    ftxui::Component log_scroller;
-};
-
-ftxui::Component make_stop_button(const std::shared_ptr<containers::IContainerEngine>& engine, SharedState& state,
-                                  const auto& push_output, const auto& refresh) {
-    return ftxui::Button("Stop", [engine, &state, &push_output, refresh] {
-        const auto c = selected_container(state);
-        if (!c.has_value()) {
-            push_output("No container selected.");
-            return;
-        }
-
-        try {
-            engine->stopContainer(c->id);
-            push_output(fmt::format("✅ Stopped: {}", c->name));
-            refresh();
-        } catch (const containers::ContainerEngineTransportError& ex) {
-            push_output(fmt::format("❌ Stop failed (transport): {}", ex.what()));
-        } catch (const containers::ContainerEngineApiError& ex) {
-            push_output(fmt::format("❌ Stop failed (api): {}", ex.what()));
-        } catch (const containers::ContainerEngineParseError& ex) {
-            push_output(fmt::format("❌ Stop failed (parse): {}", ex.what()));
-        } catch (const containers::ContainerEngineError& ex) {
-            push_output(fmt::format("❌ Stop failed: {}", ex.what()));
-        }
-    });
-}
-
-ftxui::Component make_kill_button(const std::shared_ptr<containers::IContainerEngine>& engine, SharedState& state,
-                                  const auto& push_output, const auto& refresh) {
-    return ftxui::Button("Kill", [engine, &state, &push_output, refresh] {
-        const auto c = selected_container(state);
-        if (!c.has_value()) {
-            push_output("No container selected.");
-            return;
-        }
-
-        try {
-            engine->killContainer(c->id);
-            push_output(fmt::format("✅ Killed: {}", c->name));
-            refresh();
-        } catch (const containers::ContainerEngineTransportError& ex) {
-            push_output(fmt::format("❌ Kill failed (transport): {}", ex.what()));
-        } catch (const containers::ContainerEngineApiError& ex) {
-            push_output(fmt::format("❌ Kill failed (api): {}", ex.what()));
-        } catch (const containers::ContainerEngineParseError& ex) {
-            push_output(fmt::format("❌ Kill failed (parse): {}", ex.what()));
-        } catch (const containers::ContainerEngineError& ex) {
-            push_output(fmt::format("❌ Kill failed: {}", ex.what()));
-        }
-    });
-}
-
-void start_run_worker(const std::shared_ptr<containers::IContainerEngine>& engine, SharedState& state,
-                      ftxui::ScreenInteractive& screen, std::jthread& run_thread, const auto& push_output,
-                      RunRequest request) {
-    run_thread = std::jthread(
-        [engine, &state, &screen, &push_output, request = std::move(request)](const std::stop_token& stop_token) {
-            execute_run(engine, state, screen, request, push_output, stop_token);
-        });
-}
-
-void on_run_click(const std::shared_ptr<containers::IContainerEngine>& engine, SharedState& state,
-                  ftxui::ScreenInteractive& screen, std::jthread& run_thread, const auto& push_output,
-                  const std::string& cwd) {
-    if (state.run_in_progress.exchange(true)) {
-        push_output("⚠ A run is already in progress.");
-        return;
-    }
-
-    if (state.manifest_path.empty()) {
-        state.run_in_progress.store(false);
-        push_output("Please enter a manifest path.");
-        return;
-    }
-
-    start_run_worker(engine, state, screen, run_thread, push_output,
-                     RunRequest{.manifest_path = state.manifest_path, .cwd = cwd});
-}
-
-ftxui::Component make_run_button(const std::shared_ptr<containers::IContainerEngine>& engine, SharedState& state,
-                                 ftxui::ScreenInteractive& screen, std::jthread& run_thread, const auto& push_output,
-                                 const std::string& cwd) {
-    return ftxui::Button("Run", [engine, &state, &screen, &run_thread, &push_output, cwd] {
-        on_run_click(engine, state, screen, run_thread, push_output, cwd);
-    });
-}
-
-ftxui::Element render_ui(SharedState& state, const std::string& cwd, const UiComponents& ui) {
-    using namespace ftxui;
-
-    const auto in_progress = state.run_in_progress.load();
-
-    Element container_panel;
-    {
-        std::lock_guard lock(state.state_mutex);
-        container_panel = state.container_labels.empty()
-                              ? text("  (no containers found)") | dim
-                              : ui.container_menu->Render() | vscroll_indicator | frame | flex;
-    }
-
-    return vbox({
-        hbox({
-            text("Chaos Orchestrator TUI") | bold | flex,
-            text(in_progress ? " ⏳ Running... " : " [q/ESC] Quit ") | dim,
-        }) | color(Color::White) |
-            bgcolor(Color::Blue),
-
-        hbox({
-            vbox({
-                text(" CONTAINERS") | bold,
-                separator(),
-                container_panel,
-            }) | border |
-                flex,
-
-            vbox({
-                text(" ACTIONS") | bold,
-                separator(),
-                ui.btn_refresh->Render() | hcenter,
-                separator(),
-                ui.btn_stop->Render() | hcenter,
-                ui.btn_kill->Render() | hcenter,
-            }) | border |
-                size(WIDTH, EQUAL, 18),
-        }) | flex,
-
-        hbox({
-            text(" Manifest: ") | bold,
-            ui.manifest_input->Render() | flex,
-            ui.btn_run->Render(),
-        }) | border,
-
-        vbox({
-            hbox({
-                text(" Output:") | bold | flex,
-                text(" Tab to focus · ↑↓ PgUp/PgDn Home/End to scroll ") | dim,
-            }),
-            separator(),
-            ui.log_scroller->Render() | flex,
-        }) | border |
-            size(HEIGHT, LESS_THAN, 16),
-
-        text(fmt::format(" CWD: {}", cwd)) | dim,
-    });
 }
 
 }  // namespace
@@ -431,71 +415,149 @@ TuiApp::TuiApp(std::shared_ptr<containers::IContainerEngine> engine) : m_engine(
 int TuiApp::run() const {
     using namespace ftxui;
 
-    const auto cwd = std::filesystem::current_path().string();
     SharedState state;
-
     auto screen = ScreenInteractive::Fullscreen();
-    auto push_output = [&state, &screen](std::string line) { push_output_line(state, screen, std::move(line)); };
 
-    auto refresh = [engine = m_engine, &state, &push_output, &screen] {
-        refresh_containers(engine, state, push_output, screen);
-    };
+    auto do_refresh = [engine = m_engine, &state, &screen] { refresh_containers(engine, state, screen); };
 
+    do_refresh();
     std::jthread run_thread;
 
-    refresh();
+    auto renderer = Renderer(
+        [&state] { return state.mode == SharedState::Dashboard ? render_dashboard(state) : render_wizard(state); });
 
-    // ── Buttons ───────────────────────────────────────────────────────────────
-    auto container_menu = Menu(&state.container_labels, &state.selected);
-
-    auto btn_refresh = Button("Refresh", [refresh] { refresh(); });
-    auto btn_stop = make_stop_button(m_engine, state, push_output, refresh);
-    auto btn_kill = make_kill_button(m_engine, state, push_output, refresh);
-
-    auto manifest_input = Input(&state.manifest_path, cwd + "/examples/...");
-    auto btn_run = make_run_button(m_engine, state, screen, run_thread, push_output, cwd);
-
-    // ── Log content renderer ──────────────────────────────────────────────────
-    // Renders ALL lines plus an optional live progress bar.
-    // Wrapped in a scrollable shell below.
-    auto log_content = Renderer([&state] { return render_log_content(state); });
-
-    // ── Scrollable shell ──────────────────────────────────────────────────────
-    // Uses focusPositionRelative(0, log_scroll) | frame — the canonical FTXUI
-    // pattern for a scrollable viewport controlled by a float position.
-    // CatchEvent intercepts ↑/↓/PgUp/PgDn/Home/End to move log_scroll.
-    auto log_scroller = CatchEvent(Renderer(log_content,
-                                            [log_content, &state] {
-                                                return log_content->Render() |
-                                                       focusPositionRelative(0, state.log_scroll) | frame | flex;
-                                            }),
-                                   [&state, &screen](Event const& e) { return handle_log_scroll(e, state, screen); });
-
-    // ── Layout & top-level renderer ───────────────────────────────────────────
-    auto actions_col = Container::Vertical({btn_refresh, btn_stop, btn_kill});
-    auto manifest_row = Container::Horizontal({manifest_input, btn_run});
-    auto layout = Container::Vertical({container_menu, actions_col, manifest_row, log_scroller});
-    const UiComponents ui_components{
-        .container_menu = container_menu,
-        .btn_refresh = btn_refresh,
-        .btn_stop = btn_stop,
-        .btn_kill = btn_kill,
-        .manifest_input = manifest_input,
-        .btn_run = btn_run,
-        .log_scroller = log_scroller,
-    };
-
-    auto renderer = Renderer(layout, [&state, &cwd, &ui_components] { return render_ui(state, cwd, ui_components); });
-
-    auto final_renderer = CatchEvent(renderer, [&screen](Event const& e) {
-        if (e == Event::Character('q') || e == Event::Escape) {
-            screen.ExitLoopClosure()();
+    auto component = CatchEvent(renderer, [&](Event const& e) {
+        if (e == Event::Tab) {
+            state.mode = (state.mode == SharedState::Dashboard) ? SharedState::Wizard : SharedState::Dashboard;
+            post_refresh(screen);
             return true;
         }
+
+        if (state.mode == SharedState::Dashboard) {
+            if (e == Event::Character('q') || e == Event::Escape) {
+                screen.ExitLoopClosure()();
+                return true;
+            }
+            if (e == Event::ArrowUp || e == Event::Character('k')) {
+                std::lock_guard lock(state.mtx);
+                state.selected_target = std::max(0, state.selected_target - 1);
+                post_refresh(screen);
+                return true;
+            }
+            if (e == Event::ArrowDown || e == Event::Character('j')) {
+                std::lock_guard lock(state.mtx);
+                int max_val = std::max(0, static_cast<int>(state.container_labels.size()) - 1);
+                state.selected_target = std::min(max_val, state.selected_target + 1);
+                post_refresh(screen);
+                return true;
+            }
+            if (e == Event::Character('r')) {
+                do_refresh();
+                return true;
+            }
+            return false;
+        }
+
+        // Wizard mode
+        if (e == Event::Character('q') || e == Event::Escape) {
+            state.mode = SharedState::Dashboard;
+            post_refresh(screen);
+            return true;
+        }
+
+        int step = state.wizard_step;
+
+        if (e == Event::Backspace) {
+            if (step == 0) {
+                state.mode = SharedState::Dashboard;
+            } else {
+                state.wizard_step = step - 1;
+            }
+            post_refresh(screen);
+            return true;
+        }
+
+        if (e == Event::Return) {
+            if (step == 0) {
+                std::lock_guard lock(state.mtx);
+                if (!state.containers.empty() && state.selected_target >= 0 &&
+                    state.selected_target < static_cast<int>(state.containers.size())) {
+                    state.target_id = state.containers[static_cast<std::size_t>(state.selected_target)].id;
+                }
+                state.wizard_step = 1;
+                post_refresh(screen);
+                return true;
+            }
+            if (step == 1) {
+                state.wizard_step = 2;
+                post_refresh(screen);
+                return true;
+            }
+            if (step == 2) {
+                state.wizard_step = 3;
+                post_refresh(screen);
+                return true;
+            }
+            if (step == 3 && !state.run_in_progress.exchange(true)) {
+                run_thread = std::jthread([engine = m_engine, &state, &screen] { execute_run(engine, state, screen); });
+                post_refresh(screen);
+                return true;
+            }
+        }
+
+        if (e == Event::Character('a')) {
+            if (step == 1) {
+                std::lock_guard lock(state.mtx);
+                state.perturbations.push_back({"kill", {}});
+                post_refresh(screen);
+                return true;
+            }
+            if (step == 2) {
+                std::lock_guard lock(state.mtx);
+                state.expectations.push_back({"container_running", {}});
+                post_refresh(screen);
+                return true;
+            }
+        }
+
+        if (e == Event::Character('d')) {
+            if (step == 1) {
+                std::lock_guard lock(state.mtx);
+                if (!state.perturbations.empty()) {
+                    state.perturbations.pop_back();
+                }
+                post_refresh(screen);
+                return true;
+            }
+            if (step == 2) {
+                std::lock_guard lock(state.mtx);
+                if (!state.expectations.empty()) {
+                    state.expectations.pop_back();
+                }
+                post_refresh(screen);
+                return true;
+            }
+        }
+
+        if (step == 0 && (e == Event::ArrowUp || e == Event::Character('k'))) {
+            std::lock_guard lock(state.mtx);
+            state.selected_target = std::max(0, state.selected_target - 1);
+            post_refresh(screen);
+            return true;
+        }
+
+        if (step == 0 && (e == Event::ArrowDown || e == Event::Character('j'))) {
+            std::lock_guard lock(state.mtx);
+            int max_val = std::max(0, static_cast<int>(state.container_labels.size()) - 1);
+            state.selected_target = std::min(max_val, state.selected_target + 1);
+            post_refresh(screen);
+            return true;
+        }
+
         return false;
     });
 
-    screen.Loop(final_renderer);
+    screen.Loop(component);
 
     if (run_thread.joinable()) {
         run_thread.request_stop();

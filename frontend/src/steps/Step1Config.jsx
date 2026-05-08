@@ -11,7 +11,7 @@ import {
   defaultExpectationParams,
 } from '../constants/expectations.js';
 
-export default function Step1Config({ initial, onRun, setOnline }) {
+export default function Step1Config({ initial, onRun }) {
   const [testName, setTestName] = useState(initial?.test_name || 'my-test');
   const [targetId, setTargetId] = useState(initial?.target?.id || '');
   const [duration, setDuration] = useState(initial?.duration_s || 15);
@@ -42,10 +42,9 @@ export default function Step1Config({ initial, onRun, setOnline }) {
         if (cancelled) return;
         setTargets(t);
         setLimits(l);
-        setOnline(true);
         if (!targetId && t.length) setTargetId(t[0].id);
       })
-      .catch(() => setOnline(false));
+      .catch(() => {});
     return () => {
       cancelled = true;
     };

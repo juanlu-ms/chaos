@@ -1,7 +1,7 @@
 import { THEMES } from '../theme.js';
+import Logo from './Logo.jsx';
 
 export default function Topbar({
-  online,
   currentStep,
   setStep,
   theme,
@@ -16,16 +16,12 @@ export default function Topbar({
 
   return (
     <div className="topbar">
-      <div className="logo">CHAOS</div>
-      <div className={`status-badge ${online ? 'online' : 'offline'}`}>
-        <span className="dot" />
-        {online ? 'Online' : 'Offline'}
-      </div>
+      <Logo />
 
       <div className="steps">
         {tabs.map((t) => {
           const isActive = currentStep === t.n;
-          // While a run is active (step 2), disable steps 1 and 3.
+          // While a run is active, only the Monitor tab is reachable.
           const disabled = runActive && t.n !== 2;
           return (
             <button

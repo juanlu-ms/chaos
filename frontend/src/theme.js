@@ -8,4 +8,16 @@ export function readVar(name, fallback = '#888') {
   return v || fallback;
 }
 
-export const THEMES = ['amber', 'dark', 'cyber'];
+export const THEMES = [
+  'amber',
+  'dark',
+  'cyber',
+  'light',
+  'matrix',
+  'synthwave',
+  'solarized',
+  'onedark',
+  'tokyonight',
+  'nord',
+  'catppuccin',
+];

@@ -6,6 +6,7 @@ import {
   CartesianGrid,
   Tooltip,
   ReferenceArea,
+  ReferenceLine,
   ResponsiveContainer,
 } from 'recharts';
 import { readVar } from '../theme.js';
@@ -23,6 +24,7 @@ export default function ResultsChart({
   const grid = readVar('--border', '#3d3228');
   const text = readVar('--text-dim', '#9e8f7e');
   const surface = readVar('--bg-elevated', '#2d251e');
+  const error = readVar('--error', '#ef5350');
 
   const id = `grad-r-${dataKey}-${themeKey}`;
   const yFormat = formatter || ((v) => `${v}${unit ? ' ' + unit : ''}`);
@@ -30,6 +32,7 @@ export default function ResultsChart({
   const tEnd = data.length ? data[data.length - 1].t : 0;
   const normalEnd = zones?.normalEnd ?? 0;
   const chaosEnd = zones?.chaosEnd ?? tEnd;
+  const hasChaosWindow = chaosEnd > normalEnd && normalEnd >= 0;
 
   return (
     <div className="chart-card">
@@ -67,28 +70,30 @@ export default function ResultsChart({
             labelFormatter={(v) => `t = ${Number(v).toFixed(1)}s`}
             formatter={(v) => yFormat(v)}
           />
-          {normalEnd > 0 && (
-            <ReferenceArea
-              x1={0}
-              x2={normalEnd}
-              fill="rgba(76,175,80,0.06)"
-              ifOverflow="extendDomain"
-            />
-          )}
-          {chaosEnd > normalEnd && (
+          {hasChaosWindow && (
             <ReferenceArea
               x1={normalEnd}
               x2={chaosEnd}
-              fill="rgba(239,83,80,0.06)"
+              fill={error}
+              fillOpacity={0.18}
+              stroke="none"
               ifOverflow="extendDomain"
             />
           )}
-          {tEnd > chaosEnd && (
-            <ReferenceArea
-              x1={chaosEnd}
-              x2={tEnd}
-              fill="rgba(76,175,80,0.06)"
-              ifOverflow="extendDomain"
+          {hasChaosWindow && (
+            <ReferenceLine
+              x={normalEnd}
+              stroke={error}
+              strokeDasharray="3 3"
+              strokeOpacity={0.7}
+            />
+          )}
+          {hasChaosWindow && (
+            <ReferenceLine
+              x={chaosEnd}
+              stroke={error}
+              strokeDasharray="3 3"
+              strokeOpacity={0.7}
             />
           )}
           <Area

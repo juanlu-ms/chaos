@@ -90,10 +90,9 @@ export default function App() {
         setLastState(s);
         // Debug timing: compare frontend clock vs backend clock
         if (backendT != null) {
-          const drift = t - backendT;
-          if (Math.abs(drift) > 0.3) {
-            console.log(`[timing] frontend= ${t.toFixed(1)}s  backend= ${backendT.toFixed(1)}s  drift= ${drift.toFixed(1)}s  phase= ${s.phase}`);
-          }
+          console.log(`[timing] frontend= ${t.toFixed(1)}s  backend= ${backendT.toFixed(1)}s  drift= ${(t - backendT).toFixed(1)}s  phase= ${s.phase}`);
+        } else {
+          console.log(`[timing] frontend= ${t.toFixed(1)}s  backend= MISSING  phase= ${s.phase}`);
         }
         if (s.recent_logs && s.recent_logs.length) {
           setLogs((prev) => {

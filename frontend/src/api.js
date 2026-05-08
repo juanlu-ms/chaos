@@ -73,6 +73,7 @@ export function openEventStream({
   });
 
   es.addEventListener('open', () => {
+    console.log('[eventsource] connected to /events');
     onConnectionRestored && onConnectionRestored();
   });
 

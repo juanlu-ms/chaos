@@ -353,7 +353,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-width: 0;
+  min-width: 280px;
+}
+
+.log-view {
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 /* ── Chart Cards ── */
@@ -388,12 +393,72 @@ body {
 
 .chart-card canvas { width: 100% !important; height: 120px !important; }
 
-.results-charts .chart-card canvas { height: 140px !important; }
+.results-charts > .chart-card canvas { height: 140px !important; }
+
+.timeline-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-dim);
+}
+
+.legend-item::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.legend-item.normal::before { background: var(--success); }
+.legend-item.chaos::before { background: var(--error); }
+.legend-item.recovery::before { background: var(--success); }
+
+.results-body { display: flex; gap: 12px; padding: 16px 24px; }
+.results-charts { flex: 2; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.results-sidebar { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 280px; }
+
+.results-summary {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.summary-card {
+  flex: 1;
+  min-width: 100px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.summary-card .label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.summary-card .value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
 
 .results-bottom {
   display: flex;
   gap: 16px;
-  padding: 16px 24px;
 }
 
 .results-expectations {

@@ -221,15 +221,25 @@
   }
 
   function initCharts() {
-    liveCharts.cpu = createLiveChart('chart-cpu-live', 'CPU', '%', '--accent');
-    liveCharts.mem = createLiveChart('chart-mem-live', 'Memory', 'MB', '--info');
-    liveCharts.net = createLiveChart('chart-net-live', 'Network', 'B/s', '--success');
+    const colors = {
+      accent: getCSS('--accent'),
+      info: getCSS('--info'),
+      success: getCSS('--success'),
+    };
+    liveCharts.cpu = createLiveChart('chart-cpu-live', 'CPU', '%', colors.accent);
+    liveCharts.mem = createLiveChart('chart-mem-live', 'Memory', 'MB', colors.info);
+    liveCharts.net = createLiveChart('chart-net-live', 'Network', 'B/s', colors.success);
   }
 
   function initTimelineCharts() {
-    resultsCharts.cpu = createResultsChart('chart-cpu-results', 'CPU', '%', '--accent');
-    resultsCharts.mem = createResultsChart('chart-mem-results', 'Memory', 'MB', '--info');
-    resultsCharts.net = createResultsChart('chart-net-results', 'Network', 'B/s', '--success');
+    const colors = {
+      accent: getCSS('--accent'),
+      info: getCSS('--info'),
+      success: getCSS('--success'),
+    };
+    resultsCharts.cpu = createResultsChart('chart-cpu-results', 'CPU', '%', colors.accent);
+    resultsCharts.mem = createResultsChart('chart-mem-results', 'Memory', 'MB', colors.info);
+    resultsCharts.net = createResultsChart('chart-net-results', 'Network', 'B/s', colors.success);
   }
 
   function startTimer() {
@@ -281,6 +291,7 @@
     initCharts();
     document.getElementById('mon-test-name').textContent = 'Running: ' + m.test_name;
     showStep(2);
+    const testStartTime = Date.now();
     startTimer();
     try {
       const res = await fetch('/api/run', {
@@ -313,13 +324,13 @@
             data.network_rx_bytes != null && data.network_tx_bytes != null
               ? 'RX: ' + data.network_rx_bytes.toFixed(0) + ' B | TX: ' + data.network_tx_bytes.toFixed(0) + ' B'
               : '--';
-          const ts = Date.now();
-          pushChartData(liveCharts.cpu, ts, data.cpu_usage_percent);
-          pushChartData(liveCharts.mem, ts, data.memory_usage_mb);
+          const elapsed = (Date.now() - testStartTime) / 1000;
+          pushChartData(liveCharts.cpu, elapsed, data.cpu_usage_percent);
+          pushChartData(liveCharts.mem, elapsed, data.memory_usage_mb);
           if (data.network_rx_bytes !== undefined) {
-            pushChartData(liveCharts.net, ts, data.network_rx_bytes + (data.network_tx_bytes || 0));
+            pushChartData(liveCharts.net, elapsed, data.network_rx_bytes + (data.network_tx_bytes || 0));
           }
-          allData.push({ t: ts, cpu: data.cpu_usage_percent, mem: data.memory_usage_mb,
+          allData.push({ t: elapsed, cpu: data.cpu_usage_percent, mem: data.memory_usage_mb,
             net: data.network_rx_bytes !== undefined ? data.network_rx_bytes + (data.network_tx_bytes || 0) : null,
             phase: data.phase || 'chaos' });
           if (data.recent_logs && data.recent_logs.length) {
@@ -407,12 +418,7 @@
   }
 
   function updateChartTheme() {
-    [liveCharts.cpu, liveCharts.mem, liveCharts.net].forEach(c => {
-      if (!c) return;
-      c.options.scales.x.ticks.color = getCSS('--text-dim');
-      c.options.scales.y.ticks.color = getCSS('--text-dim');
-      c.update();
-    });
+    updateChartColors(liveCharts);
   }
 
   function initTheme() {

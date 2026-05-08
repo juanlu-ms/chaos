@@ -336,11 +336,14 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                 observability::ObservabilityEngine obs(engine);
                 shared::TargetState lastKnownState;
 
+                auto test_start = std::chrono::steady_clock::now();
                 {
                     std::lock_guard<std::mutex> lock(session->mtx);
                     session->phase = "normal";
                 }
-                for (int i = 0; i < 10; ++i) {
+
+                // Quick baseline: 2 seconds (4 ticks)
+                for (int i = 0; i < 4; ++i) {
                     auto ts = obs.observe(manifest.target.id);
                     {
                         std::lock_guard<std::mutex> lock(session->mtx);
@@ -349,19 +352,19 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                     session->cv.notify_all();
                     std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 }
-                {
-                    std::lock_guard<std::mutex> lock(session->mtx);
-                    session->phase = "chaos";
-                }
 
                 perturbations::PerturbationEngine pert_engine;
                 const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
                 pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration);
 
+                {
+                    std::lock_guard<std::mutex> lock(session->mtx);
+                    session->phase = "chaos";
+                }
+
                 if (duration.count() > 0) {
                     SPDLOG_INFO("Injecting faults for {}s. Monitoring real-time state...", duration.count());
-                    auto start_time = std::chrono::steady_clock::now();
-                    while (std::chrono::steady_clock::now() - start_time < duration) {
+                    while (std::chrono::steady_clock::now() - test_start < duration + std::chrono::seconds(2)) {
                         lastKnownState = obs.observe(manifest.target.id);
                         {
                             std::lock_guard<std::mutex> lock(session->mtx);

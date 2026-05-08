@@ -115,63 +115,61 @@
 
   <!-- Step 3: Results -->
   <section class="step" id="step-3">
-    <div class="results-summary" id="results-summary">
-      <div class="summary-card">
-        <span class="label">Duration</span>
-        <span class="value" id="r-duration">--</span>
-      </div>
-      <div class="summary-card">
-        <span class="label">Target</span>
-        <span class="value" id="r-target">--</span>
-      </div>
-      <div class="summary-card">
-        <span class="label">Perturbations</span>
-        <span class="value" id="r-perturbations">--</span>
-      </div>
-      <div class="summary-card">
-        <span class="label">Result</span>
-        <span class="value" id="r-result">--</span>
-      </div>
-    </div>
-
-    <div class="timeline-legend">
-      <span class="legend-item normal">Normal</span>
-      <span class="legend-item chaos">Chaos</span>
-      <span class="legend-item recovery">Recovery</span>
-    </div>
-
-    <div class="results-charts">
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <span class="chart-label">CPU Usage Timeline (%)</span>
+    <div class="results-body">
+      <div class="results-charts">
+        <div class="timeline-legend">
+          <span class="legend-item normal">Normal</span>
+          <span class="legend-item chaos">Chaos</span>
+          <span class="legend-item recovery">Recovery</span>
         </div>
-        <canvas id="chart-cpu-results"></canvas>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <span class="chart-label">Memory Usage Timeline (MB)</span>
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <span class="chart-label">CPU Usage Timeline (%)</span>
+          </div>
+          <canvas id="chart-cpu-results"></canvas>
         </div>
-        <canvas id="chart-mem-results"></canvas>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <span class="chart-label">Network I/O Timeline (bytes)</span>
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <span class="chart-label">Memory Usage Timeline (MB)</span>
+          </div>
+          <canvas id="chart-mem-results"></canvas>
         </div>
-        <canvas id="chart-net-results"></canvas>
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <span class="chart-label">Network I/O Timeline (bytes)</span>
+          </div>
+          <canvas id="chart-net-results"></canvas>
+        </div>
+      </div>
+      <div class="results-sidebar">
+        <div class="results-summary" id="results-summary">
+          <div class="summary-card">
+            <span class="label">Duration</span>
+            <span class="value" id="r-duration">--</span>
+          </div>
+          <div class="summary-card">
+            <span class="label">Target</span>
+            <span class="value" id="r-target">--</span>
+          </div>
+          <div class="summary-card">
+            <span class="label">Perturbations</span>
+            <span class="value" id="r-perturbations">--</span>
+          </div>
+          <div class="summary-card">
+            <span class="label">Result</span>
+            <span class="value" id="r-result">--</span>
+          </div>
+        </div>
+        <div class="results-expectations">
+          <h3>Expectations</h3>
+          <div id="r-expectations"></div>
+        </div>
+        <div class="results-logs">
+          <h3>Run Logs</h3>
+          <pre class="log-view" id="r-logs"></pre>
+        </div>
       </div>
     </div>
-
-    <div class="results-bottom">
-      <div class="results-expectations">
-        <h3>Expectations</h3>
-        <div id="r-expectations"></div>
-      </div>
-      <div class="results-logs">
-        <h3>Run Logs</h3>
-        <pre class="log-view" id="r-logs"></pre>
-      </div>
-    </div>
-
     <div class="results-actions">
       <button class="btn primary" id="r-run-again">▶ Run Again</button>
       <button class="btn" id="r-modify">Modify Manifest</button>

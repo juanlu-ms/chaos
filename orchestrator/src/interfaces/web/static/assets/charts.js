@@ -1,20 +1,19 @@
 'use strict';
 
-function createLiveChart(canvasId, label, unit, colorVar) {
+function createLiveChart(canvasId, label, unit, resolvedColor) {
     const ctx = document.getElementById(canvasId)?.getContext('2d');
     if (!ctx) return null;
     return new Chart(ctx, {
         type: 'line',
-        data: { datasets: [{ label, data: [], borderColor: `var(${colorVar})`,
-            backgroundColor: `var(${colorVar})` + '33', fill: true, tension: 0.2,
+        data: { datasets: [{ label, data: [], borderColor: resolvedColor,
+            backgroundColor: resolvedColor + '33', fill: true, tension: 0.2,
             pointRadius: 0, borderWidth: 2 }] },
         options: {
             responsive: true, maintainAspectRatio: false,
             animation: { duration: 300 },
             scales: {
-                x: { type: 'time', time: { displayFormats: { second: ':mm:ss' } },
-                    ticks: { maxTicksLimit: 10, color: getCSS('--text-dim') },
-                    grid: { color: getCSS('--border') + '44' } },
+                x: { type: 'linear', title: { display: true, text: 'Seconds', color: getCSS('--text-dim') },
+                    ticks: { color: getCSS('--text-dim') }, grid: { color: getCSS('--border') + '44' } },
                 y: { beginAtZero: true, ticks: { color: getCSS('--text-dim') },
                     grid: { color: getCSS('--border') + '44' },
                     title: { display: true, text: unit, color: getCSS('--text-dim') } },
@@ -24,21 +23,20 @@ function createLiveChart(canvasId, label, unit, colorVar) {
     });
 }
 
-function createResultsChart(canvasId, label, unit, colorVar) {
+function createResultsChart(canvasId, label, unit, resolvedColor) {
     const ctx = document.getElementById(canvasId)?.getContext('2d');
     if (!ctx) return null;
     return new Chart(ctx, {
         type: 'line',
-        data: { datasets: [{ label, data: [], borderColor: `var(${colorVar})`,
-            backgroundColor: `var(${colorVar})` + '22', fill: true, tension: 0.1,
-            pointRadius: 1, pointBorderColor: `var(${colorVar})`,
-            pointBackgroundColor: `var(${colorVar})`, borderWidth: 2 }] },
+        data: { datasets: [{ label, data: [], borderColor: resolvedColor,
+            backgroundColor: resolvedColor + '22', fill: true, tension: 0.1,
+            pointRadius: 1, pointBorderColor: resolvedColor,
+            pointBackgroundColor: resolvedColor, borderWidth: 2 }] },
         options: {
             responsive: true, maintainAspectRatio: false, animation: false,
             scales: {
-                x: { type: 'time', time: { displayFormats: { second: ':mm:ss' } },
-                    ticks: { maxTicksLimit: 15, color: getCSS('--text-dim') },
-                    grid: { color: getCSS('--border') + '44' } },
+                x: { type: 'linear', title: { display: true, text: 'Seconds', color: getCSS('--text-dim') },
+                    ticks: { color: getCSS('--text-dim') }, grid: { color: getCSS('--border') + '44' } },
                 y: { beginAtZero: true, ticks: { color: getCSS('--text-dim') },
                     grid: { color: getCSS('--border') + '44' },
                     title: { display: true, text: unit, color: getCSS('--text-dim') } },
@@ -49,10 +47,10 @@ function createResultsChart(canvasId, label, unit, colorVar) {
     });
 }
 
-function pushChartData(chart, timestamp, value) {
+function pushChartData(chart, xValue, value) {
     if (!chart) return;
     const max = 60;
-    chart.data.datasets[0].data.push({ x: timestamp, y: value });
+    chart.data.datasets[0].data.push({ x: xValue, y: value });
     if (chart.data.datasets[0].data.length > max) chart.data.datasets[0].data.shift();
     chart.update('none');
 }
@@ -65,6 +63,29 @@ function setResultsData(chart, dataPoints) {
 
 function getCSS(v) {
     return getComputedStyle(document.documentElement).getPropertyValue(v).trim() || '#888';
+}
+
+function updateChartColors(charts) {
+    const colors = {
+        accent: getCSS('--accent'),
+        info: getCSS('--info'),
+        success: getCSS('--success'),
+        textDim: getCSS('--text-dim'),
+        border: getCSS('--border'),
+    };
+    Object.values(charts).forEach(c => {
+        if (!c) return;
+        const ds = c.data.datasets[0];
+        c.options.scales.x.ticks.color = colors.textDim;
+        c.options.scales.x.grid.color = colors.border + '44';
+        c.options.scales.y.ticks.color = colors.textDim;
+        c.options.scales.y.grid.color = colors.border + '44';
+        if (c.canvas.id.includes('cpu')) ds.borderColor = colors.accent;
+        else if (c.canvas.id.includes('mem')) ds.borderColor = colors.info;
+        else if (c.canvas.id.includes('net')) ds.borderColor = colors.success;
+        ds.backgroundColor = ds.borderColor + '33';
+        c.update();
+    });
 }
 
 const zoneBackgroundPlugin = {

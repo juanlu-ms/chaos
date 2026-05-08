@@ -60,9 +60,10 @@
 
   const populateTargetSelect = () => {
     const sel = document.getElementById('field-target');
-    sel.innerHTML = targets.map(t =>
-      `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name || t.id)}</option>`
-    ).join('');
+    sel.innerHTML = '<option value="" disabled>Select a target...</option>' +
+      targets.map(t =>
+        `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name || t.id)}</option>`
+      ).join('');
   };
 
   // ── Limits Loading ──
@@ -203,7 +204,7 @@
     return {
       test_name: document.getElementById('field-name').value || 'Untitled Test',
       target: { id: document.getElementById('field-target').value },
-      duration_s: parseInt(document.getElementById('field-duration').value) || 10,
+      duration_s: parseInt(document.getElementById('field-duration').value, 10) || 10,
       perturbations: perturbationSpecs,
       expectations: expectations.map(e => {
         const spec = { type: e.type };
@@ -224,6 +225,14 @@
     const resultList = document.getElementById('result-list');
     const monLogs = document.getElementById('mon-logs');
     const monProgress = document.getElementById('mon-progress');
+
+    if (!manifest.target.id) {
+      alert('Select a target container first.');
+      runBtn.disabled = false;
+      runActive = false;
+      monitorPanel.style.display = 'none';
+      return;
+    }
 
     resultsPanel.style.display = 'none';
     resultList.innerHTML = '';

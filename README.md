@@ -34,16 +34,16 @@ During perturbation runs, the system polls target state and broadcasts updates v
 ### Graceful Interruption
 SIGINT (Ctrl+C) triggers immediate cancellation of running perturbations, with automatic rollback/reversion of all applied faults before the tool exits.
 
-### Web Dashboard (Manifest Builder + Live Monitor)
-A dark-themed SPA (`chaos serve`) featuring:
-- **Dashboard view** — target container cards with live system limits
-- **Manifest Builder** — form-based scenario creation: pick target, add/remove perturbations (6 types with type-aware parameter inputs), configure expectations, set duration
-- **Live Monitor** — real-time SSE state updates during runs (CPU, memory, status), results panel with pass/fail validation
+### Web UI (3-Step Flow)
+A dark-themed SPA (`chaos serve`) with 3 auto-advancing steps:
+- **Step 1: Configure** — compact form with target selector, duration, perturbation rows (6 types with type-aware param inputs), expectation rows, theme switcher (Amber/Dark/Cyber)
+- **Step 2: Monitor** — real-time Canvas bar charts (CPU, Memory, Network I/O) updated via SSE, container info panel, scrollable logs, **Abort** button to stop the run
+- **Step 3: Results** — summary stats, timeline charts with Normal/Chaos/Recovery color zones, expectation validation results, run replay logs, **Run Again** and **Modify Manifest** buttons
 
 ### TUI (Dashboard + Wizard)
 Two-mode interactive terminal UI (`chaos tui`):
 - **Dashboard** — container list with arrow navigation, live target state panel (status, CPU, memory)
-- **Wizard** — 4-step guided manifest creation (select target → add perturbations → set expectations → run with progress bar)
+- **Wizard** — 4-step guided manifest creation (select target → add perturbations → set expectations → run with progress bar), structured results summary after run completes
 
 ### OpenTelemetry Export
 CHAOS can export run events to OTLP-compatible backends (Grafana, Datadog, etc.) via the `OtlpExporter`, which sends JSON-encoded OTLP Logs over HTTP. Configure via `CHAOS_OTLP_ENDPOINT` environment variable.
@@ -135,12 +135,13 @@ Then open:
 
 - `http://127.0.0.1:8080`
 
-The Web UI has two tabs (Dashboard / Manifest Builder). To run a scenario:
+The Web UI has a 3-step flow:
 
-1. Select a target container
-2. Add perturbations (kill, cpu_cap, memory_cap, network_delay, etc.) with parameters
-3. Set expectations (container_running, log_contains, http_status, etc.)
-4. Click "Run Scenario" — monitor panel shows live state updates via SSE
+1. **Configure** — select target, set duration, add perturbations with parameters, configure expectations, click "Run Chaos Test"
+2. **Monitor** — watch live Canvas bar charts (CPU, Memory, Network I/O), container info, and logs update in real time via SSE. Click **Abort** to stop
+3. **Results** — see summary stats, timeline charts with Normal/Chaos/Recovery color zones, expectation results, and run logs. Click **Run Again** or **Modify Manifest**
+
+Switch themes (Amber / Dark / Cyber) from the topbar dropdown. Your preference is saved to localStorage.
 
 ### API Endpoints
 
@@ -149,7 +150,8 @@ The Web UI has two tabs (Dashboard / Manifest Builder). To run a scenario:
 | GET | `/api/targets` | List available containers `[{id, name, state}]` |
 | GET | `/api/limits` | System limits `{cpu_cores, memory_total_mb, perturbation_limits}` |
 | POST | `/api/run` | Async run — returns 202, streams state via SSE |
-| GET | `/events` | SSE stream (`event: state` / `event: complete`) |
+| POST | `/api/run/abort` | Abort the currently running test |
+| GET | `/events` | SSE stream (`event: state` / `event: complete` / `event: error`) |
 | POST | `/run` | Legacy synchronous run (backward compatible) |
 | POST | `/containers/{id}/stop` | Stop a container |
 | POST | `/containers/{id}/kill` | Kill a container |

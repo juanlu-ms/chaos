@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <string>
 #include <vector>
 
@@ -57,7 +58,7 @@ private:
 
     std::vector<std::string> revertCommands_;
 
-    bool hasBeenApplied_ = false;
+    std::atomic<bool> hasBeenApplied_{false};
 };
 
 }  // namespace chaos::orchestrator::perturbations

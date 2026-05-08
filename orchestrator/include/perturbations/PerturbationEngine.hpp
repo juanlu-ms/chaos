@@ -9,7 +9,6 @@
 #include <chrono>
 #include <condition_variable>
 #include <future>
-#include <memory>
 #include <mutex>
 #include <vector>
 
@@ -30,9 +29,11 @@ public:
      */
     ~PerturbationEngine();
 
-    // Delete copy construction and assignment
+    // Delete copy and move construction and assignment
     PerturbationEngine(const PerturbationEngine&) = delete;
     PerturbationEngine& operator=(const PerturbationEngine&) = delete;
+    PerturbationEngine(PerturbationEngine&&) = delete;
+    PerturbationEngine& operator=(PerturbationEngine&&) = delete;
 
     /**
      * @brief Schedule perturbations to run asynchronously.

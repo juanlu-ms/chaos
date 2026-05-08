@@ -44,7 +44,7 @@ struct SharedState {
     std::atomic<bool> run_in_progress{false};
     std::atomic<int> wait_elapsed{0};
     std::atomic<int> wait_total{0};
-    float log_scroll = 1.0F;
+    std::atomic<float> log_scroll{1.0F};
 };
 
 void post_refresh(ftxui::ScreenInteractive& screen) { screen.PostEvent(ftxui::Event::Custom); }
@@ -181,7 +181,7 @@ void execute_run(const std::shared_ptr<containers::IContainerEngine>& engine, Sh
         push_output("  ✓ Perturbations reverted.");
 
         shared::TargetState targetState = obs.observe(manifest.target.id);
-        const auto results = validation::ValidationEngine::validate(targetState, manifest.expectations);
+        const auto results = validation::validate(targetState, manifest.expectations);
 
         for (const auto& r : results) {
             push_output(fmt::format("  {} {}: {}", r.passed ? "✅" : "❌", r.expectationType, r.message));
@@ -499,6 +499,7 @@ int TuiApp::run() const {
 
     if (run_thread.joinable()) {
         run_thread.request_stop();
+        run_thread.join();
     }
 
     return 0;

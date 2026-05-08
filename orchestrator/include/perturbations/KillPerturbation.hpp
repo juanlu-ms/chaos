@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <atomic>
+
 #include "perturbations/IPerturbation.hpp"
 
 namespace chaos::orchestrator::perturbations {
@@ -43,7 +45,7 @@ private:
     std::string target_id_;
 
     /** @brief Flag indicating whether the perturbation has been applied. */
-    bool hasBeenApplied_ = false;
+    std::atomic<bool> hasBeenApplied_{false};
 };
 
 }  // namespace chaos::orchestrator::perturbations

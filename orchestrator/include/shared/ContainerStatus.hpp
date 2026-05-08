@@ -6,7 +6,7 @@ namespace chaos::orchestrator::shared {
 /**
  * @brief Possible states of a container.
  */
-enum class ContainerStatus { Running, Exited, Paused, Dead, NotFound, Unknown };
+enum class ContainerStatus { Running, Exited, Paused, Dead, Unknown };
 
 // From string to enum
 inline ContainerStatus parseContainerStatus(std::string_view status_str) {
@@ -30,8 +30,6 @@ inline std::string_view toString(ContainerStatus status) {
             return "paused";
         case Dead:
             return "dead";
-        case NotFound:
-            return "not_found";
         default:
             return "unknown";
     }

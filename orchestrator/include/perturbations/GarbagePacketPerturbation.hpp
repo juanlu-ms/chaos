@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <string>
 
 #include "manifests/Manifest.hpp"
@@ -58,7 +59,7 @@ private:
     manifests::Parameters params_;
 
     /** @brief Flag indicating whether the perturbation has been applied. */
-    bool hasBeenApplied_ = false;
+    std::atomic<bool> hasBeenApplied_{false};
 };
 
 }  // namespace chaos::orchestrator::perturbations

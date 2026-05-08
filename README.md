@@ -37,7 +37,7 @@ SIGINT (Ctrl+C) triggers immediate cancellation of running perturbations, with a
 ### Web UI (3-Step Flow)
 A dark-themed SPA (`chaos serve`) with 3 auto-advancing steps:
 - **Step 1: Configure** — compact form with target selector, duration, perturbation rows (6 types with type-aware param inputs), expectation rows, theme switcher (Amber/Dark/Cyber)
-- **Step 2: Monitor** — real-time Canvas bar charts (CPU, Memory, Network I/O) updated via SSE, container info panel, scrollable logs, **Abort** button to stop the run
+- **Step 2: Monitor** — real-time line charts (CPU, Memory, Network I/O) updated via SSE, container info panel, scrollable logs, **Abort** button to stop the run
 - **Step 3: Results** — summary stats, timeline charts with Normal/Chaos/Recovery color zones, expectation validation results, run replay logs, **Run Again** and **Modify Manifest** buttons
 
 ### TUI (Dashboard + Wizard)
@@ -56,7 +56,7 @@ CHAOS uses a hybrid architecture:
 
 - Top-level separation by deployable component:
     - `orchestrator/`: host binary (CLI/Web) and orchestration logic.
-    - `frontend/`: Vite + pnpm project for the Web UI (builds to `orchestrator/src/interfaces/web/static/`).
+    - `frontend/`: Vite + Bun project for the Web UI (builds to `orchestrator/src/interfaces/web/static/`).
     - `wrapper/`: in-container agent (`PID 1`) for process supervision and telemetry handoff.
 - Inside `orchestrator/`, public contracts live in `include/` and implementation details stay in `src/`.
 - Ownership is organized by responsibility (interfaces, containers, manifests, perturbations, observability).
@@ -68,12 +68,12 @@ chaos/
 ├── CMakeLists.txt
 ├── CMakePresets.json
 ├── vcpkg.json
-├── frontend/                   # Vite + pnpm Web UI project
+├── frontend/                   # Vite + Bun Web UI project
 │   ├── index.html
 │   ├── package.json
 │   ├── vite.config.js
 │   └── src/
-│       ├── main.js
+│       ├── main.jsx
 │       └── style.css
 ├── orchestrator/
 │   ├── CMakeLists.txt
@@ -121,8 +121,9 @@ chaos/
 
 For direct CMake control, use these exact commands:
 
-- Build: `cmake --build --preset debug-clang -- -j$(nproc)`
+- Build the C++ orchestrator: `cmake --build --preset debug-clang -- -j$(nproc)`
 - Test: `ctest --test-dir build/dev-linux-clang --output-on-failure`
+- Build the Web UI: see [Build the Web UI](#build-the-web-ui) below
 
 ## Run the Orchestrator (CLI)
 
@@ -135,15 +136,15 @@ After building:
 
 ## Build the Web UI
 
-The Web UI is a Vite + pnpm project in `frontend/`:
+The Web UI is a Vite + Bun project in `frontend/`:
 
 ```bash
 cd frontend
-pnpm install
-pnpm run build    # outputs to orchestrator/src/interfaces/web/static/
+bun install
+bun run build    # outputs to orchestrator/src/interfaces/web/static/
 ```
 
-During development, use `pnpm run dev` for hot module reload at `http://localhost:5173`.
+During development, use `bun run dev` for hot module reload at `http://localhost:5173`.
 
 ## Run the Web UI
 
@@ -158,7 +159,7 @@ Then open:
 The Web UI has a 3-step flow:
 
 1. **Configure** — select target, set duration, add perturbations with parameters, configure expectations, click "Run Chaos Test"
-2. **Monitor** — watch live ECharts line charts (CPU, Memory, Network I/O), container info, and logs update in real time via SSE. Click **Abort** to stop
+2. **Monitor** — watch live Recharts line charts (CPU, Memory, Network I/O), container info, and logs update in real time via SSE. Click **Abort** to stop
 3. **Results** — see summary stats, timeline charts with Normal/Chaos/Recovery color zones, expectation results, and run logs. Click **Run Again** or **Modify Manifest**
 
 Switch themes (Amber / Dark / Cyber) from the topbar dropdown. Your preference is saved to localStorage.

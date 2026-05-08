@@ -1,7 +1,7 @@
 # Project Overview: CHAOS (Resilience Tool for Docker Containers)
 CHAOS is an enterprise-grade Chaos Engineering orchestrator built in modern C++ (C++23). Its primary purpose is to inject controlled faults (perturbations) into running Docker containers to validate system resilience, test observability, and ensure that applications recover gracefully from infrastructure degradation (following Site Reliability Engineering principles). 
 
-The tool supports multiple user interfaces—a Command Line Interface (CLI), a Terminal User Interface (TUI), and a Web Server—all powered by a highly concurrent, thread-safe, and event-driven core backend.
+The tool supports multiple user interfaces—a Command Line Interface (CLI), a Terminal User Interface (TUI), and a Web Server—all powered by a highly concurrent, thread-safe, and event-driven core backend. The Web UI is a separate Vite + Bun project in `frontend/` using React with Recharts for real-time and results charts, built to static files that the C++ binary serves.
 
 ---
 
@@ -51,3 +51,40 @@ The backend is hardened for production, handling parallel execution and emergenc
 * **Condition Variables (`std::condition_variable`):** Background threads use conditional waits. If an emergency abort is triggered, a `notify_all()` signal instantly wakes all threads, allowing them to revert their specific faults in milliseconds.
 * **POSIX Signal Handling (SIGINT):** The CLI safely catches `CTRL+C` interrupts using `volatile std::sig_atomic_t` to guarantee hardware-level thread safety, and a `SignalHandlerGuard` (RAII) to ensure the terminal's default behavior is restored.
 * **Exception Isolation:** During teardown, if reverting one fault fails, the system catches the exception, flags the test as having errors, and proceeds to clean up the remaining faults, preventing host corruption.
+
+---
+
+## Web UI (Frontend)
+
+The Web UI lives in `frontend/` as a **Vite + Bun** project. It is built to static files in `orchestrator/src/interfaces/web/static/`, which the C++ binary serves via `httplib::Server::set_mount_point()`.
+
+### Tech Stack
+- **Vite** — fast dev server with HMR, production bundling
+- **Bun** — package manager and runtime
+- **React** — UI framework with component-based architecture
+- **Recharts** — charting library for live and results charts
+
+### 3-Step Flow
+1. **Configure** — form-based manifest builder (target, duration, perturbations, expectations)
+2. **Monitor** — real-time Recharts line charts (CPU, Memory, Network I/O) fed by SSE `GET /events`
+3. **Results** — timeline charts with Normal/Chaos/Recovery zone backgrounds via Recharts `ReferenceArea`
+
+### Real-Time Data Flow
+```
+Step 1: POST /api/run  (manifest JSON) → returns 202
+Step 2: EventSource /events  → SSE stream
+  - event: state  → push chart data → Recharts AreaChart
+  - event: complete → showResults() → Recharts AreaChart with full dataset
+Callback: Abort → POST /api/run/abort → closes SSE
+```
+
+### Theming
+Three themes (Amber, Dark, Cyber) defined as CSS custom properties in `src/style.css`. Theme selection persisted in `localStorage`. Recharts colors are re-read from CSS vars on theme change.
+
+### Development
+```bash
+cd frontend && bun install && bun run dev     # HMR at localhost:5173
+cd frontend && bun run build                     # output to static/
+```
+
+The built files are served by the C++ binary — no separate web server needed at runtime.

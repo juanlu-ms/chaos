@@ -22,6 +22,7 @@ struct RunSession {
     std::mutex mtx;
     std::condition_variable cv;
     std::optional<shared::TargetState> latest;
+    bool running = false;
     bool complete = false;
     json results;
     std::string error;
@@ -57,6 +58,7 @@ private:
     void handleEvents(const httplib::Request& req, httplib::Response& res);
     void handleTargets(const httplib::Request& req, httplib::Response& res);
     void handleLimits(const httplib::Request& req, httplib::Response& res);
+    void handleAbort(const httplib::Request& req, httplib::Response& res);
 };
 
 }  // namespace chaos::orchestrator::interfaces::web

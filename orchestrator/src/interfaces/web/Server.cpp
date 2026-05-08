@@ -33,6 +33,8 @@ json stateToJson(const shared::TargetState& s) {
     if (s.memory_usage_mb) j["memory_usage_mb"] = *s.memory_usage_mb;
     if (s.container_ip) j["container_ip"] = *s.container_ip;
     j["recent_logs"] = s.recent_logs;
+    if (s.network_rx_bytes) j["network_rx_bytes"] = *s.network_rx_bytes;
+    if (s.network_tx_bytes) j["network_tx_bytes"] = *s.network_tx_bytes;
     return j;
 }
 
@@ -194,6 +196,9 @@ void Server::setupRoutes() {
 
     m_server.Post("/api/run", [this](const httplib::Request& req, httplib::Response& res) { handleRun(req, res); });
 
+    m_server.Post(R"(/api/run/([^/]+)/abort)",
+                  [this](const httplib::Request& req, httplib::Response& res) { handleAbort(req, res); });
+
     m_server.Get("/events", [this](const httplib::Request& req, httplib::Response& res) { handleEvents(req, res); });
 
     // --- Legacy synchronous POST /run (unchanged) ---
@@ -316,6 +321,7 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
         {
             std::lock_guard<std::mutex> lock(session_mutex_);
             m_session = session;
+            session->running = true;
         }
 
         std::thread([engine = m_engine, session, manifest = std::move(manifest)]() {
@@ -369,6 +375,7 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                 {
                     std::lock_guard<std::mutex> lock(session->mtx);
                     session->results = j;
+                    session->running = false;
                     session->complete = true;
                 }
                 session->cv.notify_all();
@@ -376,6 +383,7 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                 {
                     std::lock_guard<std::mutex> lock(session->mtx);
                     session->error = ex.what();
+                    session->running = false;
                     session->complete = true;
                 }
                 session->cv.notify_all();
@@ -456,6 +464,22 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& res) {
 
             return true;
         });
+}
+
+void Server::handleAbort(const httplib::Request&, httplib::Response& res) {
+    std::lock_guard lock(session_mutex_);
+    if (!m_session || !m_session->running) {
+        json j = {{"error", "No active run to abort"}};
+        res.status = 404;
+        res.set_content(j.dump(4), "application/json");
+        return;
+    }
+    m_session->error = "Aborted by user";
+    m_session->complete = true;
+    m_session->running = false;
+    m_session->cv.notify_all();
+    json j = {{"status", "aborted"}};
+    res.set_content(j.dump(4), "application/json");
 }
 
 }  // namespace chaos::orchestrator::interfaces::web

@@ -50,11 +50,11 @@ To compete with tools like Chaos Mesh or Gremlin, CHAOS needs to expand its blas
 
 ## 4. Observability Enhancements
 
-* **Live UI Integrations (TUI & Web):** 
-    * Fully connecting the `StateBroadcaster` to the Terminal User Interface and the Web Server. This will involve implementing WebSockets or Server-Sent Events (SSE) to push real-time telemetry to the browser, allowing users to visually monitor container stress and degradation as it happens.
+* **Live UI Integrations (TUI & Web):** ✅ **IMPLEMENTED**
+    * The `StateBroadcaster` now streams real-time telemetry via SSE (Server-Sent Events) on `GET /events`. The Web UI has a Live Monitor panel that visualizes container stress (CPU, memory, status) in real time during a run. The TUI Dashboard mode shows live state updates via direct broadcaster subscription.
 
-* **Integration with OpenTelemetry:**
-    * Instead of just keeping the StateBroadcaster internal to TUI/Web server, allow CHAOS to export its events (e.g., "Fault Injected at 10:04", "Teardown Started") in the OpenTelemetry (OTLP) format. This allows users to see chaos events overlaid on their existing Grafana or Datadog dashboards.
+* **Integration with OpenTelemetry:** ✅ **IMPLEMENTED**
+    * A minimal `OtlpExporter` class builds OTLP Logs JSON payloads and exports them over HTTP to configurable endpoints. Configure via `CHAOS_OTLP_ENDPOINT` environment variable. Supports resource attributes, severity levels, and run_id tracking.
 
 * **Advanced Metric Extraction (ObservationNeeds):** 
     * Moving beyond basic pass/fail validation. The goal is to capture granular metrics (e.g., capturing the exact CPU spike during the "Garbage Collection Death Spiral" right before an `OOMKilled` event occurs) to provide developers with deep diagnostic insights.
@@ -63,13 +63,13 @@ To compete with tools like Chaos Mesh or Gremlin, CHAOS needs to expand its blas
 
 Relying on users to manually write a manifest.json is error-prone. To make CHAOS accessible to QA teams and developers, the Web Server and TUI should be upgraded from simple monitoring dashboards into interactive test builders.
 
-* **The Improvement:** Build a dynamic "Manifest Builder" in the Web UI (using forms or a drag-and-drop interface) and a step-by-step wizard in the TUI to configure, validate, and launch chaos experiments visually.
+* **The Improvement:** ✅ **IMPLEMENTED** — Built a dynamic Manifest Builder in the Web UI (form-based with type-aware parameter inputs) and a 4-step step-by-step wizard in the TUI to configure, validate, and launch chaos experiments visually.
 
-* **Live Target Discovery:** The UI should fetch the list of available targets directly from the C++ backend's IContainerEngine. Instead of typing a container ID, the user selects a running container from a live dropdown list.
+* **Live Target Discovery:** ✅ **IMPLEMENTED** — The UI fetches available targets via `GET /api/targets` from the backend's `IContainerEngine`. Users select a running container from a live dropdown (Web) or arrow-key list (TUI).
 
-* **Dynamic Schema Validation:** If a user selects a Memory Cap perturbation, the UI should automatically query the C++ backend for the host's maximum memory (getSystemInfo()) and restrict the input slider so the user cannot enter an invalid limit.
+* **Dynamic Schema Validation:** ✅ **IMPLEMENTED** — The UI queries the backend via `GET /api/limits` for the host's CPU cores and memory. Perturbation inputs are constrained to valid ranges.
 
-* **One-Click Execution & Feedback Loop:** Once the test is built visually, the UI sends the JSON payload to a new POST /api/run endpoint on your C++ Web Server. The UI immediately subscribes to the StateBroadcaster (via WebSockets), transitioning seamlessly from "Test Builder" mode to "Live Monitoring" mode in a single fluid motion.
+* **One-Click Execution & Feedback Loop:** ✅ **IMPLEMENTED** — The UI sends the JSON payload to `POST /api/run` (async, returns 202). The Web UI immediately subscribes to `GET /events` (SSE), transitioning from "Test Builder" to "Live Monitor" mode with real-time state updates and validation results.
 
 ## 6. In-Container Fault Injection (The PID 1 Advanced Wrapper)
 

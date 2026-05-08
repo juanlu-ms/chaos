@@ -28,14 +28,25 @@ The `ValidationEngine` evaluates JSON manifests automatically against these expe
 ### Concurrent Perturbations
 Perturbations execute asynchronously using `std::async` for concurrent fault injection. The `PerturbationEngine` manages their lifecycle, scheduling apply/revert cycles and providing thread-safe cancellation.
 
-### Active State Polling
-During perturbation runs, the system actively polls target state and broadcasts updates via `StateBroadcaster`, enabling real-time observability integration for TUI or Web dashboards.
+### Real-Time State Streaming
+During perturbation runs, the system polls target state and broadcasts updates via `StateBroadcaster`. The Web UI receives live updates via **SSE** (`GET /events`), and the TUI subscribes directly. `StateBroadcaster` supports exception-safe handle-based subscribe/unsubscribe.
 
 ### Graceful Interruption
 SIGINT (Ctrl+C) triggers immediate cancellation of running perturbations, with automatic rollback/reversion of all applied faults before the tool exits.
 
-### Web Dashboard
-A fully functional Web UI (`chaos serve`) allows users to run JSON manifests, view logs, and monitor container states directly from the browser.
+### Web Dashboard (Manifest Builder + Live Monitor)
+A dark-themed SPA (`chaos serve`) featuring:
+- **Dashboard view** — target container cards with live system limits
+- **Manifest Builder** — form-based scenario creation: pick target, add/remove perturbations (6 types with type-aware parameter inputs), configure expectations, set duration
+- **Live Monitor** — real-time SSE state updates during runs (CPU, memory, status), results panel with pass/fail validation
+
+### TUI (Dashboard + Wizard)
+Two-mode interactive terminal UI (`chaos tui`):
+- **Dashboard** — container list with arrow navigation, live target state panel (status, CPU, memory)
+- **Wizard** — 4-step guided manifest creation (select target → add perturbations → set expectations → run with progress bar)
+
+### OpenTelemetry Export
+CHAOS can export run events to OTLP-compatible backends (Grafana, Datadog, etc.) via the `OtlpExporter`, which sends JSON-encoded OTLP Logs over HTTP. Configure via `CHAOS_OTLP_ENDPOINT` environment variable.
 
 ## Architecture Overview
 
@@ -124,18 +135,41 @@ Then open:
 
 - `http://127.0.0.1:8080`
 
+The Web UI has two tabs (Dashboard / Manifest Builder). To run a scenario:
+
+1. Select a target container
+2. Add perturbations (kill, cpu_cap, memory_cap, network_delay, etc.) with parameters
+3. Set expectations (container_running, log_contains, http_status, etc.)
+4. Click "Run Scenario" — monitor panel shows live state updates via SSE
+
+### API Endpoints
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/targets` | List available containers `[{id, name, state}]` |
+| GET | `/api/limits` | System limits `{cpu_cores, memory_total_mb, perturbation_limits}` |
+| POST | `/api/run` | Async run — returns 202, streams state via SSE |
+| GET | `/events` | SSE stream (`event: state` / `event: complete`) |
+| POST | `/run` | Legacy synchronous run (backward compatible) |
+| POST | `/containers/{id}/stop` | Stop a container |
+| POST | `/containers/{id}/kill` | Kill a container |
+| GET | `/containers/{id}/logs` | Fetch container logs |
+
 ## Run the TUI
 
 Launch the interactive terminal UI:
 
 - `./build/dev-linux-clang/orchestrator/chaos tui`
 
+Tab toggles between Dashboard mode (container list + live state) and Wizard mode (4-step manifest builder). q/Escape to go back or quit.
+
 ## Testing Strategy
 
 - `orchestrator/tests/containers/internal`: module unit tests (Docker adapter ownership).
 - `orchestrator/tests/interfaces/cli`: CLI parser unit tests.
 - `orchestrator/tests/manifests`: manifest parsing unit tests.
-- `orchestrator/tests/observability`: observability and validation engine unit tests.
+- `orchestrator/tests/observability`: observability, validation engine, and OTLP exporter unit tests.
+- `orchestrator/tests/shared`: StateBroadcaster unit tests (subscribe/unsubscribe, concurrency, exception safety).
 - `orchestrator/tests/perturbations`: perturbation engine and factory unit tests.
 - `orchestrator/tests/smoke`: minimal host smoke checks through public APIs (no direct `internal` includes).
 - `tests/e2e`: cross-component integration tests.

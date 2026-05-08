@@ -22,6 +22,7 @@ set(ORCHESTRATOR_SOURCES
     src/perturbations/internal/NetworkCutoffPerturbation.cpp
     src/perturbations/internal/GarbagePacketPerturbation.cpp
     src/observability/ObservabilityEngine.cpp
+    src/observability/OtlpExporter.cpp
     src/validation/ValidationFactory.cpp
     src/validation/ValidationEngine.cpp
     src/validation/internal/ContainerStateValidation.cpp
@@ -71,6 +72,7 @@ add_executable(orchestrator_unit_tests
     tests/interfaces/cli/CliParserUnitTest.cpp
     tests/manifests/ManifestParserUnitTest.cpp
     tests/observability/ObservabilityEngineUnitTest.cpp
+    tests/observability/OtlpExporterUnitTest.cpp
     tests/observability/ValidationEngineUnitTest.cpp
     tests/perturbations/PerturbationEngineUnitTest.cpp
     tests/perturbations/PerturbationTests.cpp

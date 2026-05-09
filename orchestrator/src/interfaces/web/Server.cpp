@@ -213,6 +213,8 @@ void Server::setupRoutes() {
 
     m_server.Post("/api/run/abort",
                   [this](const httplib::Request& req, httplib::Response& res) { handleAbort(req, res); });
+
+    m_server.Get("/events", [this](const httplib::Request& req, httplib::Response& res) { handleEvents(req, res); });
 }
 
 void Server::handleTargets(const httplib::Request&, httplib::Response& res) {

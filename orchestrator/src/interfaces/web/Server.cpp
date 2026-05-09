@@ -350,11 +350,13 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                     while (!st.stop_requested() && session->running) {
                         auto tick = steady_clock::now();
                         auto rawLogs = obs.getLogs(manifest.target.id);
-                        auto state = lastKnownState;
-                        parseLogLines(rawLogs, state.recent_logs);
+                        std::vector<std::string> logLines;
+                        parseLogLines(rawLogs, logLines);
                         {
                             std::lock_guard<std::mutex> lock(session->mtx);
-                            session->latest = std::move(state);
+                            if (session->latest.has_value()) {
+                                session->latest->recent_logs = std::move(logLines);
+                            }
                         }
                         session->cv.notify_all();
 

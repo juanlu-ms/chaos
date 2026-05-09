@@ -325,9 +325,9 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                                 try {
                                     auto stats = obs.getStats(manifest.target.id);
                                     state.cpu_usage_percent = stats.cpu_percent;
-                                    state.memory_usage_mb   = stats.memory_mb;
-                                    state.network_rx_bps    = stats.network_rx_bps;
-                                    state.network_tx_bps    = stats.network_tx_bps;
+                                    state.memory_usage_mb = stats.memory_mb;
+                                    state.network_rx_bps = stats.network_rx_bps;
+                                    state.network_tx_bps = stats.network_tx_bps;
                                 } catch (const containers::ContainerEngineError& e) {
                                     SPDLOG_ERROR("Metrics worker: failed to fetch stats: {}", e.what());
                                 }

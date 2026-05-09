@@ -1,4 +1,4 @@
-#include "validation/LogValidation.hpp"
+#include "LogValidation.hpp"
 
 #include <fmt/format.h>
 

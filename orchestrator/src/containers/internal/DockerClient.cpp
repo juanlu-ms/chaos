@@ -526,9 +526,9 @@ containers::ContainerStats DockerClient::getStats(const std::string_view contain
         jsonResponse["cpu_stats"]["cpu_usage"].contains("total_usage") &&
         jsonResponse["cpu_stats"]["cpu_usage"]["total_usage"].is_number() &&
         jsonResponse["cpu_stats"].contains("system_cpu_usage") &&
-        jsonResponse["cpu_stats"]["system_cpu_usage"].is_number() &&
-        jsonResponse.contains("precpu_stats") && jsonResponse["precpu_stats"].is_object() &&
-        jsonResponse["precpu_stats"].contains("cpu_usage") && jsonResponse["precpu_stats"]["cpu_usage"].is_object() &&
+        jsonResponse["cpu_stats"]["system_cpu_usage"].is_number() && jsonResponse.contains("precpu_stats") &&
+        jsonResponse["precpu_stats"].is_object() && jsonResponse["precpu_stats"].contains("cpu_usage") &&
+        jsonResponse["precpu_stats"]["cpu_usage"].is_object() &&
         jsonResponse["precpu_stats"]["cpu_usage"].contains("total_usage") &&
         jsonResponse["precpu_stats"]["cpu_usage"]["total_usage"].is_number() &&
         jsonResponse["precpu_stats"].contains("system_cpu_usage") &&
@@ -537,7 +537,7 @@ containers::ContainerStats DockerClient::getStats(const std::string_view contain
         const auto cpu_delta = static_cast<int64_t>(jsonResponse["cpu_stats"]["cpu_usage"]["total_usage"]) -
                                static_cast<int64_t>(jsonResponse["precpu_stats"]["cpu_usage"]["total_usage"]);
         const auto system_cpu_delta = static_cast<int64_t>(jsonResponse["cpu_stats"]["system_cpu_usage"]) -
-                                       static_cast<int64_t>(jsonResponse["precpu_stats"]["system_cpu_usage"]);
+                                      static_cast<int64_t>(jsonResponse["precpu_stats"]["system_cpu_usage"]);
         const int number_cpus = jsonResponse["cpu_stats"]["online_cpus"];
         if (system_cpu_delta > 0 && cpu_delta > 0) {
             stats.cpu_percent = (static_cast<double>(cpu_delta) / static_cast<double>(system_cpu_delta)) *
@@ -555,10 +555,8 @@ containers::ContainerStats DockerClient::getStats(const std::string_view contain
     double rx_bytes = 0, tx_bytes = 0;
     if (jsonResponse.contains("networks") && jsonResponse["networks"].is_object()) {
         for (const auto& [iface, net] : jsonResponse["networks"].items()) {
-            if (net.contains("rx_bytes") && net["rx_bytes"].is_number())
-                rx_bytes += net["rx_bytes"].get<double>();
-            if (net.contains("tx_bytes") && net["tx_bytes"].is_number())
-                tx_bytes += net["tx_bytes"].get<double>();
+            if (net.contains("rx_bytes") && net["rx_bytes"].is_number()) rx_bytes += net["rx_bytes"].get<double>();
+            if (net.contains("tx_bytes") && net["tx_bytes"].is_number()) tx_bytes += net["tx_bytes"].get<double>();
         }
     }
     // Convert cumulative bytes to B/s using the stored previous values.

@@ -5,11 +5,8 @@
 
 #include <memory>
 #include <optional>
-#include <string>
-#include <utility>
 
 #include "MockContainerEngine.hpp"
-#include "containers/Container.hpp"
 #include "observability/ObservabilityEngine.hpp"
 
 using namespace testing;
@@ -30,7 +27,8 @@ TEST(ObservabilityEngineTests, ObserveReturnsFullStateWhenRunning) {
         .WillOnce(Return(shared::ContainerStatus::Running));
     EXPECT_CALL(*mockEngine, getLogs(std::string_view(kContainerId))).WillOnce(Return("log line"));
     EXPECT_CALL(*mockEngine, getStats(std::string_view(kContainerId)))
-        .WillOnce(Return(containers::ContainerStats{.cpu_percent = 12.25, .memory_mb = 128.5, .network_rx_bps = 1024.0, .network_tx_bps = 2048.0}));
+        .WillOnce(Return(containers::ContainerStats{
+            .cpu_percent = 12.25, .memory_mb = 128.5, .network_rx_bps = 1024.0, .network_tx_bps = 2048.0}));
 
     observability::ObservabilityEngine obs(mockEngine);
     const auto state = obs.observe(kContainerId);

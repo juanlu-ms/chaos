@@ -1,8 +1,8 @@
 #include "validation/ValidationFactory.hpp"
 
-#include "validation/ContainerStateValidation.hpp"
-#include "validation/HttpValidation.hpp"
-#include "validation/LogValidation.hpp"
+#include "internal/ContainerStateValidation.hpp"
+#include "internal/HttpValidation.hpp"
+#include "internal/LogValidation.hpp"
 
 namespace chaos::orchestrator::validation {
 

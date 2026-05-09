@@ -1,21 +1,21 @@
 /**
- * @file LogValidation.hpp
- * @brief Validation strategies for log content expectations.
+ * @file HttpValidation.hpp
+ * @brief Validation strategies for HTTP expectation checks.
  */
 
 #pragma once
 
-#include "IValidation.hpp"
+#include "validation/IValidation.hpp"
 
 namespace chaos::orchestrator::validation {
 
-class LogContainsValidation final : public IValidation {
+class HttpStatusValidation final : public IValidation {
 public:
     ValidationResult validate(const shared::TargetState& targetState,
                               const manifests::Expectation& expectation) const override;
 };
 
-class LogNotContainsValidation final : public IValidation {
+class HttpLatencyValidation final : public IValidation {
 public:
     ValidationResult validate(const shared::TargetState& targetState,
                               const manifests::Expectation& expectation) const override;

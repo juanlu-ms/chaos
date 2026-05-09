@@ -9,7 +9,6 @@
 #include <chrono>
 #include <filesystem>
 #include <optional>
-#include <string>
 #include <string_view>
 
 namespace chaos::orchestrator::containers::internal {
@@ -34,8 +33,7 @@ public:
      * @return Path like /sys/fs/cgroup/system.slice/docker-<id>.scope/,
      *         or empty if not found.
      */
-    static std::optional<std::filesystem::path>
-    resolveCgroupPath(const std::string_view containerId);
+    static std::optional<std::filesystem::path> resolveCgroupPath(const std::string_view containerId);
 
     /**
      * @brief Read CPU usage percent since the last call for this instance.

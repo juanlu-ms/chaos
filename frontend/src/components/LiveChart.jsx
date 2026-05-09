@@ -21,7 +21,6 @@ export default function LiveChart({
   dataKey,
   unit,
   title,
-  windowSize = 60,
   themeKey,
   formatter,
 }) {
@@ -30,7 +29,6 @@ export default function LiveChart({
   const text = readVar('--text-dim', '#9e8f7e');
   const surface = readVar('--bg-elevated', '#2d251e');
 
-  const slice = data.length > windowSize ? data.slice(-windowSize) : data;
   const id = `grad-${dataKey}-${themeKey}`;
 
   const yFormat = formatter || ((v) => `${v}${unit ? ' ' + unit : ''}`);
@@ -39,7 +37,7 @@ export default function LiveChart({
     <div className="chart-card">
       <h4>{title}</h4>
       <ResponsiveContainer width="100%" height={160}>
-        <AreaChart data={slice} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={accent} stopOpacity={0.5} />
@@ -69,11 +67,7 @@ export default function LiveChart({
               fontSize: 11,
             }}
             labelFormatter={(v) => `t = ${Number(v).toFixed(1)}s`}
-            formatter={(v, name, props) => {
-              const label = yFormat(v);
-              const bt = props?.payload?.backendT;
-              return bt != null ? `${label}  [backend ${bt.toFixed(1)}s]` : label;
-            }}
+            formatter={(v) => yFormat(v)}
           />
           <Area
             type="monotone"

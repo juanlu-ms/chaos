@@ -9,6 +9,7 @@
 #include <functional>
 #include <memory>
 #include <nlohmann/json_fwd.hpp>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -178,30 +179,9 @@ public:
     [[nodiscard]] std::string getLogs(const std::string_view containerId) const override;
 
     /**
-     * @brief Compute network I/O rate (B/s) from cumulative Docker stats.
-     * @return Pair of (rx_bps, tx_bps).
+     * @brief Fetch CPU, memory and network stats in one HTTP call.
      */
-    [[nodiscard]] std::pair<double, double> getContainerNetworkBps(const std::string_view containerId) const override;
-
-    /**
-     * @brief Fetch the memory usage of a running container in MB.
-     * @param containerId Docker container ID.
-     * @return Memory usage in MB.
-     * @throws std::invalid_argument On empty containerId.
-     * @throws ContainerEngineApiError On non-200 HTTP response.
-     * @throws ContainerEngineParseError On unexpected response format.
-     */
-    [[nodiscard]] double getContainerMemoryUsage(const std::string_view containerId) const override;
-
-    /**
-     * @brief Fetch the CPU core limit configured for a running container.
-     * @param containerId Docker container ID.
-     * @return Configured CPU core limit (supports decimals, e.g. 0.5, 1.25, 2.0).
-     * @throws std::invalid_argument On empty containerId.
-     * @throws ContainerEngineApiError On non-200 HTTP response.
-     * @throws ContainerEngineParseError On unexpected response format.
-     */
-    [[nodiscard]] double getContainerCpuUsage(const std::string_view containerId) const override;
+    [[nodiscard]] containers::ContainerStats getStats(const std::string_view containerId) const override;
 
     /**
      * @brief Fetch the primary IP address of a running container.
@@ -225,49 +205,13 @@ private:
     /** @brief Function used to execute API requests. */
     RequestFn request_;
 
-    // ── Response caches ─────────────────────────────────────────────
-    // Docker inspect and stats responses are re-parsed by two separate
-    // public methods each (status+ip, memory+cpu).  Caching avoids
-    // doubling the HTTP calls on every observation tick.
-
-    static constexpr auto INSPECT_TTL = std::chrono::milliseconds(2000);
-    static constexpr auto STATS_TTL  = std::chrono::milliseconds(2000);
-    static constexpr auto LOGS_TTL   = std::chrono::milliseconds(1500);
-
-    mutable std::string cached_inspect_;
-    mutable std::chrono::steady_clock::time_point cached_inspect_at_;
-    mutable bool cached_inspect_valid_ = false;
-
-    mutable std::string cached_stats_;
-    mutable std::chrono::steady_clock::time_point cached_stats_at_;
-    mutable bool cached_stats_valid_ = false;
-
-    mutable std::string cached_logs_;
-    mutable std::chrono::steady_clock::time_point cached_logs_at_;
-    mutable bool cached_logs_valid_ = false;
-
     // Network B/s tracking: store previous cumulative bytes and timestamp
-    // so we can compute the delta on each call.
+    // so getStats() can compute the delta on each call.
     mutable double prev_net_rx_ = 0;
     mutable double prev_net_tx_ = 0;
     mutable std::chrono::steady_clock::time_point prev_net_timestamp_;
     mutable bool prev_net_valid_ = false;
 
-    /**
-     * @brief GET helper with transparent TTL caching.
-     * @return Live (fresh) response body.
-     */
-    [[nodiscard]] std::string getCached(const std::string& endpoint, std::string& cacheBody,
-                                        std::chrono::steady_clock::time_point& cacheTime, bool& cacheValid,
-                                        std::chrono::milliseconds ttl) const;
-
-    /**
-     * @brief Parse HTTP response body as JSON and handle errors.
-     * @param response HTTP response to parse.
-     * @return Parsed JSON object.
-     * @throws ContainerEngineParseError If response body is empty or cannot be parsed as JSON.
-     * @throws ContainerEngineApiError If response status is not 200.
-     */
     nlohmann::json parseResponse(const HttpResponse& response) const;
 };
 

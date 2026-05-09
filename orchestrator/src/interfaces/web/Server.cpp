@@ -5,13 +5,11 @@
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
-#include <future>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <stop_token>
 #include <string>
 #include <thread>
-#include <utility>
 #include <vector>
 
 #include "containers/internal/CgroupMetricsGatherer.hpp"
@@ -19,7 +17,6 @@
 #include "observability/ObservabilityEngine.hpp"
 #include "perturbations/PerturbationEngine.hpp"
 #include "perturbations/PerturbationFactory.hpp"
-#include "shared/StateBroadcaster.hpp"
 #include "validation/ValidationEngine.hpp"
 
 using json = nlohmann::json;
@@ -42,8 +39,7 @@ void parseLogLines(const std::string& raw, std::vector<std::string>& out) {
     }
 }
 
-json stateToJson(const shared::TargetState& s, const std::string& phase = "",
-                 std::chrono::steady_clock::time_point test_start = {}) {
+json stateToJson(const shared::TargetState& s, const std::string& phase = "") {
     json j;
     j["container_id"] = s.container_id;
     j["status"] = shared::toString(s.status);
@@ -54,10 +50,6 @@ json stateToJson(const shared::TargetState& s, const std::string& phase = "",
     if (s.network_rx_bps) j["network_rx_bps"] = *s.network_rx_bps;
     if (s.network_tx_bps) j["network_tx_bps"] = *s.network_tx_bps;
     if (!phase.empty()) j["phase"] = phase;
-    if (test_start != std::chrono::steady_clock::time_point{}) {
-        j["backend_elapsed_ms"] = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - test_start).count();
-    }
     return j;
 }
 
@@ -221,77 +213,6 @@ void Server::setupRoutes() {
 
     m_server.Post("/api/run/abort",
                   [this](const httplib::Request& req, httplib::Response& res) { handleAbort(req, res); });
-
-    m_server.Get("/events", [this](const httplib::Request& req, httplib::Response& res) { handleEvents(req, res); });
-
-    // --- Legacy synchronous POST /run (unchanged) ---
-
-    m_server.Post("/run", [this](const httplib::Request& req, httplib::Response& res) {
-        if (req.body.empty()) {
-            res.status = 400;
-            json err;
-            err["error"] = "Empty request body";
-            res.set_content(err.dump(4), "application/json");
-            return;
-        }
-        try {
-            auto manifest = manifests::ManifestParser::parseFromJson(req.body);
-            SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.id);
-
-            perturbations::PerturbationFactory factory;
-            std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbation_instances;
-            for (const auto& spec : manifest.perturbations) {
-                perturbation_instances.push_back(factory.create(m_engine, manifest.target, spec));
-            }
-
-            perturbations::PerturbationEngine pert_engine;
-            const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
-            pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration);
-
-            observability::ObservabilityEngine obs(m_engine);
-            shared::TargetState lastKnownState;
-            shared::StateBroadcaster broadcaster;
-
-            if (duration.count() > 0) {
-                SPDLOG_INFO("Injecting faults for {}s. Monitoring real-time state...", duration.count());
-                auto start_time = std::chrono::steady_clock::now();
-                while (std::chrono::steady_clock::now() - start_time < duration) {
-                    lastKnownState = obs.observe(manifest.target.id);
-                    broadcaster.broadcast(lastKnownState);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                }
-            } else {
-                lastKnownState = obs.observe(manifest.target.id);
-                broadcaster.broadcast(lastKnownState);
-            }
-
-            pert_engine.waitForTeardown();
-
-            const auto results = validation::validate(lastKnownState, manifest.expectations);
-
-            bool passed = std::ranges::all_of(results, [](const auto& r) { return r.passed; });
-            json j;
-            j["passed"] = passed;
-            j["results"] = json::array();
-            for (const auto& r : results) {
-                j["results"].push_back({{"type", r.expectationType}, {"passed", r.passed}, {"message", r.message}});
-            }
-            res.status = passed ? 200 : 422;
-            res.set_content(j.dump(4), "application/json");
-        } catch (const manifests::ManifestParserError& ex) {
-            res.status = 400;
-            json err;
-            err["error"] = "Invalid manifest";
-            res.set_content(err.dump(4), "application/json");
-            SPDLOG_ERROR("/run manifest parse failed: {}", ex.what());
-        } catch (const std::exception& ex) {
-            res.status = 500;
-            json err;
-            err["error"] = "Internal server error";
-            res.set_content(err.dump(4), "application/json");
-            SPDLOG_ERROR("/run failed: {}", ex.what());
-        }
-    });
 }
 
 void Server::handleTargets(const httplib::Request&, httplib::Response& res) {
@@ -365,18 +286,16 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                 auto ip = obs.getContainerIp(manifest.target.id);
                 if (ip) lastKnownState.container_ip = ip;
 
-                auto test_start = steady_clock::now();
+                // Phase manager — runs on the calling thread.
                 {
                     std::lock_guard<std::mutex> lock(session->mtx);
                     session->phase = "normal";
-                    session->test_start = test_start;
                 }
 
                 // Optional cgroup-based metrics (bypasses Docker API).
                 containers::internal::CgroupMetricsGatherer cgroup;
-                const bool useCgroup = containers::internal::CgroupMetricsGatherer::resolveCgroupPath(
-                                           manifest.target.id)
-                                           .has_value();
+                const bool useCgroup =
+                    containers::internal::CgroupMetricsGatherer::resolveCgroupPath(manifest.target.id).has_value();
                 if (useCgroup) {
                     SPDLOG_INFO("Using cgroup v2 for CPU/memory metrics");
                 }
@@ -401,8 +320,15 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                                 if (cpu) state.cpu_usage_percent = cpu;
                                 if (mem) state.memory_usage_mb = mem;
                             } else {
-                                state.cpu_usage_percent = obs.getCpuUsage(manifest.target.id);
-                                state.memory_usage_mb   = obs.getMemoryUsage(manifest.target.id);
+                                try {
+                                    auto stats = obs.getStats(manifest.target.id);
+                                    state.cpu_usage_percent = stats.cpu_percent;
+                                    state.memory_usage_mb   = stats.memory_mb;
+                                    state.network_rx_bps    = stats.network_rx_bps;
+                                    state.network_tx_bps    = stats.network_tx_bps;
+                                } catch (const containers::ContainerEngineError& e) {
+                                    SPDLOG_ERROR("Metrics worker: failed to fetch stats: {}", e.what());
+                                }
                             }
                         }
                         {
@@ -413,8 +339,7 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
 
                         auto elapsed = steady_clock::now() - tick;
                         auto remaining = 100ms - elapsed;
-                        if (remaining > 0ms)
-                            std::this_thread::sleep_for(remaining);
+                        if (remaining > 0ms) std::this_thread::sleep_for(remaining);
                     }
                 });
 
@@ -433,30 +358,7 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
 
                         auto elapsed = steady_clock::now() - tick;
                         auto remaining = 1500ms - elapsed;
-                        if (remaining > 0ms)
-                            std::this_thread::sleep_for(remaining);
-                    }
-                });
-
-                // ── Worker 3: Network I/O ────────────────────────────
-                std::jthread netWorker([&](std::stop_token st) {
-                    while (!st.stop_requested() && session->running) {
-                        auto tick = steady_clock::now();
-                        try {
-                            auto [rx, tx] = obs.getNetworkBps(manifest.target.id);
-                            auto state = lastKnownState;
-                            state.network_rx_bps = rx;
-                            state.network_tx_bps = tx;
-                            {
-                                std::lock_guard<std::mutex> lock(session->mtx);
-                                session->latest = std::move(state);
-                            }
-                            session->cv.notify_all();
-                        } catch (...) {}
-                        auto elapsed = steady_clock::now() - tick;
-                        auto remaining = 1000ms - elapsed;
-                        if (remaining > 0ms)
-                            std::this_thread::sleep_for(remaining);
+                        if (remaining > 0ms) std::this_thread::sleep_for(remaining);
                     }
                 });
 
@@ -491,7 +393,10 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                 }
                 session->cv.notify_all();
 
-                // ── Validation ───────────────────────────────────────
+                // Validation needs an authoritative final snapshot.
+                lastKnownState = obs.observe(manifest.target.id);
+                if (lastKnownState.container_ip) lastKnownState.container_ip = ip;
+
                 const auto results = validation::validate(lastKnownState, manifest.expectations);
 
                 bool passed = std::ranges::all_of(results, [](const auto& r) { return r.passed; });
@@ -571,7 +476,7 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& res) {
                                  [session]() { return session->latest.has_value() || session->complete; });
 
             if (session->latest.has_value()) {
-                auto j = stateToJson(*session->latest, session->phase, session->test_start);
+                auto j = stateToJson(*session->latest, session->phase);
                 std::string data = "event: state\ndata: " + j.dump() + "\n\n";
                 if (!sink.write(data.data(), data.size())) {
                     return false;

@@ -7,7 +7,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include <algorithm>
 #include <future>
 #include <string>
 #include <utility>
@@ -23,16 +22,12 @@ shared::TargetState ObservabilityEngine::observe(const std::string_view containe
     shared::TargetState state;
     state.container_id = std::string(containerId);
 
-    // Run the three independent data sources concurrently so that one tick
-    // takes max(latency) instead of sum(latency).
-    auto logsFut  = std::async(std::launch::async, [this, &containerId]() { return getLogs(containerId); });
-    auto cpuFut   = std::async(std::launch::async, [this, &containerId]() { return getCpuUsage(containerId); });
+    // Fetch logs in parallel with status + stats.
+    auto logsFut = std::async(std::launch::async, [this, &containerId]() { return getLogs(containerId); });
 
-    // Status is lightweight (cached inspect) — run on the calling thread
-    // so we can decide whether to fetch the remaining metrics.
     state.status = getStatus(containerId);
 
-    // Parse logs (already arriving in the background).
+    // Parse logs (already fetched in background).
     {
         const std::string rawLogs = logsFut.get();
         state.recent_logs.clear();
@@ -53,21 +48,16 @@ shared::TargetState ObservabilityEngine::observe(const std::string_view containe
 
     if (state.status != shared::ContainerStatus::Running) {
         SPDLOG_DEBUG("Container '{}' is not running. Skipping resource usage metrics.", containerId);
-        state.cpu_usage_percent = std::nullopt;
-        state.memory_usage_mb = std::nullopt;
     } else {
-        // CPU was fetched in parallel; memory and network reuse the same
-        // stats response via the DockerClient cache.
-        state.cpu_usage_percent = cpuFut.get();
-        state.memory_usage_mb = getMemoryUsage(containerId);
+        // All resource metrics come from a single stats API call.
         try {
-            auto [rx, tx] = getNetworkBps(containerId);
-            state.network_rx_bps = rx;
-            state.network_tx_bps = tx;
+            auto stats = getStats(containerId);
+            state.cpu_usage_percent = stats.cpu_percent;
+            state.memory_usage_mb = stats.memory_mb;
+            state.network_rx_bps = stats.network_rx_bps;
+            state.network_tx_bps = stats.network_tx_bps;
         } catch (const containers::ContainerEngineError& e) {
-            SPDLOG_ERROR("ObservabilityEngine: error fetching network I/O for '{}': {}", containerId, e.what());
-            state.network_rx_bps = std::nullopt;
-            state.network_tx_bps = std::nullopt;
+            SPDLOG_ERROR("ObservabilityEngine: error fetching stats for '{}': {}", containerId, e.what());
         }
     }
 
@@ -83,26 +73,9 @@ std::string ObservabilityEngine::getLogs(const std::string_view containerId) con
     return engine_->getLogs(containerId);
 }
 
-std::optional<double> ObservabilityEngine::getMemoryUsage(const std::string_view containerId) const {
-    SPDLOG_DEBUG("ObservabilityEngine: getting memory usage for container '{}'", containerId);
-    try {
-        return engine_->getContainerMemoryUsage(containerId);
-    } catch (const containers::ContainerEngineError& e) {
-        SPDLOG_ERROR("ObservabilityEngine: error occurred while fetching memory usage for container '{}': {}",
-                     containerId, e.what());
-        return std::nullopt;
-    }
-}
-
-std::optional<double> ObservabilityEngine::getCpuUsage(const std::string_view containerId) const {
-    SPDLOG_DEBUG("ObservabilityEngine: getting CPU usage for container '{}'", containerId);
-    try {
-        return engine_->getContainerCpuUsage(containerId);
-    } catch (const containers::ContainerEngineError& e) {
-        SPDLOG_ERROR("ObservabilityEngine: error occurred while fetching CPU usage for container '{}': {}", containerId,
-                     e.what());
-        return std::nullopt;
-    }
+containers::ContainerStats ObservabilityEngine::getStats(const std::string_view containerId) const {
+    SPDLOG_DEBUG("ObservabilityEngine: getting stats for container '{}'", containerId);
+    return engine_->getStats(containerId);
 }
 
 std::optional<std::string> ObservabilityEngine::getContainerIp(const std::string_view containerId) const {
@@ -114,11 +87,6 @@ std::optional<std::string> ObservabilityEngine::getContainerIp(const std::string
                      e.what());
         return std::nullopt;
     }
-}
-
-std::pair<double, double> ObservabilityEngine::getNetworkBps(const std::string_view containerId) const {
-    SPDLOG_DEBUG("ObservabilityEngine: getting network I/O for container '{}'", containerId);
-    return engine_->getContainerNetworkBps(containerId);
 }
 
 }  // namespace chaos::orchestrator::observability

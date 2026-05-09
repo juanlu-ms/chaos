@@ -11,10 +11,18 @@ enum class ContainerStatus { Running, Exited, Paused, Dead, Unknown };
 // From string to enum
 inline ContainerStatus parseContainerStatus(std::string_view status_str) {
     using enum chaos::orchestrator::shared::ContainerStatus;
-    if (status_str == "running") return Running;
-    if (status_str == "exited") return Exited;
-    if (status_str == "paused") return Paused;
-    if (status_str == "dead") return Dead;
+    if (status_str == "running") {
+        return Running;
+    }
+    if (status_str == "exited") {
+        return Exited;
+    }
+    if (status_str == "paused") {
+        return Paused;
+    }
+    if (status_str == "dead") {
+        return Dead;
+    }
     return Unknown;
 }
 

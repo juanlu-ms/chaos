@@ -36,9 +36,7 @@ public:
     MOCK_METHOD(void, updateMemoryLimit, (const std::string_view containerId, int64_t memory_bytes), (const, override));
     MOCK_METHOD(void, updateCpuQuota, (const std::string_view containerId, int64_t cpu_quota, int64_t cpu_period),
                 (const, override));
-    MOCK_METHOD(double, getContainerMemoryUsage, (const std::string_view containerId), (const, override));
-    MOCK_METHOD(double, getContainerCpuUsage, (const std::string_view containerId), (const, override));
-    MOCK_METHOD((std::pair<double, double>), getContainerNetworkBps, (const std::string_view containerId), (const, override));
+    MOCK_METHOD(containers::ContainerStats, getStats, (const std::string_view containerId), (const, override));
     MOCK_METHOD(std::string, getContainerIp, (const std::string_view containerId), (const, override));
     MOCK_METHOD(containers::SystemInfo, getSystemInfo, (), (const, override));
 };

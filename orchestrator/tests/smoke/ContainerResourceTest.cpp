@@ -31,11 +31,13 @@ TEST_F(ContainerResourceTest, UpdateCpuQuotaResetDoesNotThrow) {
 }
 
 TEST_F(ContainerResourceTest, GetContainerMemoryUsageReturnsNonNegative) {
-    const auto mem = engine_->getContainerMemoryUsage(containerId_);
-    EXPECT_GT(mem, 0.0) << "Running container should consume some memory";
+    const auto stats = engine_->getStats(containerId_);
+    EXPECT_TRUE(stats.memory_mb.has_value());
+    EXPECT_GT(*stats.memory_mb, 0.0) << "Running container should consume some memory";
 }
 
 TEST_F(ContainerResourceTest, GetContainerCpuUsageReturnsNonNegative) {
-    const auto cpu = engine_->getContainerCpuUsage(containerId_);
-    EXPECT_GE(cpu, 0.0);
+    const auto stats = engine_->getStats(containerId_);
+    EXPECT_TRUE(stats.cpu_percent.has_value());
+    EXPECT_GE(*stats.cpu_percent, 0.0);
 }

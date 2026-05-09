@@ -53,11 +53,11 @@ TEST_F(ContainerValidationTest, UpdateCpuQuotaThrowsOnEmptyId) {
 }
 
 TEST_F(ContainerValidationTest, GetContainerMemoryUsageThrowsOnEmptyId) {
-    EXPECT_THROW((void)engine_->getContainerMemoryUsage(""), std::invalid_argument);
+    EXPECT_THROW((void)engine_->getStats(""), std::invalid_argument);
 }
 
 TEST_F(ContainerValidationTest, GetContainerCpuUsageThrowsOnEmptyId) {
-    EXPECT_THROW((void)engine_->getContainerCpuUsage(""), std::invalid_argument);
+    EXPECT_THROW((void)engine_->getStats(""), std::invalid_argument);
 }
 
 TEST_F(ContainerValidationTest, GetContainerIpThrowsOnEmptyId) {

@@ -63,8 +63,8 @@ std::string createTarArchive(const std::string_view dockerfilePath) {
         }
 
         const auto& path = entry.path();
-        auto canonical = std::filesystem::weakly_canonical(path);
-        if (!canonical.string().starts_with(canonicalContext.string())) {
+        if (auto canonical = std::filesystem::weakly_canonical(path);
+            !canonical.string().starts_with(canonicalContext.string())) {
             SPDLOG_WARN("Path escapes build context, skipping: {}", path.string());
             continue;
         }
@@ -104,7 +104,9 @@ void parseBuildResponse(const std::string_view body) {
             }
         }
 
-        if (newlinePos == std::string_view::npos) break;
+        if (newlinePos == std::string_view::npos) {
+            break;
+        }
         remaining = remaining.substr(newlinePos + 1);
     }
 }
@@ -439,10 +441,14 @@ shared::ContainerStatus DockerClient::getStatus(const std::string_view container
     SPDLOG_DEBUG("DockerClient: getting status for container {}", containerId);
 
     const std::string endpoint = fmt::format("/containers/{}/json", containerId);
-    const auto raw = getCached(endpoint, cached_inspect_, cached_inspect_at_, cached_inspect_valid_, INSPECT_TTL);
-    HttpResponse fakeResp{200, raw};
-    auto jsonResponse = parseResponse(fakeResp);
-    if (jsonResponse.contains("State") && jsonResponse["State"].is_object() &&
+    const auto response = request_(HttpMethod::GET, endpoint, "");
+    if (response.status != 200) {
+        throw containers::ContainerEngineApiError(
+            fmt::format("Failed to get status for container '{}': HTTP {}", containerId, response.status));
+    }
+
+    if (auto jsonResponse = parseResponse(response);
+        jsonResponse.contains("State") && jsonResponse["State"].is_object() &&
         jsonResponse["State"].contains("Status") && jsonResponse["State"]["Status"].is_string()) {
         std::string stateStr = jsonResponse["State"]["Status"].get<std::string>();
         SPDLOG_INFO("DockerClient: container {} status is {}", containerId, stateStr);
@@ -456,14 +462,6 @@ shared::ContainerStatus DockerClient::getStatus(const std::string_view container
 std::string DockerClient::getLogs(const std::string_view containerId) const {
     if (containerId.empty()) {
         throw std::invalid_argument("Container ID must not be empty");
-    }
-
-    // Check cache first — logs don't change every 500ms.
-    {
-        const auto now = std::chrono::steady_clock::now();
-        if (cached_logs_valid_ && (now - cached_logs_at_) < LOGS_TTL) {
-            return cached_logs_;
-        }
     }
 
     SPDLOG_DEBUG("Fetching logs for container: {}", containerId);
@@ -502,56 +500,35 @@ std::string DockerClient::getLogs(const std::string_view containerId) const {
         i += 8 + clen;
     }
 
-    // Cache the demuxed result.
-    cached_logs_ = result;
-    cached_logs_at_ = std::chrono::steady_clock::now();
-    cached_logs_valid_ = true;
-
     return result;
 }
 
-double DockerClient::getContainerMemoryUsage(const std::string_view containerId) const {
+containers::ContainerStats DockerClient::getStats(const std::string_view containerId) const {
     if (containerId.empty()) {
         throw std::invalid_argument("Container ID must not be empty");
     }
 
-    SPDLOG_DEBUG("Fetching memory usage for container: {}", containerId);
+    SPDLOG_DEBUG("Fetching container stats for: {}", containerId);
 
     const std::string endpoint = fmt::format("/containers/{}/stats?stream=false", containerId);
-    const auto raw = getCached(endpoint, cached_stats_, cached_stats_at_, cached_stats_valid_, STATS_TTL);
-    HttpResponse fakeResp{200, raw};
-    auto jsonResponse = parseResponse(fakeResp);
-    if (jsonResponse.contains("memory_stats") && jsonResponse["memory_stats"].is_object() &&
-        jsonResponse["memory_stats"].contains("usage") && jsonResponse["memory_stats"]["usage"].is_number()) {
-        const double memoryUsageBytes = jsonResponse["memory_stats"]["usage"].get<double>();
-        const double memoryUsageMb = memoryUsageBytes / (1024 * 1024);
-        SPDLOG_INFO("Fetched memory usage for container '{}': {:.2f} MB", containerId, memoryUsageMb);
-        return memoryUsageMb;
+    const auto response = request_(HttpMethod::GET, endpoint, "");
+    if (response.status != 200) {
+        throw containers::ContainerEngineApiError(
+            fmt::format("Failed to get stats for container '{}': HTTP {}", containerId, response.status));
     }
 
-    throw containers::ContainerEngineParseError(
-        fmt::format("Docker stats response missing memory_stats.usage for container '{}'", containerId));
-}
+    auto jsonResponse = parseResponse(response);
+    containers::ContainerStats stats;
 
-double DockerClient::getContainerCpuUsage(const std::string_view containerId) const {
-    if (containerId.empty()) {
-        throw std::invalid_argument("Container ID must not be empty");
-    }
-
-    SPDLOG_DEBUG("Fetching CPU usage for container: {}", containerId);
-
-    const std::string endpoint = fmt::format("/containers/{}/stats?stream=false", containerId);
-    const auto raw = getCached(endpoint, cached_stats_, cached_stats_at_, cached_stats_valid_, STATS_TTL);
-    HttpResponse fakeResp{200, raw};
-    auto jsonResponse = parseResponse(fakeResp);
+    // CPU usage (delta between precpu_stats and cpu_stats).
     if (jsonResponse.contains("cpu_stats") && jsonResponse["cpu_stats"].is_object() &&
         jsonResponse["cpu_stats"].contains("cpu_usage") && jsonResponse["cpu_stats"]["cpu_usage"].is_object() &&
         jsonResponse["cpu_stats"]["cpu_usage"].contains("total_usage") &&
         jsonResponse["cpu_stats"]["cpu_usage"]["total_usage"].is_number() &&
         jsonResponse["cpu_stats"].contains("system_cpu_usage") &&
-        jsonResponse["cpu_stats"]["system_cpu_usage"].is_number() && jsonResponse.contains("precpu_stats") &&
-        jsonResponse["precpu_stats"].is_object() && jsonResponse["precpu_stats"].contains("cpu_usage") &&
-        jsonResponse["precpu_stats"]["cpu_usage"].is_object() &&
+        jsonResponse["cpu_stats"]["system_cpu_usage"].is_number() &&
+        jsonResponse.contains("precpu_stats") && jsonResponse["precpu_stats"].is_object() &&
+        jsonResponse["precpu_stats"].contains("cpu_usage") && jsonResponse["precpu_stats"]["cpu_usage"].is_object() &&
         jsonResponse["precpu_stats"]["cpu_usage"].contains("total_usage") &&
         jsonResponse["precpu_stats"]["cpu_usage"]["total_usage"].is_number() &&
         jsonResponse["precpu_stats"].contains("system_cpu_usage") &&
@@ -560,19 +537,47 @@ double DockerClient::getContainerCpuUsage(const std::string_view containerId) co
         const auto cpu_delta = static_cast<int64_t>(jsonResponse["cpu_stats"]["cpu_usage"]["total_usage"]) -
                                static_cast<int64_t>(jsonResponse["precpu_stats"]["cpu_usage"]["total_usage"]);
         const auto system_cpu_delta = static_cast<int64_t>(jsonResponse["cpu_stats"]["system_cpu_usage"]) -
-                                      static_cast<int64_t>(jsonResponse["precpu_stats"]["system_cpu_usage"]);
+                                       static_cast<int64_t>(jsonResponse["precpu_stats"]["system_cpu_usage"]);
         const int number_cpus = jsonResponse["cpu_stats"]["online_cpus"];
-        const double cpuUsagePercent =
-            (system_cpu_delta > 0 && cpu_delta > 0)
-                ? (static_cast<double>(cpu_delta) / static_cast<double>(system_cpu_delta)) * number_cpus * 100.0
-                : 0.0;
-        SPDLOG_INFO("Fetched CPU usage for container '{}': {:.2f}%", containerId, cpuUsagePercent);
-        return cpuUsagePercent;
+        if (system_cpu_delta > 0 && cpu_delta > 0) {
+            stats.cpu_percent = (static_cast<double>(cpu_delta) / static_cast<double>(system_cpu_delta)) *
+                                static_cast<double>(number_cpus) * 100.0;
+        }
     }
 
-    throw containers::ContainerEngineParseError(fmt::format(
-        "Docker stats response missing cpu_stats.cpu_usage.total_usage or system_cpu_usage for container '{}'",
-        containerId));
+    // Memory usage.
+    if (jsonResponse.contains("memory_stats") && jsonResponse["memory_stats"].is_object() &&
+        jsonResponse["memory_stats"].contains("usage") && jsonResponse["memory_stats"]["usage"].is_number()) {
+        stats.memory_mb = jsonResponse["memory_stats"]["usage"].get<double>() / (1024.0 * 1024.0);
+    }
+
+    // Network I/O — cumulative bytes across all interfaces.
+    double rx_bytes = 0, tx_bytes = 0;
+    if (jsonResponse.contains("networks") && jsonResponse["networks"].is_object()) {
+        for (const auto& [iface, net] : jsonResponse["networks"].items()) {
+            if (net.contains("rx_bytes") && net["rx_bytes"].is_number())
+                rx_bytes += net["rx_bytes"].get<double>();
+            if (net.contains("tx_bytes") && net["tx_bytes"].is_number())
+                tx_bytes += net["tx_bytes"].get<double>();
+        }
+    }
+    // Convert cumulative bytes to B/s using the stored previous values.
+    const auto now = std::chrono::steady_clock::now();
+    if (prev_net_valid_) {
+        const double dt = std::chrono::duration_cast<std::chrono::duration<double>>(now - prev_net_timestamp_).count();
+        if (dt > 0.001) {
+            stats.network_rx_bps = (rx_bytes - prev_net_rx_) / dt;
+            stats.network_tx_bps = (tx_bytes - prev_net_tx_) / dt;
+        }
+    }
+    prev_net_rx_ = rx_bytes;
+    prev_net_tx_ = tx_bytes;
+    prev_net_timestamp_ = now;
+    prev_net_valid_ = true;
+
+    SPDLOG_INFO("Fetched stats for container '{}': CPU={}% Mem={:.0f}MB", containerId,
+                stats.cpu_percent ? *stats.cpu_percent : -1.0, stats.memory_mb ? *stats.memory_mb : -1.0);
+    return stats;
 }
 
 std::string DockerClient::getContainerIp(const std::string_view containerId) const {
@@ -583,11 +588,14 @@ std::string DockerClient::getContainerIp(const std::string_view containerId) con
     SPDLOG_DEBUG("Fetching IP for container: {}", containerId);
 
     const std::string endpoint = fmt::format("/containers/{}/json", containerId);
-    const auto raw = getCached(endpoint, cached_inspect_, cached_inspect_at_, cached_inspect_valid_, INSPECT_TTL);
-    HttpResponse fakeResp{200, raw};
-    auto jsonResponse = parseResponse(fakeResp);
+    const auto response = request_(HttpMethod::GET, endpoint, "");
+    if (response.status != 200) {
+        throw containers::ContainerEngineApiError(
+            fmt::format("Failed to inspect container '{}': HTTP {}", containerId, response.status));
+    }
 
-    if (jsonResponse.contains("NetworkSettings") && jsonResponse["NetworkSettings"].contains("Networks")) {
+    if (auto jsonResponse = parseResponse(response);
+        jsonResponse.contains("NetworkSettings") && jsonResponse["NetworkSettings"].contains("Networks")) {
         auto& networks = jsonResponse["NetworkSettings"]["Networks"];
         if (networks.is_object() && !networks.empty()) {
             auto firstNetwork = networks.begin().value();
@@ -617,60 +625,6 @@ SystemInfo DockerClient::getSystemInfo() const {
         info.memTotal = jsonResponse["MemTotal"].get<int64_t>();
     }
     return info;
-}
-
-std::pair<double, double> DockerClient::getContainerNetworkBps(const std::string_view containerId) const {
-    SPDLOG_DEBUG("Fetching network I/O for container: {}", containerId);
-
-    const std::string endpoint = fmt::format("/containers/{}/stats?stream=false", containerId);
-    const auto raw = getCached(endpoint, cached_stats_, cached_stats_at_, cached_stats_valid_, STATS_TTL);
-    HttpResponse fakeResp{200, raw};
-    auto jsonResponse = parseResponse(fakeResp);
-
-    double rx_bytes = 0, tx_bytes = 0;
-    if (jsonResponse.contains("networks") && jsonResponse["networks"].is_object()) {
-        for (const auto& [iface, net] : jsonResponse["networks"].items()) {
-            if (net.contains("rx_bytes") && net["rx_bytes"].is_number())
-                rx_bytes += net["rx_bytes"].get<double>();
-            if (net.contains("tx_bytes") && net["tx_bytes"].is_number())
-                tx_bytes += net["tx_bytes"].get<double>();
-        }
-    }
-
-    // Compute B/s delta from previous cumulative values.
-    auto now = std::chrono::steady_clock::now();
-    double rx_bps = 0, tx_bps = 0;
-    if (prev_net_valid_) {
-        auto dt = std::chrono::duration_cast<std::chrono::duration<double>>(now - prev_net_timestamp_).count();
-        if (dt > 0.001) {
-            rx_bps = (rx_bytes - prev_net_rx_) / dt;
-            tx_bps = (tx_bytes - prev_net_tx_) / dt;
-        }
-    }
-    prev_net_rx_ = rx_bytes;
-    prev_net_tx_ = tx_bytes;
-    prev_net_timestamp_ = now;
-    prev_net_valid_ = true;
-
-    return {rx_bps, tx_bps};
-}
-
-std::string DockerClient::getCached(const std::string& endpoint, std::string& cacheBody,
-                                    std::chrono::steady_clock::time_point& cacheTime, bool& cacheValid,
-                                    std::chrono::milliseconds ttl) const {
-    const auto now = std::chrono::steady_clock::now();
-    if (cacheValid && (now - cacheTime) < ttl) {
-        return cacheBody;
-    }
-    const auto response = request_(HttpMethod::GET, endpoint, "");
-    if (response.status != 200) {
-        throw containers::ContainerEngineApiError(
-            fmt::format("Docker API GET {} failed: HTTP {}", endpoint, response.status));
-    }
-    cacheBody = response.body;
-    cacheTime = now;
-    cacheValid = true;
-    return cacheBody;
 }
 
 nlohmann::json DockerClient::parseResponse(const HttpResponse& response) const {

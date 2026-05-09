@@ -28,7 +28,6 @@ struct RunSession {
     json results;
     std::string error;
     std::string phase;
-    std::chrono::steady_clock::time_point test_start;
 };
 
 /**

@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -38,6 +39,16 @@ public:
 class ContainerEngineParseError : public ContainerEngineError {
 public:
     using ContainerEngineError::ContainerEngineError;
+};
+
+/**
+ * @brief Snapshot of container resource stats from a single API call.
+ */
+struct ContainerStats {
+    std::optional<double> cpu_percent;
+    std::optional<double> memory_mb;
+    double network_rx_bps = 0;
+    double network_tx_bps = 0;
 };
 
 /**
@@ -156,32 +167,9 @@ public:
     virtual void updateCpuQuota(const std::string_view containerId, int64_t cpu_quota, int64_t cpu_period) const = 0;
 
     /**
-     * @brief Fetch the memory usage of a running container in MB.
-     * @param containerId Docker container ID.
-     * @return Memory usage in MB.
-     * @throws std::invalid_argument On empty containerId.
-     * @throws ContainerEngineApiError On non-200 HTTP response.
-     * @throws ContainerEngineParseError On unexpected response format.
+     * @brief Fetch CPU, memory and network stats in a single API call.
      */
-    [[nodiscard]] virtual double getContainerMemoryUsage(const std::string_view containerId) const = 0;
-
-    /**
-     * @brief Fetch the CPU core limit configured for a running container.
-     * @param containerId Docker container ID.
-     * @return Configured CPU core limit (supports decimals, e.g. 0.5, 1.25, 2.0).
-     * @throws std::invalid_argument On empty containerId.
-     * @throws ContainerEngineApiError On non-200 HTTP response.
-     * @throws ContainerEngineParseError On unexpected response format.
-     */
-    [[nodiscard]] virtual double getContainerCpuUsage(const std::string_view containerId) const = 0;
-
-    /**
-     * @brief Fetch network I/O (rx + tx) in bytes per second for a running container.
-     * @param containerId Docker container ID.
-     * @return Pair of (rx_bps, tx_bps).
-     * @throws ContainerEngineError On transport, API or parser failures.
-     */
-    [[nodiscard]] virtual std::pair<double, double> getContainerNetworkBps(const std::string_view containerId) const = 0;
+    [[nodiscard]] virtual containers::ContainerStats getStats(const std::string_view containerId) const = 0;
 
     /**
      * @brief Fetch the primary IP address of a running container (call once at setup).

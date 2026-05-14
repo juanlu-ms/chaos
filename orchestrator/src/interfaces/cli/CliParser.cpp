@@ -50,6 +50,8 @@ public:
 
     SignalHandlerGuard(const SignalHandlerGuard&) = delete;
     SignalHandlerGuard& operator=(const SignalHandlerGuard&) = delete;
+    SignalHandlerGuard(SignalHandlerGuard&&) = delete;
+    SignalHandlerGuard& operator=(SignalHandlerGuard&&) = delete;
 
 private:
     SignalHandler previous_;
@@ -182,14 +184,14 @@ int CliParser::handleList() const {
         }
 
         SPDLOG_INFO("{:<14} {:<30} {}", "CONTAINER ID", "NAME", "STATE");
-        for (const auto& c : containers) {
-            std::string displayId = c.id;
+        for (const auto& container : containers) {
+            std::string displayId = container.id;
             if (displayId.empty()) {
                 displayId = "<missing>";
             } else if (displayId.size() > 12) {
                 displayId = displayId.substr(0, 12);
             }
-            SPDLOG_INFO("{:<14} {:<30} {}", displayId, c.name, c.state);
+            SPDLOG_INFO("{:<14} {:<30} {}", displayId, container.name, container.state);
         }
     } catch (const containers::ContainerEngineError& ex) {
         SPDLOG_ERROR("Failed to list containers: {}", ex.what());

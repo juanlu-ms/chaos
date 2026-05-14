@@ -28,6 +28,7 @@ set(ORCHESTRATOR_SOURCES
     src/validation/internal/LogValidation.cpp
     src/validation/internal/HttpValidation.cpp
     src/signals/SignalHandlerGuard.cpp
+    src/core/ChaosRunner.cpp
 )
 
 add_library(orchestrator_core STATIC ${ORCHESTRATOR_SOURCES})
@@ -75,6 +76,7 @@ add_executable(orchestrator_unit_tests
     tests/perturbations/PerturbationTests.cpp
     tests/shared/StateBroadcasterUnitTest.cpp
     tests/signals/SignalHandlerGuardUnitTest.cpp
+    tests/core/ChaosRunnerUnitTest.cpp
 )
 
 target_include_directories(orchestrator_unit_tests PRIVATE

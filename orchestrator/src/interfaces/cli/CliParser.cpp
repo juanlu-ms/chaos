@@ -1,6 +1,7 @@
 #include "interfaces/cli/CliParser.hpp"
 
 #include <spdlog/spdlog.h>
+#include <unistd.h>
 
 #include <chrono>
 #include <memory>
@@ -16,10 +17,8 @@
 #include "manifests/ManifestParser.hpp"
 #include "observability/ObservabilityEngine.hpp"
 #include "perturbations/PerturbationEngine.hpp"
-#include "perturbations/PerturbationFactory.hpp"
 #include "shared/StateBroadcaster.hpp"
 #include "signals/SignalHandlerGuard.hpp"
-#include "validation/ValidationEngine.hpp"
 
 namespace chaos::orchestrator::interfaces::cli {
 
@@ -33,7 +32,8 @@ namespace {
 
 }  // namespace
 
-CliParser::CliParser(std::shared_ptr<containers::IContainerEngine> engine) : m_engine(std::move(engine)) {}
+CliParser::CliParser(std::shared_ptr<containers::IContainerEngine> engine)
+    : m_engine(std::move(engine)), runner_(m_engine) {}
 
 int CliParser::run(std::span<char*> argv) const {
     if (argv.size() < 2) {
@@ -207,15 +207,15 @@ int CliParser::handleServe(int port) const {
 
 int CliParser::handleRun(const std::string& manifestPath) const {
     try {
-        auto manifest = parseManifest(manifestPath);
+        auto manifest = runner_.parseManifest(manifestPath);
         SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.id);
 
-        auto perturbation_instances = buildPerturbations(manifest);
+        auto perturbation_instances = runner_.buildPerturbations(manifest);
         const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
 
         auto finalState = runPerturbationsLoop(std::move(perturbation_instances), manifest.target.id, duration);
 
-        if (!validateExpectations(manifest, finalState)) {
+        if (!runner_.validateExpectations(manifest, finalState)) {
             return 1;
         }
     } catch (const manifests::ManifestParserError& ex) {
@@ -232,21 +232,6 @@ int CliParser::handleRun(const std::string& manifestPath) const {
         return 1;
     }
     return 0;
-}
-
-manifests::ChaosManifest CliParser::parseManifest(const std::string& path) const {
-    return manifests::ManifestParser::parseFromFile(path);
-}
-
-std::vector<std::unique_ptr<perturbations::IPerturbation>> CliParser::buildPerturbations(
-    const manifests::ChaosManifest& manifest) const {
-    perturbations::PerturbationFactory factory;
-    std::vector<std::unique_ptr<perturbations::IPerturbation>> instances;
-    instances.reserve(manifest.perturbations.size());
-    for (const auto& spec : manifest.perturbations) {
-        instances.push_back(factory.create(m_engine, manifest.target, spec));
-    }
-    return instances;
 }
 
 shared::TargetState CliParser::runPerturbationsLoop(
@@ -290,25 +275,6 @@ shared::TargetState CliParser::runPerturbationsLoop(
 
     pert_engine.waitForTeardown();
     return lastKnownState;
-}
-
-bool CliParser::validateExpectations(const manifests::ChaosManifest& manifest,
-                                     const shared::TargetState& finalState) const {
-    if (manifest.expectations.empty()) {
-        return true;
-    }
-
-    SPDLOG_INFO("Evaluating {} expectation(s)...", manifest.expectations.size());
-    const auto results = validation::validate(finalState, manifest.expectations);
-
-    for (const auto& result : results) {
-        if (!result.passed) {
-            SPDLOG_ERROR("Chaos run FAILED: one or more expectations were not met.");
-            return false;
-        }
-    }
-    SPDLOG_INFO("Chaos run PASSED: all expectations met.");
-    return true;
 }
 
 }  // namespace chaos::orchestrator::interfaces::cli

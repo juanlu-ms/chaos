@@ -35,9 +35,13 @@ shared::TargetState ObservabilityEngine::observe(const std::string_view containe
             size_t start = 0;
             while (start < rawLogs.size()) {
                 size_t end = rawLogs.find('\n', start);
-                if (end == std::string::npos) end = rawLogs.size();
+                if (end == std::string::npos) {
+                    end = rawLogs.size();
+                }
                 std::string line = rawLogs.substr(start, end - start);
-                if (!line.empty() && line.back() == '\r') line.pop_back();
+                if (!line.empty() && line.back() == '\r') {
+                    line.pop_back();
+                }
                 if (!line.empty()) {
                     state.recent_logs.push_back(std::move(line));
                 }

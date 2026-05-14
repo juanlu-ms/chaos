@@ -2,35 +2,16 @@
 
 #include <httplib.h>
 
-#include <chrono>
-#include <condition_variable>
 #include <memory>
 #include <mutex>
-#include <nlohmann/json.hpp>
-#include <optional>
-#include <stop_token>
 
 #include "containers/IContainerEngine.hpp"
-#include "shared/TargetState.hpp"
+#include "core/ChaosRunner.hpp"
+#include "core/RunSession.hpp"
 
 namespace chaos::orchestrator::interfaces::web {
 
-using json = nlohmann::json;
-
-/**
- * Shared mutable state for a single chaos run, observable via SSE.
- */
-struct RunSession {
-    std::mutex mtx;
-    std::condition_variable cv;
-    std::optional<shared::TargetState> latest;
-    bool running = false;
-    bool complete = false;
-    json results;
-    std::string error;
-    std::string phase;
-    std::stop_source stop_source;
-};
+using core::RunSession;
 
 /**
  * HTTP server exposing a REST API and Server-Sent Events for chaos engineering runs.
@@ -53,6 +34,7 @@ public:
 private:
     httplib::Server m_server;
     std::shared_ptr<containers::IContainerEngine> m_engine;
+    core::ChaosRunner runner_;
 
     std::mutex session_mutex_;
     std::shared_ptr<RunSession> m_session;

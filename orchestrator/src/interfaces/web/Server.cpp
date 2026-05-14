@@ -17,75 +17,14 @@
 #include "manifests/ManifestParser.hpp"
 #include "observability/ObservabilityEngine.hpp"
 #include "perturbations/PerturbationEngine.hpp"
-#include "perturbations/PerturbationFactory.hpp"
 #include "validation/ValidationEngine.hpp"
+#include "web/JsonSerializer.hpp"
 
 using json = nlohmann::json;
 
 namespace chaos::orchestrator::interfaces::web {
 
 namespace {
-
-void parseLogLines(const std::string& raw, std::vector<std::string>& out) {
-    out.clear();
-    if (raw.empty()) {
-        return;
-    }
-    size_t start = 0;
-    while (start < raw.size()) {
-        size_t end = raw.find('\n', start);
-        if (end == std::string::npos) {
-            end = raw.size();
-        }
-        std::string line = raw.substr(start, end - start);
-        if (!line.empty() && line.back() == '\r') {
-            line.pop_back();
-        }
-        if (!line.empty()) {
-            out.push_back(std::move(line));
-        }
-        start = end + 1;
-    }
-}
-
-json stateToJson(const shared::TargetState& state, const std::string& phase = "") {
-    json json;
-    json["container_id"] = state.container_id;
-    json["status"] = shared::toString(state.status);
-    if (state.cpu_usage_percent) {
-        json["cpu_usage_percent"] = *state.cpu_usage_percent;
-    }
-    if (state.memory_usage_mb) {
-        json["memory_usage_mb"] = *state.memory_usage_mb;
-    }
-    if (state.container_ip) {
-        json["container_ip"] = *state.container_ip;
-    }
-    json["recent_logs"] = state.recent_logs;
-    if (state.network_rx_bps) {
-        json["network_rx_bps"] = *state.network_rx_bps;
-    }
-    if (state.network_tx_bps) {
-        json["network_tx_bps"] = *state.network_tx_bps;
-    }
-    if (!phase.empty()) {
-        json["phase"] = phase;
-    }
-    return json;
-}
-
-json limitsToJson(const containers::SystemInfo& info) {
-    json json;
-    json["cpu_cores"] = std::thread::hardware_concurrency();
-    auto memoryTotalMb = static_cast<uint64_t>(info.memTotal / (static_cast<int64_t>(1024 * 1024)));
-    json["memory_total_mb"] = memoryTotalMb;
-    json["perturbation_limits"] = {
-        {"cpu_cap", {{"min_percent", 1}, {"max_percent", 100}}},
-        {"memory_cap", {{"min_mb", 1}, {"max_mb", memoryTotalMb}}},
-        {"network_delay", {{"min_ms", 0}, {"max_ms", 30000}}},
-    };
-    return json;
-}
 
 std::optional<std::filesystem::path> findWebRoot() {
     std::vector<std::filesystem::path> candidates = {
@@ -106,7 +45,9 @@ std::optional<std::filesystem::path> findWebRoot() {
 }
 }  // namespace
 
-Server::Server(std::shared_ptr<containers::IContainerEngine> engine) : m_engine(std::move(engine)) { setupRoutes(); }
+Server::Server(std::shared_ptr<containers::IContainerEngine> engine) : m_engine(std::move(engine)), runner_(m_engine) {
+    setupRoutes();
+}
 
 void Server::listen(int port) {
     SPDLOG_INFO("chaos listening to http://127.0.0.1:{}", port);
@@ -128,22 +69,22 @@ void Server::setupRoutes() {
     }
 
     m_server.Get("/status", [](const httplib::Request&, httplib::Response& response) {
-        json json;
-        json["project"] = "Chaos Engine";
-        json["status"] = "Online (Web Adapter)";
+        json result;
+        result["project"] = "Chaos Engine";
+        result["status"] = "Online (Web Adapter)";
 
-        response.set_content(json.dump(4), "application/json");
+        response.set_content(result.dump(4), "application/json");
     });
 
     m_server.Get("/containers", [this](const httplib::Request&, httplib::Response& response) {
         try {
             SPDLOG_DEBUG("/containers requested");
             auto containers = m_engine->listContainers();
-            json json = json::array();
+            json result = json::array();
             for (const auto& container : containers) {
-                json.push_back({{"id", container.id}, {"name", container.name}, {"state", container.state}});
+                result.push_back({{"id", container.id}, {"name", container.name}, {"state", container.state}});
             }
-            response.set_content(json.dump(4), "application/json");
+            response.set_content(result.dump(4), "application/json");
             SPDLOG_INFO("/containers served: {} items", containers.size());
         } catch (const std::exception& ex) {
             json error;
@@ -165,11 +106,11 @@ void Server::setupRoutes() {
         try {
             SPDLOG_INFO("/containers/{}/stop requested", containerId);
             m_engine->stopContainer(containerId);
-            json json;
-            json["status"] = "ok";
-            json["action"] = "stop";
-            json["id"] = containerId;
-            response.set_content(json.dump(4), "application/json");
+            json result;
+            result["status"] = "ok";
+            result["action"] = "stop";
+            result["id"] = containerId;
+            response.set_content(result.dump(4), "application/json");
         } catch (const std::exception& ex) {
             json error;
             error["error"] = "Failed to stop container";
@@ -190,11 +131,11 @@ void Server::setupRoutes() {
         try {
             SPDLOG_INFO("/containers/{}/kill requested", containerId);
             m_engine->killContainer(containerId);
-            json json;
-            json["status"] = "ok";
-            json["action"] = "kill";
-            json["id"] = containerId;
-            response.set_content(json.dump(4), "application/json");
+            json result;
+            result["status"] = "ok";
+            result["action"] = "kill";
+            result["id"] = containerId;
+            response.set_content(result.dump(4), "application/json");
         } catch (const std::exception& ex) {
             json error;
             error["error"] = "Failed to kill container";
@@ -249,11 +190,11 @@ void Server::setupRoutes() {
 void Server::handleTargets(const httplib::Request&, httplib::Response& response) {
     try {
         auto containers = m_engine->listContainers();
-        json json = json::array();
+        json result = json::array();
         for (const auto& container : containers) {
-            json.push_back({{"id", container.id}, {"name", container.name}, {"state", container.state}});
+            result.push_back({{"id", container.id}, {"name", container.name}, {"state", container.state}});
         }
-        response.set_content(json.dump(4), "application/json");
+        response.set_content(result.dump(4), "application/json");
         SPDLOG_INFO("/api/targets served: {} items", containers.size());
     } catch (const std::exception& ex) {
         json error;
@@ -267,8 +208,8 @@ void Server::handleTargets(const httplib::Request&, httplib::Response& response)
 void Server::handleLimits(const httplib::Request&, httplib::Response& response) {
     try {
         auto info = m_engine->getSystemInfo();
-        json json = limitsToJson(info);
-        response.set_content(json.dump(4), "application/json");
+        json result = limitsToJson(info);
+        response.set_content(result.dump(4), "application/json");
         SPDLOG_INFO("/api/limits served");
     } catch (const std::exception& ex) {
         json error;
@@ -299,17 +240,13 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
             session->running = true;
         }
 
-        std::thread([engine = m_engine, session, manifest = std::move(manifest)]() {
+        auto perturbation_instances = runner_.buildPerturbations(manifest);
+
+        std::thread([engine = m_engine, session, manifest = std::move(manifest),
+                     perturbation_instances = std::move(perturbation_instances)]() mutable {
             try {
                 using namespace std::chrono;
                 using namespace std::chrono_literals;
-
-                perturbations::PerturbationFactory factory;
-                std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbation_instances;
-                perturbation_instances.reserve(manifest.perturbations.size());
-                for (const auto& spec : manifest.perturbations) {
-                    perturbation_instances.push_back(factory.create(engine, manifest.target, spec));
-                }
 
                 observability::ObservabilityEngine obs(engine);
                 shared::TargetState lastKnownState;
@@ -450,15 +387,18 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                     lastKnownState.container_ip = ip;
                 }
 
-                const auto results = validation::validate(lastKnownState, manifest.expectations);
+                // Use ChaosRunner for validation (reuse engine from outer scope).
+                core::ChaosRunner validationRunner(engine);
+                bool passed = validationRunner.validateExpectations(manifest, lastKnownState);
 
-                bool passed = std::ranges::all_of(results, [](const auto& result) { return result.passed; });
-                json json;
-                json["passed"] = passed;
-                json["results"] = json::array();
-                for (const auto& result : results) {
-                    json["results"].push_back(
-                        {{"type", result.expectationType}, {"passed", result.passed}, {"message", result.message}});
+                json result;
+                result["passed"] = passed;
+                result["results"] = json::array();
+                // For detailed results, still call validate directly.
+                const auto validationResults = validation::validate(lastKnownState, manifest.expectations);
+                for (const auto& vr : validationResults) {
+                    result["results"].push_back(
+                        {{"type", vr.expectationType}, {"passed", vr.passed}, {"message", vr.message}});
                 }
 
                 {
@@ -466,7 +406,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                     if (!session->running) {
                         return;
                     }
-                    session->results = json;
+                    session->results = result;
                     session->running = false;
                     session->complete = true;
                 }
@@ -534,8 +474,8 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& response) 
                                  [session]() { return session->latest.has_value() || session->complete; });
 
             if (session->latest.has_value()) {
-                auto json = stateToJson(*session->latest, session->phase);
-                std::string data = "event: state\ndata: " + json.dump() + "\n\n";
+                auto stateJson = stateToJson(*session->latest, session->phase);
+                std::string data = "event: state\ndata: " + stateJson.dump() + "\n\n";
                 if (!sink.write(data.data(), data.size())) {
                     return false;
                 }
@@ -569,9 +509,9 @@ void Server::handleAbort(const httplib::Request&, httplib::Response& response) {
     {
         std::lock_guard<std::mutex> lock(session_mutex_);
         if (!m_session || !m_session->running) {
-            json json = {{"error", "No active run to abort"}};
+            json error = {{"error", "No active run to abort"}};
             response.status = 409;
-            response.set_content(json.dump(4), "application/json");
+            response.set_content(error.dump(4), "application/json");
             return;
         }
         session = m_session;
@@ -584,8 +524,8 @@ void Server::handleAbort(const httplib::Request&, httplib::Response& response) {
     }
     session->stop_source.request_stop();
     session->cv.notify_all();
-    json json = {{"status", "aborted"}};
-    response.set_content(json.dump(4), "application/json");
+    json result = {{"status", "aborted"}};
+    response.set_content(result.dump(4), "application/json");
 }
 
 }  // namespace chaos::orchestrator::interfaces::web

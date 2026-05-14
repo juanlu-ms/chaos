@@ -29,6 +29,7 @@ set(ORCHESTRATOR_SOURCES
     src/validation/internal/HttpValidation.cpp
     src/signals/SignalHandlerGuard.cpp
     src/core/ChaosRunner.cpp
+    src/interfaces/web/JsonSerializer.cpp
 )
 
 add_library(orchestrator_core STATIC ${ORCHESTRATOR_SOURCES})
@@ -77,6 +78,7 @@ add_executable(orchestrator_unit_tests
     tests/shared/StateBroadcasterUnitTest.cpp
     tests/signals/SignalHandlerGuardUnitTest.cpp
     tests/core/ChaosRunnerUnitTest.cpp
+    tests/web/JsonSerializerUnitTest.cpp
 )
 
 target_include_directories(orchestrator_unit_tests PRIVATE

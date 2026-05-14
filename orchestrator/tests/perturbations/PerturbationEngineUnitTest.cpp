@@ -158,3 +158,66 @@ TEST(PerturbationEngineUnitTest, DestructorCallsWaitForTeardown) {
     EXPECT_EQ(apply_count->load(), 1);
     EXPECT_EQ(revert_count->load(), 1);
 }
+
+/**
+ * @test Verifies external stop_token triggers revert during execution.
+ */
+TEST(PerturbationEngineUnitTest, ExternalStopTokenTriggersRevert) {
+    auto apply_count = std::make_shared<std::atomic<int>>(0);
+    auto revert_count = std::make_shared<std::atomic<int>>(0);
+    auto applied = std::make_shared<std::promise<void>>();
+    auto reverted = std::make_shared<std::promise<void>>();
+
+    std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations;
+    perturbations.push_back(std::make_unique<RecordingPerturbation>(apply_count, revert_count, applied, reverted));
+
+    perturbations::PerturbationEngine engine;
+
+    std::stop_source external_source;
+    engine.scheduleAllAsync(std::move(perturbations), std::chrono::seconds(60), external_source.get_token());
+
+    auto applied_future = applied->get_future();
+    ASSERT_EQ(applied_future.wait_for(kAsyncTimeout), std::future_status::ready);
+    ASSERT_EQ(apply_count->load(), 1);
+
+    external_source.request_stop();
+
+    engine.waitForTeardown();
+
+    auto reverted_future = reverted->get_future();
+    ASSERT_EQ(reverted_future.wait_for(kAsyncTimeout), std::future_status::ready);
+
+    EXPECT_EQ(revert_count->load(), 1);
+}
+
+/**
+ * @test Verifies dual-stop: cancel() AND external stop both work together.
+ */
+TEST(PerturbationEngineUnitTest, DualCancellationInternalAndExternal) {
+    auto apply_count = std::make_shared<std::atomic<int>>(0);
+    auto revert_count = std::make_shared<std::atomic<int>>(0);
+    auto applied = std::make_shared<std::promise<void>>();
+    auto reverted = std::make_shared<std::promise<void>>();
+
+    std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations;
+    perturbations.push_back(std::make_unique<RecordingPerturbation>(apply_count, revert_count, applied, reverted));
+
+    perturbations::PerturbationEngine engine;
+
+    std::stop_source external_source;
+    engine.scheduleAllAsync(std::move(perturbations), std::chrono::seconds(60), external_source.get_token());
+
+    auto applied_future = applied->get_future();
+    ASSERT_EQ(applied_future.wait_for(kAsyncTimeout), std::future_status::ready);
+    ASSERT_EQ(apply_count->load(), 1);
+
+    external_source.request_stop();
+    engine.cancel();
+
+    engine.waitForTeardown();
+
+    auto reverted_future = reverted->get_future();
+    ASSERT_EQ(reverted_future.wait_for(kAsyncTimeout), std::future_status::ready);
+
+    EXPECT_EQ(revert_count->load(), 1);
+}

@@ -7,7 +7,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include <future>
 #include <utility>
 
 namespace chaos::orchestrator::perturbations {
@@ -18,67 +17,54 @@ PerturbationEngine::~PerturbationEngine() {
 }
 
 void PerturbationEngine::scheduleAllAsync(std::vector<std::unique_ptr<IPerturbation>> perturbations,
-                                          std::chrono::seconds duration) {
-    {
-        std::lock_guard<std::mutex> lock(cancel_mutex_);
-        cancel_requested_.store(false);
-    }
+                                          std::chrono::seconds duration,
+                                          std::stop_token external_stop) {
+    stop_source_ = std::stop_source{};
 
-    std::lock_guard<std::mutex> tasks_lock(tasks_mutex_);
-    active_tasks_.reserve(active_tasks_.size() + perturbations.size());
+    std::lock_guard<std::mutex> lock(threads_mutex_);
+    active_threads_.reserve(active_threads_.size() + perturbations.size());
 
     for (auto& perturbation : perturbations) {
-        active_tasks_.emplace_back(
-            std::async(std::launch::async, [this, duration, perturbation = std::move(perturbation)]() mutable {
+        auto internal_token = stop_source_.get_token();
+        active_threads_.emplace_back(
+            [this, duration, perturbation = std::move(perturbation),
+             internal_token, external_stop]() mutable {
                 try {
                     perturbation->apply();
-                    std::unique_lock<std::mutex> lock(cancel_mutex_);
-                    cancel_cv_.wait_for(lock, duration, [this]() { return cancel_requested_.load(); });
+
+                    std::unique_lock<std::mutex> lock(threads_mutex_);
+                    cancel_cv_.wait_for(lock, duration, [&] {
+                        return internal_token.stop_requested() || external_stop.stop_requested();
+                    });
+                    lock.unlock();
+
                     perturbation->revert();
                 } catch (const std::exception& e) {
                     SPDLOG_ERROR("Perturbation task failed: {}", e.what());
                 } catch (...) {
                     SPDLOG_ERROR("Perturbation task failed: unknown error");
                 }
-            }));
+            });
     }
 }
 
 void PerturbationEngine::cancel() {
-    bool expected = false;
-    if (!cancel_requested_.compare_exchange_strong(expected, true)) {
-        return;
-    }
-
+    stop_source_.request_stop();
     cancel_cv_.notify_all();
 }
 
 void PerturbationEngine::waitForTeardown() {
-    std::vector<std::future<void>> tasks;
+    std::vector<std::jthread> threads;
     {
-        std::lock_guard<std::mutex> lock(tasks_mutex_);
-        tasks.swap(active_tasks_);
+        std::lock_guard<std::mutex> lock(threads_mutex_);
+        threads.swap(active_threads_);
     }
-
-    bool had_errors = false;
-    for (auto& task : tasks) {
-        if (!task.valid()) {
-            continue;
-        }
-        try {
-            task.get();
-        } catch (const std::exception& e) {
-            had_errors = true;
-            SPDLOG_ERROR("Perturbation task teardown failed: {}", e.what());
-        } catch (...) {
-            had_errors = true;
-            SPDLOG_ERROR("Perturbation task teardown failed: unknown error");
+    for (auto& thread : threads) {
+        if (thread.joinable()) {
+            thread.join();
         }
     }
-
-    if (!had_errors) {
-        SPDLOG_INFO("Perturbation tasks torn down successfully.");
-    }
+    SPDLOG_INFO("Perturbation tasks torn down successfully.");
 }
 
 }  // namespace chaos::orchestrator::perturbations

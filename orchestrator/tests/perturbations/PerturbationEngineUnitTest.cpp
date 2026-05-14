@@ -8,6 +8,7 @@
 #include <future>
 #include <memory>
 #include <stdexcept>
+#include <stop_token>
 #include <thread>
 #include <vector>
 

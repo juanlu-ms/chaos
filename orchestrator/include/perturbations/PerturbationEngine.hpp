@@ -8,8 +8,9 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
-#include <future>
 #include <mutex>
+#include <stop_token>
+#include <thread>
 #include <vector>
 
 #include "perturbations/IPerturbation.hpp"
@@ -39,8 +40,11 @@ public:
      * @brief Schedule perturbations to run asynchronously.
      * @param perturbations Perturbations to apply and later revert.
      * @param duration Duration to wait before reverting unless canceled.
+     * @param external_stop Optional stop token for external cancellation.
      */
-    void scheduleAllAsync(std::vector<std::unique_ptr<IPerturbation>> perturbations, std::chrono::seconds duration);
+    void scheduleAllAsync(std::vector<std::unique_ptr<IPerturbation>> perturbations,
+                          std::chrono::seconds duration,
+                          std::stop_token external_stop = {});
 
     /**
      * @brief Request cancellation of any running perturbations.
@@ -54,11 +58,10 @@ public:
     void waitForTeardown();
 
 private:
-    std::vector<std::future<void>> active_tasks_;
-    std::mutex tasks_mutex_;
-    std::mutex cancel_mutex_;
+    std::vector<std::jthread> active_threads_;
+    std::mutex threads_mutex_;
     std::condition_variable cancel_cv_;
-    std::atomic<bool> cancel_requested_{false};
+    std::stop_source stop_source_;
 };
 
 }  // namespace chaos::orchestrator::perturbations

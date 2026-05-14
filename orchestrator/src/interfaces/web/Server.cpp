@@ -416,7 +416,8 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                 perturbations::PerturbationEngine pert_engine;
                 const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
                 if (duration.count() > 0) {
-                    pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration);
+                    auto session_stop = session->stop_source.get_token();
+                    pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration, session_stop);
                     SPDLOG_INFO("Injecting faults for {}s.", duration.count());
                     {
                         std::lock_guard<std::mutex> lock(session->mtx);
@@ -424,8 +425,14 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                     }
                     session->cv.notify_all();
 
-                    // Wait for remaining chaos time + 2s recovery window.
-                    std::this_thread::sleep_for(duration + 2s);
+                    auto chaos_end = std::chrono::steady_clock::now() + duration + 2s;
+                    while (std::chrono::steady_clock::now() < chaos_end) {
+                        if (session_stop.stop_requested()) {
+                            pert_engine.cancel();
+                            break;
+                        }
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    }
                 }
 
                 // Teardown and recovery.
@@ -575,6 +582,7 @@ void Server::handleAbort(const httplib::Request&, httplib::Response& response) {
         session->complete = true;
         session->running = false;
     }
+    session->stop_source.request_stop();
     session->cv.notify_all();
     json json = {{"status", "aborted"}};
     response.set_content(json.dump(4), "application/json");

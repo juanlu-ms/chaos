@@ -8,6 +8,7 @@
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <stop_token>
 
 #include "containers/IContainerEngine.hpp"
 #include "shared/TargetState.hpp"
@@ -28,6 +29,7 @@ struct RunSession {
     json results;
     std::string error;
     std::string phase;
+    std::stop_source stop_source;
 };
 
 /**

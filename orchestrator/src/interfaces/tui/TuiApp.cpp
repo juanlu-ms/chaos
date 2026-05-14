@@ -353,7 +353,7 @@ void execute_run(const std::shared_ptr<containers::IContainerEngine>& engine, Sh
 
         perturbations::PerturbationEngine pert_engine;
         const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
-        pert_engine.scheduleAllAsync(std::move(instances), duration);
+        pert_engine.scheduleAllAsync(std::move(instances), duration, stop);
 
         observability::ObservabilityEngine obs(engine);
         shared::StateBroadcaster broadcaster;

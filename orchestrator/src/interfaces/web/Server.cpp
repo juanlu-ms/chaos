@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <filesystem>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -27,43 +28,63 @@ namespace {
 
 void parseLogLines(const std::string& raw, std::vector<std::string>& out) {
     out.clear();
-    if (raw.empty()) return;
+    if (raw.empty()) {
+        return;
+    }
     size_t start = 0;
     while (start < raw.size()) {
         size_t end = raw.find('\n', start);
-        if (end == std::string::npos) end = raw.size();
+        if (end == std::string::npos) {
+            end = raw.size();
+        }
         std::string line = raw.substr(start, end - start);
-        if (!line.empty() && line.back() == '\r') line.pop_back();
-        if (!line.empty()) out.push_back(std::move(line));
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (!line.empty()) {
+            out.push_back(std::move(line));
+        }
         start = end + 1;
     }
 }
 
-json stateToJson(const shared::TargetState& s, const std::string& phase = "") {
-    json j;
-    j["container_id"] = s.container_id;
-    j["status"] = shared::toString(s.status);
-    if (s.cpu_usage_percent) j["cpu_usage_percent"] = *s.cpu_usage_percent;
-    if (s.memory_usage_mb) j["memory_usage_mb"] = *s.memory_usage_mb;
-    if (s.container_ip) j["container_ip"] = *s.container_ip;
-    j["recent_logs"] = s.recent_logs;
-    if (s.network_rx_bps) j["network_rx_bps"] = *s.network_rx_bps;
-    if (s.network_tx_bps) j["network_tx_bps"] = *s.network_tx_bps;
-    if (!phase.empty()) j["phase"] = phase;
-    return j;
+json stateToJson(const shared::TargetState& state, const std::string& phase = "") {
+    json json;
+    json["container_id"] = state.container_id;
+    json["status"] = shared::toString(state.status);
+    if (state.cpu_usage_percent) {
+        json["cpu_usage_percent"] = *state.cpu_usage_percent;
+    }
+    if (state.memory_usage_mb) {
+        json["memory_usage_mb"] = *state.memory_usage_mb;
+    }
+    if (state.container_ip) {
+        json["container_ip"] = *state.container_ip;
+    }
+    json["recent_logs"] = state.recent_logs;
+    if (state.network_rx_bps) {
+        json["network_rx_bps"] = *state.network_rx_bps;
+    }
+    if (state.network_tx_bps) {
+        json["network_tx_bps"] = *state.network_tx_bps;
+    }
+    if (!phase.empty()) {
+        json["phase"] = phase;
+    }
+    return json;
 }
 
 json limitsToJson(const containers::SystemInfo& info) {
-    json j;
-    j["cpu_cores"] = std::thread::hardware_concurrency();
-    auto memoryTotalMb = static_cast<uint64_t>(info.memTotal / (1024 * 1024));
-    j["memory_total_mb"] = memoryTotalMb;
-    j["perturbation_limits"] = {
+    json json;
+    json["cpu_cores"] = std::thread::hardware_concurrency();
+    auto memoryTotalMb = static_cast<uint64_t>(info.memTotal / (static_cast<int64_t>(1024 * 1024)));
+    json["memory_total_mb"] = memoryTotalMb;
+    json["perturbation_limits"] = {
         {"cpu_cap", {{"min_percent", 1}, {"max_percent", 100}}},
         {"memory_cap", {{"min_mb", 1}, {"max_mb", memoryTotalMb}}},
         {"network_delay", {{"min_ms", 0}, {"max_ms", 30000}}},
     };
-    return j;
+    return json;
 }
 
 std::optional<std::filesystem::path> findWebRoot() {
@@ -100,167 +121,175 @@ void Server::setupRoutes() {
             SPDLOG_INFO("Serving static UI from {}", webRoot->string());
         }
 
-        m_server.Get("/", [](const httplib::Request&, httplib::Response& res) { res.set_redirect("/index.html"); });
+        m_server.Get(
+            "/", [](const httplib::Request&, httplib::Response& response) { response.set_redirect("/index.html"); });
     } else {
         SPDLOG_WARN("Static UI not found. Expected orchestrator/src/interfaces/web/static relative to project root.");
     }
 
-    m_server.Get("/status", [](const httplib::Request&, httplib::Response& res) {
-        json j;
-        j["project"] = "Chaos Engine";
-        j["status"] = "Online (Web Adapter)";
+    m_server.Get("/status", [](const httplib::Request&, httplib::Response& response) {
+        json json;
+        json["project"] = "Chaos Engine";
+        json["status"] = "Online (Web Adapter)";
 
-        res.set_content(j.dump(4), "application/json");
+        response.set_content(json.dump(4), "application/json");
     });
 
-    m_server.Get("/containers", [this](const httplib::Request&, httplib::Response& res) {
+    m_server.Get("/containers", [this](const httplib::Request&, httplib::Response& response) {
         try {
             SPDLOG_DEBUG("/containers requested");
             auto containers = m_engine->listContainers();
-            json j = json::array();
-            for (const auto& c : containers) {
-                j.push_back({{"id", c.id}, {"name", c.name}, {"state", c.state}});
+            json json = json::array();
+            for (const auto& container : containers) {
+                json.push_back({{"id", container.id}, {"name", container.name}, {"state", container.state}});
             }
-            res.set_content(j.dump(4), "application/json");
+            response.set_content(json.dump(4), "application/json");
             SPDLOG_INFO("/containers served: {} items", containers.size());
         } catch (const std::exception& ex) {
-            json err;
-            err["error"] = "Failed to list containers";
-            res.status = 500;
-            res.set_content(err.dump(4), "application/json");
+            json error;
+            error["error"] = "Failed to list containers";
+            response.status = 500;
+            response.set_content(error.dump(4), "application/json");
             SPDLOG_ERROR("/containers failed: {}", ex.what());
         }
     });
 
-    m_server.Post(R"(/containers/([^/]+)/stop)", [this](const httplib::Request& req, httplib::Response& res) {
-        if (req.matches.size() < 2) {
-            res.status = 400;
-            res.set_content(R"({"error":"Missing container id"})", "application/json");
+    m_server.Post(R"(/containers/([^/]+)/stop)", [this](const httplib::Request& request, httplib::Response& response) {
+        if (request.matches.size() < 2) {
+            response.status = 400;
+            response.set_content(R"({"error":"Missing container id"})", "application/json");
             return;
         }
 
-        const std::string containerId = req.matches[1];
+        const std::string containerId = request.matches[1];
         try {
             SPDLOG_INFO("/containers/{}/stop requested", containerId);
             m_engine->stopContainer(containerId);
-            json j;
-            j["status"] = "ok";
-            j["action"] = "stop";
-            j["id"] = containerId;
-            res.set_content(j.dump(4), "application/json");
+            json json;
+            json["status"] = "ok";
+            json["action"] = "stop";
+            json["id"] = containerId;
+            response.set_content(json.dump(4), "application/json");
         } catch (const std::exception& ex) {
-            json err;
-            err["error"] = "Failed to stop container";
-            res.status = 500;
-            res.set_content(err.dump(4), "application/json");
+            json error;
+            error["error"] = "Failed to stop container";
+            response.status = 500;
+            response.set_content(error.dump(4), "application/json");
             SPDLOG_ERROR("/containers/{}/stop failed: {}", containerId, ex.what());
         }
     });
 
-    m_server.Post(R"(/containers/([^/]+)/kill)", [this](const httplib::Request& req, httplib::Response& res) {
-        if (req.matches.size() < 2) {
-            res.status = 400;
-            res.set_content(R"({"error":"Missing container id"})", "application/json");
+    m_server.Post(R"(/containers/([^/]+)/kill)", [this](const httplib::Request& request, httplib::Response& response) {
+        if (request.matches.size() < 2) {
+            response.status = 400;
+            response.set_content(R"({"error":"Missing container id"})", "application/json");
             return;
         }
 
-        const std::string containerId = req.matches[1];
+        const std::string containerId = request.matches[1];
         try {
             SPDLOG_INFO("/containers/{}/kill requested", containerId);
             m_engine->killContainer(containerId);
-            json j;
-            j["status"] = "ok";
-            j["action"] = "kill";
-            j["id"] = containerId;
-            res.set_content(j.dump(4), "application/json");
+            json json;
+            json["status"] = "ok";
+            json["action"] = "kill";
+            json["id"] = containerId;
+            response.set_content(json.dump(4), "application/json");
         } catch (const std::exception& ex) {
-            json err;
-            err["error"] = "Failed to kill container";
-            res.status = 500;
-            res.set_content(err.dump(4), "application/json");
+            json error;
+            error["error"] = "Failed to kill container";
+            response.status = 500;
+            response.set_content(error.dump(4), "application/json");
             SPDLOG_ERROR("/containers/{}/kill failed: {}", containerId, ex.what());
         }
     });
 
-    m_server.Get(R"(/containers/([^/]+)/logs)", [this](const httplib::Request& req, httplib::Response& res) {
-        if (req.matches.size() < 2) {
-            res.status = 400;
-            res.set_content("Missing container id", "text/plain");
+    m_server.Get(R"(/containers/([^/]+)/logs)", [this](const httplib::Request& request, httplib::Response& response) {
+        if (request.matches.size() < 2) {
+            response.status = 400;
+            response.set_content("Missing container id", "text/plain");
             return;
         }
-        const std::string id = req.matches[1];
+        const std::string id = request.matches[1];
         try {
             const auto logs = m_engine->getLogs(id);
-            res.set_content(logs, "text/plain");
+            response.set_content(logs, "text/plain");
         } catch (const std::exception& ex) {
-            res.status = 500;
-            json err;
-            err["error"] = "Failed to get logs";
-            res.set_content(err.dump(4), "application/json");
+            response.status = 500;
+            json error;
+            error["error"] = "Failed to get logs";
+            response.set_content(error.dump(4), "application/json");
             SPDLOG_ERROR("/containers/{}/logs failed: {}", id, ex.what());
         }
     });
 
     // --- New API endpoints ---
 
-    m_server.Get("/api/targets",
-                 [this](const httplib::Request& req, httplib::Response& res) { handleTargets(req, res); });
+    m_server.Get("/api/targets", [this](const httplib::Request& request, httplib::Response& response) {
+        handleTargets(request, response);
+    });
 
-    m_server.Get("/api/limits",
-                 [this](const httplib::Request& req, httplib::Response& res) { handleLimits(req, res); });
+    m_server.Get("/api/limits", [this](const httplib::Request& request, httplib::Response& response) {
+        handleLimits(request, response);
+    });
 
-    m_server.Post("/api/run", [this](const httplib::Request& req, httplib::Response& res) { handleRun(req, res); });
+    m_server.Post("/api/run", [this](const httplib::Request& request, httplib::Response& response) {
+        handleRun(request, response);
+    });
 
-    m_server.Post("/api/run/abort",
-                  [this](const httplib::Request& req, httplib::Response& res) { handleAbort(req, res); });
+    m_server.Post("/api/run/abort", [this](const httplib::Request& request, httplib::Response& response) {
+        handleAbort(request, response);
+    });
 
-    m_server.Get("/events", [this](const httplib::Request& req, httplib::Response& res) { handleEvents(req, res); });
+    m_server.Get("/events", [this](const httplib::Request& request, httplib::Response& response) {
+        handleEvents(request, response);
+    });
 }
 
-void Server::handleTargets(const httplib::Request&, httplib::Response& res) {
+void Server::handleTargets(const httplib::Request&, httplib::Response& response) {
     try {
         auto containers = m_engine->listContainers();
-        json j = json::array();
-        for (const auto& c : containers) {
-            j.push_back({{"id", c.id}, {"name", c.name}, {"state", c.state}});
+        json json = json::array();
+        for (const auto& container : containers) {
+            json.push_back({{"id", container.id}, {"name", container.name}, {"state", container.state}});
         }
-        res.set_content(j.dump(4), "application/json");
+        response.set_content(json.dump(4), "application/json");
         SPDLOG_INFO("/api/targets served: {} items", containers.size());
     } catch (const std::exception& ex) {
-        json err;
-        err["error"] = "Failed to list containers";
-        res.status = 500;
-        res.set_content(err.dump(4), "application/json");
+        json error;
+        error["error"] = "Failed to list containers";
+        response.status = 500;
+        response.set_content(error.dump(4), "application/json");
         SPDLOG_ERROR("/api/targets failed: {}", ex.what());
     }
 }
 
-void Server::handleLimits(const httplib::Request&, httplib::Response& res) {
+void Server::handleLimits(const httplib::Request&, httplib::Response& response) {
     try {
         auto info = m_engine->getSystemInfo();
-        json j = limitsToJson(info);
-        res.set_content(j.dump(4), "application/json");
+        json json = limitsToJson(info);
+        response.set_content(json.dump(4), "application/json");
         SPDLOG_INFO("/api/limits served");
     } catch (const std::exception& ex) {
-        json err;
-        err["error"] = "Failed to get system info";
-        res.status = 500;
-        res.set_content(err.dump(4), "application/json");
+        json error;
+        error["error"] = "Failed to get system info";
+        response.status = 500;
+        response.set_content(error.dump(4), "application/json");
         SPDLOG_ERROR("/api/limits failed: {}", ex.what());
     }
 }
 
-void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
-    if (req.body.empty()) {
-        res.status = 400;
-        json err;
-        err["error"] = "Empty request body";
-        res.set_content(err.dump(4), "application/json");
+void Server::handleRun(const httplib::Request& request, httplib::Response& response) {
+    if (request.body.empty()) {
+        response.status = 400;
+        json error;
+        error["error"] = "Empty request body";
+        response.set_content(error.dump(4), "application/json");
         return;
     }
 
     try {
-        auto manifest = manifests::ManifestParser::parseFromJson(req.body);
+        auto manifest = manifests::ManifestParser::parseFromJson(request.body);
         SPDLOG_INFO("Executing manifest '{}' against target '{}' (async)", manifest.test_name, manifest.target.id);
 
         auto session = std::make_shared<RunSession>();
@@ -277,6 +306,7 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
 
                 perturbations::PerturbationFactory factory;
                 std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbation_instances;
+                perturbation_instances.reserve(manifest.perturbations.size());
                 for (const auto& spec : manifest.perturbations) {
                     perturbation_instances.push_back(factory.create(engine, manifest.target, spec));
                 }
@@ -286,7 +316,9 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
 
                 // Fetch IP once at setup.
                 auto ip = obs.getContainerIp(manifest.target.id);
-                if (ip) lastKnownState.container_ip = ip;
+                if (ip) {
+                    lastKnownState.container_ip = ip;
+                }
 
                 // Phase manager — runs on the calling thread.
                 {
@@ -294,7 +326,7 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                     session->phase = "normal";
                 }
 
-                // Optional cgroup-based metrics (bypasses Docker API).
+                // cgroup-based metrics (bypasses Docker API).
                 containers::internal::CgroupMetricsGatherer cgroup;
                 const bool useCgroup =
                     containers::internal::CgroupMetricsGatherer::resolveCgroupPath(manifest.target.id).has_value();
@@ -309,8 +341,8 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                 // ═══════════════════════════════════════════════════════
 
                 // ── Worker 1: Metrics (CPU + memory + status) ────────
-                std::jthread metricsWorker([&](std::stop_token st) {
-                    while (!st.stop_requested() && session->running) {
+                std::jthread metricsWorker([&](const std::stop_token& stop_token) {
+                    while (!stop_token.stop_requested() && session->running) {
                         auto tick = steady_clock::now();
                         auto state = lastKnownState;
 
@@ -319,8 +351,12 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
                             if (useCgroup) {
                                 auto cpu = cgroup.getCpuUsagePercent(manifest.target.id);
                                 auto mem = cgroup.getMemoryUsageMb(manifest.target.id);
-                                if (cpu) state.cpu_usage_percent = cpu;
-                                if (mem) state.memory_usage_mb = mem;
+                                if (cpu) {
+                                    state.cpu_usage_percent = cpu;
+                                }
+                                if (mem) {
+                                    state.memory_usage_mb = mem;
+                                }
                             } else {
                                 try {
                                     auto stats = obs.getStats(manifest.target.id);
@@ -341,13 +377,15 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
 
                         auto elapsed = steady_clock::now() - tick;
                         auto remaining = 100ms - elapsed;
-                        if (remaining > 0ms) std::this_thread::sleep_for(remaining);
+                        if (remaining > 0ms) {
+                            std::this_thread::sleep_for(remaining);
+                        }
                     }
                 });
 
                 // ── Worker 2: Logs ───────────────────────────────────
-                std::jthread logsWorker([&](std::stop_token st) {
-                    while (!st.stop_requested() && session->running) {
+                std::jthread logsWorker([&](const std::stop_token& stop_token) {
+                    while (!stop_token.stop_requested() && session->running) {
                         auto tick = steady_clock::now();
                         auto rawLogs = obs.getLogs(manifest.target.id);
                         std::vector<std::string> logLines;
@@ -362,7 +400,9 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
 
                         auto elapsed = steady_clock::now() - tick;
                         auto remaining = 1500ms - elapsed;
-                        if (remaining > 0ms) std::this_thread::sleep_for(remaining);
+                        if (remaining > 0ms) {
+                            std::this_thread::sleep_for(remaining);
+                        }
                     }
                 });
 
@@ -399,22 +439,27 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
 
                 // Validation needs an authoritative final snapshot.
                 lastKnownState = obs.observe(manifest.target.id);
-                if (lastKnownState.container_ip) lastKnownState.container_ip = ip;
+                if (lastKnownState.container_ip) {
+                    lastKnownState.container_ip = ip;
+                }
 
                 const auto results = validation::validate(lastKnownState, manifest.expectations);
 
-                bool passed = std::ranges::all_of(results, [](const auto& r) { return r.passed; });
-                json j;
-                j["passed"] = passed;
-                j["results"] = json::array();
-                for (const auto& r : results) {
-                    j["results"].push_back({{"type", r.expectationType}, {"passed", r.passed}, {"message", r.message}});
+                bool passed = std::ranges::all_of(results, [](const auto& result) { return result.passed; });
+                json json;
+                json["passed"] = passed;
+                json["results"] = json::array();
+                for (const auto& result : results) {
+                    json["results"].push_back(
+                        {{"type", result.expectationType}, {"passed", result.passed}, {"message", result.message}});
                 }
 
                 {
                     std::lock_guard<std::mutex> lock(session->mtx);
-                    if (!session->running) return;
-                    session->results = j;
+                    if (!session->running) {
+                        return;
+                    }
+                    session->results = json;
                     session->running = false;
                     session->complete = true;
                 }
@@ -424,7 +469,9 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
             } catch (const std::exception& ex) {
                 {
                     std::lock_guard<std::mutex> lock(session->mtx);
-                    if (!session->running) return;
+                    if (!session->running) {
+                        return;
+                    }
                     session->error = ex.what();
                     session->running = false;
                     session->complete = true;
@@ -436,28 +483,28 @@ void Server::handleRun(const httplib::Request& req, httplib::Response& res) {
 
         json resp;
         resp["status"] = "started";
-        res.status = 202;
-        res.set_content(resp.dump(4), "application/json");
+        response.status = 202;
+        response.set_content(resp.dump(4), "application/json");
         SPDLOG_INFO("/api/run started async execution for '{}'", manifest.test_name);
 
     } catch (const manifests::ManifestParserError& ex) {
-        res.status = 400;
-        json err;
-        err["error"] = "Invalid manifest";
-        res.set_content(err.dump(4), "application/json");
+        response.status = 400;
+        json error;
+        error["error"] = "Invalid manifest";
+        response.set_content(error.dump(4), "application/json");
         SPDLOG_ERROR("/api/run manifest parse failed: {}", ex.what());
     } catch (const std::exception& ex) {
-        res.status = 500;
-        json err;
-        err["error"] = "Internal server error";
-        res.set_content(err.dump(4), "application/json");
+        response.status = 500;
+        json error;
+        error["error"] = "Internal server error";
+        response.set_content(error.dump(4), "application/json");
         SPDLOG_ERROR("/api/run failed: {}", ex.what());
     }
 }
 
-void Server::handleEvents(const httplib::Request&, httplib::Response& res) {
-    res.set_header("Cache-Control", "no-store");
-    res.set_header("Connection", "keep-alive");
+void Server::handleEvents(const httplib::Request&, httplib::Response& response) {
+    response.set_header("Cache-Control", "no-store");
+    response.set_header("Connection", "keep-alive");
 
     std::shared_ptr<RunSession> session;
     {
@@ -465,7 +512,7 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& res) {
         session = m_session;
     }
 
-    res.set_chunked_content_provider(
+    response.set_chunked_content_provider(
         "text/event-stream", [session](size_t /*offset*/, httplib::DataSink& sink) -> bool {
             if (!session) {
                 if (!sink.write("event: error\ndata: {\"error\":\"No active run\"}\n\n", 47)) {
@@ -480,8 +527,8 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& res) {
                                  [session]() { return session->latest.has_value() || session->complete; });
 
             if (session->latest.has_value()) {
-                auto j = stateToJson(*session->latest, session->phase);
-                std::string data = "event: state\ndata: " + j.dump() + "\n\n";
+                auto json = stateToJson(*session->latest, session->phase);
+                std::string data = "event: state\ndata: " + json.dump() + "\n\n";
                 if (!sink.write(data.data(), data.size())) {
                     return false;
                 }
@@ -490,9 +537,9 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& res) {
 
             if (session->complete) {
                 if (!session->error.empty()) {
-                    json err;
-                    err["error"] = session->error;
-                    std::string data = "event: error\ndata: " + err.dump() + "\n\n";
+                    json error;
+                    error["error"] = session->error;
+                    std::string data = "event: error\ndata: " + error.dump() + "\n\n";
                     if (!sink.write(data.data(), data.size())) {
                         return false;
                     }
@@ -510,14 +557,14 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& res) {
         });
 }
 
-void Server::handleAbort(const httplib::Request&, httplib::Response& res) {
+void Server::handleAbort(const httplib::Request&, httplib::Response& response) {
     std::shared_ptr<RunSession> session;
     {
         std::lock_guard<std::mutex> lock(session_mutex_);
         if (!m_session || !m_session->running) {
-            json j = {{"error", "No active run to abort"}};
-            res.status = 409;
-            res.set_content(j.dump(4), "application/json");
+            json json = {{"error", "No active run to abort"}};
+            response.status = 409;
+            response.set_content(json.dump(4), "application/json");
             return;
         }
         session = m_session;
@@ -529,8 +576,8 @@ void Server::handleAbort(const httplib::Request&, httplib::Response& res) {
         session->running = false;
     }
     session->cv.notify_all();
-    json j = {{"status", "aborted"}};
-    res.set_content(j.dump(4), "application/json");
+    json json = {{"status", "aborted"}};
+    response.set_content(json.dump(4), "application/json");
 }
 
 }  // namespace chaos::orchestrator::interfaces::web

@@ -3,7 +3,9 @@ import Topbar from './components/Topbar.jsx';
 import Step1Config from './steps/Step1Config.jsx';
 import Step2Monitor from './steps/Step2Monitor.jsx';
 import Step3Results from './steps/Step3Results.jsx';
-import { runManifest, abortRun, openEventStream } from './api.js';
+import { runManifest, abortRun } from './api.js';
+import { useSSEStream } from './hooks/useSSEStream.js';
+import { useStreamData } from './hooks/useStreamData.js';
 
 export default function App() {
   const [theme, setTheme] = useState(
@@ -15,19 +17,11 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
 
-  // Live monitor state lifted into App so Monitor/Results survive tab nav.
-  const [data, setData] = useState([]);
-  const [logs, setLogs] = useState([]);
-  const [zones, setZones] = useState({ normalEnd: 0, chaosEnd: 0 });
-  const [lastState, setLastState] = useState(null);
-  const [conn, setConn] = useState(null); // null | 'lost' | 'dead'
-
-  const phaseRef = useRef('normal');
-  const lastEventAt = useRef(Date.now());
-  const lostTimer = useRef(null);
-  const closeRef = useRef(null);
-  const startRef = useRef(0);
-  const runEpoch = useRef(0);
+  const { startStream, closeStream } = useSSEStream();
+  const {
+    data, logs, zones, lastState, conn,
+    resetData, handleState, handleConnectionError, setConn
+  } = useStreamData();
 
   // Refs that always see latest state for SSE callbacks.
   const dataRef = useRef(data);
@@ -44,75 +38,17 @@ export default function App() {
     localStorage.setItem('chaos-theme', theme);
   }, [theme]);
 
-  const closeStream = () => {
-    if (closeRef.current) {
-      closeRef.current();
-      closeRef.current = null;
-    }
-    if (lostTimer.current) {
-      clearTimeout(lostTimer.current);
-      lostTimer.current = null;
-    }
-  };
-
-  const startStream = (start) => {
-    const epoch = ++runEpoch.current;
-    closeStream();
-    phaseRef.current = 'normal';
-    startRef.current = start;
-    setData([]);
-    setLogs([]);
-    setZones({ normalEnd: 0, chaosEnd: 0 });
-    setLastState(null);
-    setConn(null);
+  const handleRun = (m) => {
+    setManifest(m);
+    const start = Date.now();
+    setTestStartTime(start);
+    resetData();
     setResult(null);
     setIsRunning(true);
 
-    closeRef.current = openEventStream({
-      onState: (s) => {
-        if (runEpoch.current !== epoch) return;
-        lastEventAt.current = Date.now();
-        setConn((c) => (c ? null : c));
-        const t = (Date.now() - startRef.current) / 1000;
-        const net = (s.network_rx_bps || 0) + (s.network_tx_bps || 0);
-        setData((prev) => [
-          ...prev,
-          {
-            t,
-            cpu: s.cpu_usage_percent ?? 0,
-            mem: s.memory_usage_mb ?? 0,
-            net,
-            phase: s.phase || 'normal',
-          },
-        ]);
-        setLastState(s);
-        if (s.recent_logs && s.recent_logs.length) {
-          setLogs((prev) => {
-            const seen = new Set(prev);
-            const merged = [...prev];
-            for (const line of s.recent_logs) {
-              if (line && !seen.has(line)) {
-                merged.push(line);
-                seen.add(line);
-              }
-            }
-            return merged;
-          });
-        }
-        const prev = phaseRef.current;
-        const next = s.phase || 'normal';
-        if (prev !== next) {
-          if (prev === 'normal' && next === 'chaos') {
-            setZones((z) => ({ ...z, normalEnd: t }));
-          } else if (prev === 'chaos' && next === 'recovery') {
-            setZones((z) => ({ ...z, chaosEnd: t }));
-          }
-          phaseRef.current = next;
-        }
-      },
+    startStream(start, {
+      onState: (s) => handleState(s, start),
       onComplete: (payload) => {
-        if (runEpoch.current !== epoch) return;
-        closeStream();
         setIsRunning(false);
         setResult({
           ...payload,
@@ -124,8 +60,6 @@ export default function App() {
         setStep(3);
       },
       onServerError: (payload) => {
-        if (runEpoch.current !== epoch) return;
-        closeStream();
         setIsRunning(false);
         setResult({
           passed: false,
@@ -138,24 +72,8 @@ export default function App() {
         });
         setStep(3);
       },
-      onConnectionError: () => {
-        setConn('lost');
-        if (lostTimer.current) clearTimeout(lostTimer.current);
-        lostTimer.current = setTimeout(() => {
-          if (Date.now() - lastEventAt.current >= 9500) setConn('dead');
-        }, 10000);
-      },
-      onConnectionRestored: () => {},
+      onConnectionError: handleConnectionError,
     });
-  };
-
-  useEffect(() => () => closeStream(), []);
-
-  const handleRun = (m) => {
-    setManifest(m);
-    const start = Date.now();
-    setTestStartTime(start);
-    startStream(start);
     setStep(2);
   };
 
@@ -165,7 +83,38 @@ export default function App() {
       await runManifest(manifest);
       const start = Date.now();
       setTestStartTime(start);
-      startStream(start);
+      resetData();
+      setResult(null);
+      setIsRunning(true);
+
+      startStream(start, {
+        onState: (s) => handleState(s, start),
+        onComplete: (payload) => {
+          setIsRunning(false);
+          setResult({
+            ...payload,
+            data: dataRef.current,
+            logs: logsRef.current,
+            zones: zonesRef.current,
+            lastState: lastStateRef.current,
+          });
+          setStep(3);
+        },
+        onServerError: (payload) => {
+          setIsRunning(false);
+          setResult({
+            passed: false,
+            error: payload.error,
+            results: [],
+            data: dataRef.current,
+            logs: logsRef.current,
+            zones: zonesRef.current,
+            lastState: lastStateRef.current,
+          });
+          setStep(3);
+        },
+        onConnectionError: handleConnectionError,
+      });
       setStep(2);
     } catch (e) {
       alert(`Failed to start: ${e.message}`);

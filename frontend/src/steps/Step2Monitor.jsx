@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
 import LiveChart, { formatBytesPerSec } from '../components/LiveChart.jsx';
 import LogViewer from '../components/LogViewer.jsx';
 import ContainerInfo from '../components/ContainerInfo.jsx';
 import ConnectionBanner from '../components/ConnectionBanner.jsx';
+import { useElapsedTimer } from '../hooks/useElapsedTimer.js';
 
 export default function Step2Monitor({
   manifest,
@@ -16,24 +16,7 @@ export default function Step2Monitor({
   onAbort,
   onBack,
 }) {
-  const [elapsed, setElapsed] = useState(
-    testStartTime ? (Date.now() - testStartTime) / 1000 : 0
-  );
-
-  useEffect(() => {
-    if (!isRunning) return;
-    const id = setInterval(() => {
-      setElapsed((Date.now() - testStartTime) / 1000);
-    }, 250);
-    return () => clearInterval(id);
-  }, [isRunning, testStartTime]);
-
-  // When viewing a finished run, freeze elapsed at the last data point.
-  useEffect(() => {
-    if (!isRunning && data.length) {
-      setElapsed(data[data.length - 1].t);
-    }
-  }, [isRunning, data]);
+  const elapsed = useElapsedTimer(isRunning, testStartTime, data.length ? data[data.length - 1].t : null);
 
   const target = {
     id: lastState?.container_id,

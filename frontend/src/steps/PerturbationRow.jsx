@@ -1,11 +1,11 @@
 import {
   PERTURBATION_TYPES,
-  PERTURBATION_BY_TYPE,
+  PERTURBATION_PARAMS,
   defaultParamsFor,
 } from '../constants/perturbations.js';
 
 export default function PerturbationRow({ value, onChange, onRemove }) {
-  const def = PERTURBATION_BY_TYPE[value.type] || PERTURBATION_TYPES[0];
+  const params = PERTURBATION_PARAMS[value.type] || [];
 
   const setType = (type) => {
     onChange({ type, parameters: defaultParamsFor(type) });
@@ -27,10 +27,10 @@ export default function PerturbationRow({ value, onChange, onRemove }) {
         </select>
       </div>
       <div className="params">
-        {def.params.length === 0 ? (
+        {params.length === 0 ? (
           <div className="empty-hint">No parameters.</div>
         ) : (
-          def.params.map((p) => (
+          params.map((p) => (
             <div key={p.key}>
               <label>
                 {p.label}

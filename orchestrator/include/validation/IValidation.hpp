@@ -5,7 +5,8 @@
 
 #pragma once
 
-#include "ValidationEngine.hpp"
+#include "../shared/TargetState.hpp"
+#include "ValidationResult.hpp"
 #include "manifests/Manifest.hpp"
 
 namespace chaos::orchestrator::validation {

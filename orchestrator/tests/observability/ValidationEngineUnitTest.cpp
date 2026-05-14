@@ -13,6 +13,7 @@
 
 #include "manifests/Manifest.hpp"
 #include "validation/ValidationEngine.hpp"
+#include "validation/ValidationResult.hpp"
 
 using namespace testing;
 using namespace chaos::orchestrator;
@@ -384,4 +385,14 @@ TEST(ValidationEngineTests, HttpLatencyFailsWhenMinExceedsMax) {
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_FALSE(results[0].passed);
+}
+
+/**
+ * @test Verifies ValidationResult can be included and constructed independently of ValidationEngine.
+ */
+TEST(ValidationResultStandaloneTest, CanDefaultConstruct) {
+    validation::ValidationResult r{};
+    EXPECT_FALSE(r.passed);
+    EXPECT_TRUE(r.expectationType.empty());
+    EXPECT_TRUE(r.message.empty());
 }

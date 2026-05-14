@@ -10,20 +10,9 @@
 
 #include "../manifests/Manifest.hpp"
 #include "../shared/TargetState.hpp"
+#include "ValidationResult.hpp"
 
 namespace chaos::orchestrator::validation {
-
-/**
- * @brief Result of evaluating a single expectation.
- */
-struct ValidationResult {
-    /** @brief True if the expectation was met. */
-    bool passed;
-    /** @brief The type of expectation evaluated. */
-    std::string expectationType;
-    /** @brief Explanatory message for the result. */
-    std::string message;
-};
 
 /**
  * @brief Evaluate all expectations against the current container state.

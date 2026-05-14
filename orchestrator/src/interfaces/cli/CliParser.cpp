@@ -1,18 +1,18 @@
 #include "interfaces/cli/CliParser.hpp"
 
+#include <fcntl.h>
 #include <spdlog/spdlog.h>
+#include <unistd.h>
 
 #include <chrono>
 #include <csignal>
-#include <fcntl.h>
 #include <memory>
+#include <span>
 #include <stop_token>
 #include <string>
-#include <span>
 #include <string_view>
 #include <system_error>
 #include <thread>
-#include <unistd.h>
 #include <utility>
 #include <vector>
 

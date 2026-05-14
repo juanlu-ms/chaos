@@ -41,8 +41,7 @@ public:
      * @param duration Duration to wait before reverting unless canceled.
      * @param external_stop Optional stop token for external cancellation.
      */
-    void scheduleAllAsync(std::vector<std::unique_ptr<IPerturbation>> perturbations,
-                          std::chrono::seconds duration,
+    void scheduleAllAsync(std::vector<std::unique_ptr<IPerturbation>> perturbations, std::chrono::seconds duration,
                           std::stop_token external_stop = {});
 
     /**

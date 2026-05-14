@@ -17,8 +17,7 @@ PerturbationEngine::~PerturbationEngine() {
 }
 
 void PerturbationEngine::scheduleAllAsync(std::vector<std::unique_ptr<IPerturbation>> perturbations,
-                                          std::chrono::seconds duration,
-                                          std::stop_token external_stop) {
+                                          std::chrono::seconds duration, std::stop_token external_stop) {
     stop_source_ = std::stop_source{};
 
     std::lock_guard<std::mutex> lock(threads_mutex_);
@@ -26,25 +25,23 @@ void PerturbationEngine::scheduleAllAsync(std::vector<std::unique_ptr<IPerturbat
 
     for (auto& perturbation : perturbations) {
         auto internal_token = stop_source_.get_token();
-        active_threads_.emplace_back(
-            [this, duration, perturbation = std::move(perturbation),
-             internal_token, external_stop]() mutable {
-                try {
-                    perturbation->apply();
+        active_threads_.emplace_back([this, duration, perturbation = std::move(perturbation), internal_token,
+                                      external_stop]() mutable {
+            try {
+                perturbation->apply();
 
-                    std::unique_lock<std::mutex> lock(threads_mutex_);
-                    cancel_cv_.wait_for(lock, duration, [&] {
-                        return internal_token.stop_requested() || external_stop.stop_requested();
-                    });
-                    lock.unlock();
+                std::unique_lock<std::mutex> lock(threads_mutex_);
+                cancel_cv_.wait_for(lock, duration,
+                                    [&] { return internal_token.stop_requested() || external_stop.stop_requested(); });
+                lock.unlock();
 
-                    perturbation->revert();
-                } catch (const std::exception& e) {
-                    SPDLOG_ERROR("Perturbation task failed: {}", e.what());
-                } catch (...) {
-                    SPDLOG_ERROR("Perturbation task failed: unknown error");
-                }
-            });
+                perturbation->revert();
+            } catch (const std::exception& e) {
+                SPDLOG_ERROR("Perturbation task failed: {}", e.what());
+            } catch (...) {
+                SPDLOG_ERROR("Perturbation task failed: unknown error");
+            }
+        });
     }
 }
 

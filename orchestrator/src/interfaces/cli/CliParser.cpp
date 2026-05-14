@@ -1,14 +1,10 @@
 #include "interfaces/cli/CliParser.hpp"
 
-#include <fcntl.h>
 #include <spdlog/spdlog.h>
-#include <unistd.h>
 
 #include <chrono>
-#include <csignal>
 #include <memory>
 #include <span>
-#include <stop_token>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -22,6 +18,7 @@
 #include "perturbations/PerturbationEngine.hpp"
 #include "perturbations/PerturbationFactory.hpp"
 #include "shared/StateBroadcaster.hpp"
+#include "signals/SignalHandlerGuard.hpp"
 #include "validation/ValidationEngine.hpp"
 
 namespace chaos::orchestrator::interfaces::cli {
@@ -33,59 +30,6 @@ namespace {
 [[nodiscard]] bool isHelpCommand(const std::string_view command) {
     return command == "help" || command == "--help" || command == "-h";
 }
-
-std::stop_source g_stop_source;
-int g_signal_pipe[2] = {-1, -1};
-
-void signalHandler(int) {
-    int dummy = 1;
-    [[maybe_unused]] ssize_t result = ::write(g_signal_pipe[1], &dummy, sizeof(dummy));
-}
-
-class SignalHandlerGuard {
-public:
-    SignalHandlerGuard() {
-        if (::pipe(g_signal_pipe) != 0) {
-            g_signal_pipe[0] = g_signal_pipe[1] = -1;
-            return;
-        }
-        if (::fcntl(g_signal_pipe[0], F_SETFL, O_NONBLOCK) == -1) {
-            ::close(g_signal_pipe[0]);
-            ::close(g_signal_pipe[1]);
-            g_signal_pipe[0] = g_signal_pipe[1] = -1;
-            return;
-        }
-        struct sigaction sa = {};
-        sa.sa_handler = signalHandler;
-        sigemptyset(&sa.sa_mask);
-        sa.sa_flags = SA_RESTART;
-        previous_valid_ = (::sigaction(SIGINT, &sa, &previous_) == 0);
-    }
-
-    ~SignalHandlerGuard() noexcept {
-        if (previous_valid_) {
-            ::sigaction(SIGINT, &previous_, nullptr);
-        }
-        if (g_signal_pipe[0] != -1) {
-            ::close(g_signal_pipe[0]);
-        }
-        if (g_signal_pipe[1] != -1) {
-            ::close(g_signal_pipe[1]);
-        }
-    }
-
-    SignalHandlerGuard(const SignalHandlerGuard&) = delete;
-    SignalHandlerGuard& operator=(const SignalHandlerGuard&) = delete;
-    SignalHandlerGuard(SignalHandlerGuard&&) = delete;
-    SignalHandlerGuard& operator=(SignalHandlerGuard&&) = delete;
-
-    [[nodiscard]] int readEnd() const { return g_signal_pipe[0]; }
-    [[nodiscard]] std::stop_token token() const { return g_stop_source.get_token(); }
-
-private:
-    struct sigaction previous_ = {};
-    bool previous_valid_ = false;
-};
 
 }  // namespace
 
@@ -315,7 +259,7 @@ shared::TargetState CliParser::runPerturbationsLoop(
     shared::TargetState lastKnownState{};
     shared::StateBroadcaster broadcaster;
 
-    SignalHandlerGuard signal_guard;
+    signals::SignalHandlerGuard signal_guard;
 
     if (duration.count() == 0) {
         lastKnownState = obs.observe(targetId);
@@ -327,7 +271,6 @@ shared::TargetState CliParser::runPerturbationsLoop(
             int dummy;
             ssize_t n = ::read(signal_guard.readEnd(), &dummy, sizeof(dummy));
             if (n > 0) {
-                g_stop_source.request_stop();
                 break;
             }
             if (n == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
@@ -340,7 +283,7 @@ shared::TargetState CliParser::runPerturbationsLoop(
         }
     }
 
-    if (g_stop_source.get_token().stop_requested()) {
+    if (signal_guard.token().stop_requested()) {
         SPDLOG_WARN("Interrupt received; canceling perturbations.");
         pert_engine.cancel();
     }

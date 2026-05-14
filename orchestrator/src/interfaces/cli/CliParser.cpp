@@ -4,11 +4,11 @@
 
 #include <chrono>
 #include <csignal>
+#include <fcntl.h>
 #include <memory>
 #include <stop_token>
 #include <string>
 #include <span>
-#include <string>
 #include <string_view>
 #include <system_error>
 #include <thread>
@@ -50,6 +50,12 @@ public:
             g_signal_pipe[0] = g_signal_pipe[1] = -1;
             return;
         }
+        if (::fcntl(g_signal_pipe[0], F_SETFL, O_NONBLOCK) == -1) {
+            ::close(g_signal_pipe[0]);
+            ::close(g_signal_pipe[1]);
+            g_signal_pipe[0] = g_signal_pipe[1] = -1;
+            return;
+        }
         struct sigaction sa = {};
         sa.sa_handler = signalHandler;
         sigemptyset(&sa.sa_mask);
@@ -61,8 +67,12 @@ public:
         if (previous_valid_) {
             ::sigaction(SIGINT, &previous_, nullptr);
         }
-        if (g_signal_pipe[0] != -1) ::close(g_signal_pipe[0]);
-        if (g_signal_pipe[1] != -1) ::close(g_signal_pipe[1]);
+        if (g_signal_pipe[0] != -1) {
+            ::close(g_signal_pipe[0]);
+        }
+        if (g_signal_pipe[1] != -1) {
+            ::close(g_signal_pipe[1]);
+        }
     }
 
     SignalHandlerGuard(const SignalHandlerGuard&) = delete;
@@ -318,11 +328,17 @@ shared::TargetState CliParser::runPerturbationsLoop(
         broadcaster.broadcast(lastKnownState);
     } else {
         const auto end_time = std::chrono::steady_clock::now() + duration;
-        auto stop_token = signal_guard.token();
 
-        while (std::chrono::steady_clock::now() < end_time && !stop_token.stop_requested()) {
+        while (std::chrono::steady_clock::now() < end_time) {
             int dummy;
-            while (::read(signal_guard.readEnd(), &dummy, sizeof(dummy)) > 0) {}
+            ssize_t n = ::read(signal_guard.readEnd(), &dummy, sizeof(dummy));
+            if (n > 0) {
+                g_stop_source.request_stop();
+                break;
+            }
+            if (n == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                // No data available — this is normal for non-blocking pipe
+            }
 
             lastKnownState = obs.observe(targetId);
             broadcaster.broadcast(lastKnownState);
@@ -330,7 +346,7 @@ shared::TargetState CliParser::runPerturbationsLoop(
         }
     }
 
-    if (signal_guard.token().stop_requested()) {
+    if (g_stop_source.get_token().stop_requested()) {
         SPDLOG_WARN("Interrupt received; canceling perturbations.");
         pert_engine.cancel();
     }

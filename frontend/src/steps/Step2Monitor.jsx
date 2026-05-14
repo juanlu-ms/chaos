@@ -31,12 +31,7 @@ export default function Step2Monitor({
         <div className="info">
           <div className="info-row">
             <span className="test-name">{manifest?.test_name}</span>
-            <span
-              className="tag"
-              style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}
-            >
-              {phase}
-            </span>
+            <span className="tag tag-phase">{phase}</span>
             <span className="elapsed">{elapsed.toFixed(1)}s elapsed</span>
           </div>
           <div className="target-name">
@@ -48,12 +43,7 @@ export default function Step2Monitor({
             Abort
           </button>
         ) : (
-          <span
-            className="tag"
-            style={{ background: 'var(--bg-elevated)', color: 'var(--text-dim)' }}
-          >
-            completed
-          </span>
+          <span className="tag tag-completed">completed</span>
         )}
       </div>
       <div className="split">

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Topbar from './components/Topbar.jsx';
 import Step1Config from './steps/Step1Config.jsx';
 import Step2Monitor from './steps/Step2Monitor.jsx';
@@ -6,10 +6,11 @@ import Step3Results from './steps/Step3Results.jsx';
 import { runManifest, abortRun } from './api.js';
 import { useSSEStream } from './hooks/useSSEStream.js';
 import { useStreamData } from './hooks/useStreamData.js';
+import { DEFAULT_THEME } from './theme.js';
 
 export default function App() {
   const [theme, setTheme] = useState(
-    () => localStorage.getItem('chaos-theme') || 'amber'
+    () => localStorage.getItem('chaos-theme') || DEFAULT_THEME
   );
   const [step, setStep] = useState(1);
   const [manifest, setManifest] = useState(null);
@@ -17,28 +18,25 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
 
-  const { startStream, closeStream } = useSSEStream();
+  const { startStream } = useSSEStream();
   const {
     data, logs, zones, lastState, conn,
-    resetData, handleState, handleConnectionError, setConn
+    resetData, handleState, handleConnectionError, handleConnectionRestored,
+    getSnapshot,
   } = useStreamData();
-
-  // Refs that always see latest state for SSE callbacks.
-  const dataRef = useRef(data);
-  const logsRef = useRef(logs);
-  const zonesRef = useRef(zones);
-  const lastStateRef = useRef(lastState);
-  useEffect(() => { dataRef.current = data; }, [data]);
-  useEffect(() => { logsRef.current = logs; }, [logs]);
-  useEffect(() => { zonesRef.current = zones; }, [zones]);
-  useEffect(() => { lastStateRef.current = lastState; }, [lastState]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('chaos-theme', theme);
   }, [theme]);
 
-  const handleRun = (m) => {
+  const finishWith = useCallback((extra) => {
+    setIsRunning(false);
+    setResult({ ...extra, ...getSnapshot() });
+    setStep(3);
+  }, [getSnapshot]);
+
+  const startRun = useCallback((m) => {
     setManifest(m);
     const start = Date.now();
     setTestStartTime(start);
@@ -48,74 +46,25 @@ export default function App() {
 
     startStream(start, {
       onState: (s) => handleState(s, start),
-      onComplete: (payload) => {
-        setIsRunning(false);
-        setResult({
-          ...payload,
-          data: dataRef.current,
-          logs: logsRef.current,
-          zones: zonesRef.current,
-          lastState: lastStateRef.current,
-        });
-        setStep(3);
-      },
-      onServerError: (payload) => {
-        setIsRunning(false);
-        setResult({
-          passed: false,
-          error: payload.error,
-          results: [],
-          data: dataRef.current,
-          logs: logsRef.current,
-          zones: zonesRef.current,
-          lastState: lastStateRef.current,
-        });
-        setStep(3);
-      },
+      onComplete: (payload) => finishWith(payload),
+      onServerError: (payload) => finishWith({
+        passed: false,
+        error: payload.error,
+        results: [],
+      }),
       onConnectionError: handleConnectionError,
+      onConnectionRestored: handleConnectionRestored,
     });
     setStep(2);
-  };
+  }, [startStream, resetData, handleState, handleConnectionError, handleConnectionRestored, finishWith]);
+
+  const handleRun = (m) => startRun(m);
 
   const handleRunAgain = async () => {
     if (!manifest) return;
     try {
       await runManifest(manifest);
-      const start = Date.now();
-      setTestStartTime(start);
-      resetData();
-      setResult(null);
-      setIsRunning(true);
-
-      startStream(start, {
-        onState: (s) => handleState(s, start),
-        onComplete: (payload) => {
-          setIsRunning(false);
-          setResult({
-            ...payload,
-            data: dataRef.current,
-            logs: logsRef.current,
-            zones: zonesRef.current,
-            lastState: lastStateRef.current,
-          });
-          setStep(3);
-        },
-        onServerError: (payload) => {
-          setIsRunning(false);
-          setResult({
-            passed: false,
-            error: payload.error,
-            results: [],
-            data: dataRef.current,
-            logs: logsRef.current,
-            zones: zonesRef.current,
-            lastState: lastStateRef.current,
-          });
-          setStep(3);
-        },
-        onConnectionError: handleConnectionError,
-      });
-      setStep(2);
+      startRun(manifest);
     } catch (e) {
       alert(`Failed to start: ${e.message}`);
     }

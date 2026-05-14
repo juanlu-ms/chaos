@@ -1,74 +1,80 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { getTargets, getLimits, runManifest } from '../api.js';
 import PerturbationRow from './PerturbationRow.jsx';
 import ExpectationRow from './ExpectationRow.jsx';
-import {
-  defaultParamsFor,
-} from '../constants/perturbations.js';
-import {
-  defaultExpectationParams,
-} from '../constants/expectations.js';
-import { validateManifest } from '../utils/validateManifest.js';
+import { defaultParamsFor } from '../constants/perturbations.js';
+import { defaultExpectationParams } from '../constants/expectations.js';
+import { validateManifestAll } from '../utils/validateManifest.js';
 import { stringifyParams } from '../utils/stringifyParams.js';
+import { uid } from '../utils/uid.js';
+
+const withId = (item) => ({ _id: uid('row'), ...item });
 
 export default function Step1Config({ initial, onRun }) {
   const [testName, setTestName] = useState(initial?.test_name || 'my-test');
   const [targetId, setTargetId] = useState(initial?.target?.id || '');
   const [duration, setDuration] = useState(initial?.duration_s || 15);
-  const [perturbations, setPerturbations] = useState(
-    initial?.perturbations?.length
+  const [perturbations, setPerturbations] = useState(() =>
+    (initial?.perturbations?.length
       ? initial.perturbations
       : [{ type: 'cpu_cap', parameters: defaultParamsFor('cpu_cap') }]
+    ).map(withId)
   );
-  const [expectations, setExpectations] = useState(
-    initial?.expectations?.length
+  const [expectations, setExpectations] = useState(() =>
+    (initial?.expectations?.length
       ? initial.expectations
-      : [
-          {
-            type: 'container_running',
-            parameters: defaultExpectationParams('container_running'),
-          },
-        ]
+      : [{ type: 'container_running', parameters: defaultExpectationParams('container_running') }]
+    ).map(withId)
   );
   const [targets, setTargets] = useState([]);
   const [limits, setLimits] = useState(null);
-  const [error, setError] = useState(null);
+  const [errors, setErrors] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingTargets, setLoadingTargets] = useState(true);
+
+  const targetIdRef = useRef(targetId);
+  useEffect(() => { targetIdRef.current = targetId; }, [targetId]);
+
+  const nameId = useId();
+  const targetSelectId = useId();
+  const durationId = useId();
 
   useEffect(() => {
     let cancelled = false;
+    setLoadingTargets(true);
     Promise.all([getTargets(), getLimits()])
       .then(([t, l]) => {
         if (cancelled) return;
         setTargets(t);
         setLimits(l);
-        if (!targetId && t.length) setTargetId(t[0].id);
+        if (!targetIdRef.current && t.length) setTargetId(t[0].id);
       })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line
+      .catch((e) => {
+        if (cancelled) return;
+        setErrors([`Failed to load targets: ${e.message}`]);
+      })
+      .finally(() => { if (!cancelled) setLoadingTargets(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const submit = async () => {
-    const err = validateManifest({ testName, targetId, duration, perturbations, expectations });
-    if (err) {
-      setError(err);
+    const errs = validateManifestAll({ testName, targetId, duration, perturbations, expectations });
+    if (errs.length) {
+      setErrors(errs);
       return;
     }
-    setError(null);
+    setErrors([]);
     setSubmitting(true);
     const selectedTarget = targets.find((t) => t.id === targetId);
     const manifest = {
       test_name: testName.trim(),
       target: { id: targetId, name: selectedTarget?.name },
       duration_s: Number(duration),
-      perturbations: perturbations.map((p) => ({
+      perturbations: perturbations.map(({ _id, ...p }) => ({
         type: p.type,
         parameters: stringifyParams(p.parameters),
       })),
-      expectations: expectations.map((e) => ({
+      expectations: expectations.map(({ _id, ...e }) => ({
         type: e.type,
         parameters: stringifyParams(e.parameters),
       })),
@@ -77,7 +83,7 @@ export default function Step1Config({ initial, onRun }) {
       await runManifest(manifest);
       onRun(manifest);
     } catch (e) {
-      setError(`Failed to start: ${e.message}`);
+      setErrors([`Failed to start: ${e.message}`]);
     } finally {
       setSubmitting(false);
     }
@@ -85,28 +91,33 @@ export default function Step1Config({ initial, onRun }) {
 
   return (
     <>
-      {error && (
-        <div className="banner error">
-          <span>{error}</span>
+      {errors.length > 0 && (
+        <div className="banner error" role="alert">
+          {errors.length === 1 ? (
+            <span>{errors[0]}</span>
+          ) : (
+            <ul style={{ paddingLeft: 18, margin: 0 }}>
+              {errors.map((e, i) => <li key={i}>{e}</li>)}
+            </ul>
+          )}
         </div>
       )}
       <div className="form-section">
         <h2>Test Setup</h2>
         <div className="form-grid">
           <div>
-            <label>Test name</label>
-            <input
-              value={testName}
-              onChange={(e) => setTestName(e.target.value)}
-            />
+            <label htmlFor={nameId}>Test name</label>
+            <input id={nameId} value={testName} onChange={(e) => setTestName(e.target.value)} />
           </div>
           <div>
-            <label>Target container</label>
+            <label htmlFor={targetSelectId}>Target container</label>
             <select
+              id={targetSelectId}
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
+              disabled={loadingTargets}
             >
-              <option value="">— select —</option>
+              <option value="">{loadingTargets ? '— loading… —' : '— select —'}</option>
               {targets.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name} ({t.state})
@@ -115,8 +126,9 @@ export default function Step1Config({ initial, onRun }) {
             </select>
           </div>
           <div>
-            <label>Duration (s)</label>
+            <label htmlFor={durationId}>Duration (s)</label>
             <input
+              id={durationId}
               type="number"
               min="1"
               value={duration}
@@ -125,7 +137,7 @@ export default function Step1Config({ initial, onRun }) {
           </div>
         </div>
         {limits && (
-          <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-dim)' }}>
+          <div className="form-hint">
             System: {limits.cpu_cores} cores · {limits.memory_total_mb} MB total
           </div>
         )}
@@ -138,7 +150,7 @@ export default function Step1Config({ initial, onRun }) {
             onClick={() =>
               setPerturbations([
                 ...perturbations,
-                { type: 'cpu_cap', parameters: defaultParamsFor('cpu_cap') },
+                withId({ type: 'cpu_cap', parameters: defaultParamsFor('cpu_cap') }),
               ])
             }
           >
@@ -147,16 +159,14 @@ export default function Step1Config({ initial, onRun }) {
         </h2>
         {perturbations.map((p, i) => (
           <PerturbationRow
-            key={i}
+            key={p._id}
             value={p}
             onChange={(np) => {
               const next = [...perturbations];
-              next[i] = np;
+              next[i] = { ...np, _id: p._id };
               setPerturbations(next);
             }}
-            onRemove={() =>
-              setPerturbations(perturbations.filter((_, j) => j !== i))
-            }
+            onRemove={() => setPerturbations(perturbations.filter((_, j) => j !== i))}
           />
         ))}
       </div>
@@ -168,10 +178,10 @@ export default function Step1Config({ initial, onRun }) {
             onClick={() =>
               setExpectations([
                 ...expectations,
-                {
+                withId({
                   type: 'container_running',
                   parameters: defaultExpectationParams('container_running'),
-                },
+                }),
               ])
             }
           >
@@ -180,16 +190,14 @@ export default function Step1Config({ initial, onRun }) {
         </h2>
         {expectations.map((e, i) => (
           <ExpectationRow
-            key={i}
+            key={e._id}
             value={e}
             onChange={(ne) => {
               const next = [...expectations];
-              next[i] = ne;
+              next[i] = { ...ne, _id: e._id };
               setExpectations(next);
             }}
-            onRemove={() =>
-              setExpectations(expectations.filter((_, j) => j !== i))
-            }
+            onRemove={() => setExpectations(expectations.filter((_, j) => j !== i))}
           />
         ))}
       </div>

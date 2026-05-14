@@ -8,6 +8,8 @@ export function readVar(name, fallback = '#888') {
   return v || fallback;
 }
 
+export const DEFAULT_THEME = 'amber';
+
 export const THEMES = [
   'amber',
   'dark',

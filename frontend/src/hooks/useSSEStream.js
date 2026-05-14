@@ -1,7 +1,9 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import { openEventStream } from '../api.js';
 
-export function useSSEStream() {
+const DEFAULT_DEAD_MS = 30000;
+
+export function useSSEStream({ deadThresholdMs = DEFAULT_DEAD_MS } = {}) {
   const closeRef = useRef(null);
   const lostTimer = useRef(null);
   const lastEventAt = useRef(Date.now());
@@ -18,7 +20,9 @@ export function useSSEStream() {
     }
   }, []);
 
-  const startStream = useCallback((start, { onState, onComplete, onServerError, onConnectionError }) => {
+  const startStream = useCallback((start, {
+    onState, onComplete, onServerError, onConnectionError, onConnectionRestored,
+  }) => {
     const epoch = ++runEpoch.current;
     closeStream();
     lastEventAt.current = Date.now();
@@ -40,15 +44,24 @@ export function useSSEStream() {
         onServerError?.(payload);
       },
       onConnectionError: () => {
+        if (runEpoch.current !== epoch) return;
         onConnectionError?.();
         if (lostTimer.current) clearTimeout(lostTimer.current);
         lostTimer.current = setTimeout(() => {
-          if (Date.now() - lastEventAt.current >= 9500) onConnectionError?.('dead');
-        }, 10000);
+          if (Date.now() - lastEventAt.current >= deadThresholdMs - 500) {
+            onConnectionError?.('dead');
+          }
+        }, deadThresholdMs);
       },
-      onConnectionRestored: () => {},
+      onConnectionRestored: () => {
+        if (runEpoch.current !== epoch) return;
+        onConnectionRestored?.();
+      },
     });
-  }, [closeStream]);
+  }, [closeStream, deadThresholdMs]);
+
+  // Drop the connection on unmount so we don't leak EventSources.
+  useEffect(() => () => closeStream(), [closeStream]);
 
   return { startStream, closeStream };
 }

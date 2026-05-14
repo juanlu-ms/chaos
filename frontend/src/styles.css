@@ -639,6 +639,22 @@ main {
   color: var(--error);
 }
 
+.tag.tag-phase {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.tag.tag-completed {
+  background: var(--bg-elevated);
+  color: var(--text-dim);
+}
+
+.form-hint {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
 .actions {
   display: flex;
   gap: 8px;

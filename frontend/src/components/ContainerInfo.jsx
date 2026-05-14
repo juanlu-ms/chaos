@@ -1,6 +1,7 @@
+import { shortId } from '../utils/shortId.js';
+
 export default function ContainerInfo({ state, target }) {
-  const id = state?.container_id || target?.id || '—';
-  const shortId = id.length > 12 ? id.slice(0, 12) : id;
+  const id = state?.container_id || target?.id || '';
   return (
     <div className="panel">
       <h3>Container</h3>
@@ -8,7 +9,7 @@ export default function ContainerInfo({ state, target }) {
         <dt>Name</dt>
         <dd>{target?.name || '—'}</dd>
         <dt>ID</dt>
-        <dd title={id}>{shortId}</dd>
+        <dd title={id || '—'}>{shortId(id)}</dd>
         <dt>Status</dt>
         <dd>{state?.status || '—'}</dd>
         <dt>Phase</dt>

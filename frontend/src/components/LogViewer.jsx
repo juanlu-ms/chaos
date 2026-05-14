@@ -9,7 +9,13 @@ export default function LogViewer({ logs, autoScroll = true }) {
   }, [logs, autoScroll]);
 
   return (
-    <div className="log-viewer" ref={ref}>
+    <div
+      className="log-viewer"
+      ref={ref}
+      role="log"
+      aria-live="polite"
+      aria-relevant="additions"
+    >
       {logs.length === 0 ? (
         <div className="line">No logs yet.</div>
       ) : (

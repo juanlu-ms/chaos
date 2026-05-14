@@ -1,9 +1,36 @@
 // Thin wrappers around the CHAOS HTTP API.
 
+export class ApiError extends Error {
+  constructor(message, { status, statusText, body } = {}) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.statusText = statusText;
+    this.body = body;
+  }
+}
+
 async function jsonOrThrow(res) {
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   const ct = res.headers.get('content-type') || '';
-  return ct.includes('application/json') ? res.json() : res.text();
+  const isJson = ct.includes('application/json');
+  // Read body once, regardless of ok-ness, so error responses surface.
+  const body = isJson
+    ? await res.json().catch(() => null)
+    : await res.text().catch(() => '');
+
+  if (!res.ok) {
+    const detail =
+      (body && typeof body === 'object' && (body.error || body.message)) ||
+      (typeof body === 'string' && body) ||
+      res.statusText ||
+      'Request failed';
+    throw new ApiError(`${res.status} ${detail}`, {
+      status: res.status,
+      statusText: res.statusText,
+      body,
+    });
+  }
+  return body;
 }
 
 export const getTargets = () => fetch('/api/targets').then(jsonOrThrow);
@@ -59,7 +86,6 @@ export function openEventStream({
   });
 
   es.addEventListener('error', (e) => {
-    // Named server-sent error event has data; transport errors don't.
     if (e && e.data) {
       try {
         const payload = JSON.parse(e.data);

@@ -1,6 +1,7 @@
 import ResultsChart from '../components/ResultsChart.jsx';
 import { formatBytesPerSec } from '../components/LiveChart.jsx';
 import LogViewer from '../components/LogViewer.jsx';
+import { shortId } from '../utils/shortId.js';
 
 export default function Step3Results({
   manifest,
@@ -16,42 +17,20 @@ export default function Step3Results({
   const expectations = result?.results || [];
   const duration = data.length ? data[data.length - 1].t : 0;
   const targetId = manifest?.target?.id || '';
-  const shortId = targetId.length > 12 ? targetId.slice(0, 12) : targetId;
   const pertTypes = (manifest?.perturbations || []).map((p) => p.type);
 
   return (
     <>
       {result?.error && (
-        <div className="banner error">
+        <div className="banner error" role="alert">
           <span>{result.error}</span>
         </div>
       )}
       <div className="split">
         <div className="col">
-          <ResultsChart
-            title="CPU Timeline"
-            data={data}
-            dataKey="cpu"
-            zones={zones}
-            themeKey={theme}
-            unit="%"
-          />
-          <ResultsChart
-            title="Memory Timeline"
-            data={data}
-            dataKey="mem"
-            zones={zones}
-            themeKey={theme}
-            unit="MB"
-          />
-          <ResultsChart
-            title="Network Timeline"
-            data={data}
-            dataKey="net"
-            zones={zones}
-            themeKey={theme}
-            formatter={formatBytesPerSec}
-          />
+          <ResultsChart title="CPU Timeline" data={data} dataKey="cpu" zones={zones} themeKey={theme} unit="%" />
+          <ResultsChart title="Memory Timeline" data={data} dataKey="mem" zones={zones} themeKey={theme} unit="MB" />
+          <ResultsChart title="Network Timeline" data={data} dataKey="net" zones={zones} themeKey={theme} formatter={formatBytesPerSec} />
         </div>
         <div className="col">
           <div className="panel">
@@ -62,11 +41,9 @@ export default function Step3Results({
               <dt>Duration</dt>
               <dd>{duration.toFixed(1)}s</dd>
               <dt>Target</dt>
-              <dd title={targetId}>{shortId}</dd>
+              <dd title={targetId}>{manifest?.target?.name || shortId(targetId)}</dd>
               <dt>Perturbations</dt>
-              <dd>
-                {pertTypes.length} ({pertTypes.join(', ')})
-              </dd>
+              <dd>{pertTypes.length} ({pertTypes.join(', ')})</dd>
               <dt>Result</dt>
               <dd>
                 <span className={`tag ${passed ? 'pass' : 'fail'}`}>
@@ -84,7 +61,7 @@ export default function Step3Results({
               )}
               {expectations.map((r, i) => (
                 <div
-                  key={i}
+                  key={`${r.type}-${i}`}
                   className={`exp-item ${r.passed ? 'passed' : 'failed'}`}
                   title={r.message}
                 >
@@ -103,9 +80,7 @@ export default function Step3Results({
           </div>
 
           <div className="actions">
-            <button className="primary" onClick={onRunAgain}>
-              Run Again
-            </button>
+            <button className="primary" onClick={onRunAgain}>Run Again</button>
             <button onClick={onModify}>Modify Manifest</button>
           </div>
         </div>

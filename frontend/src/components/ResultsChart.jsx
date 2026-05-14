@@ -2,7 +2,7 @@ import { ReferenceArea, ReferenceLine } from 'recharts';
 import ChartBase, { useChartTheme } from './ChartBase.jsx';
 
 export default function ResultsChart({ data, dataKey, title, zones, themeKey, formatter, unit }) {
-  const { success, error } = useChartTheme();
+  const { success, error } = useChartTheme(themeKey);
 
   const tEnd = data.length ? data[data.length - 1].t : 0;
   const normalEnd = zones?.normalEnd ?? 0;

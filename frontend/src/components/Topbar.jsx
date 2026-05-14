@@ -18,7 +18,7 @@ export default function Topbar({
     <div className="topbar">
       <Logo />
 
-      <div className="steps">
+      <div className="steps" role="tablist" aria-label="Workflow steps">
         {tabs.map((t) => {
           const isActive = currentStep === t.n;
           // While a run is active, only the Monitor tab is reachable.
@@ -26,9 +26,12 @@ export default function Topbar({
           return (
             <button
               key={t.n}
-              className={`step-tab ${isActive ? 'active' : ''} ${
-                disabled ? 'disabled' : ''
-              }`}
+              role="tab"
+              aria-selected={isActive}
+              aria-disabled={disabled}
+              tabIndex={disabled ? -1 : 0}
+              disabled={disabled}
+              className={`step-tab ${isActive ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
               onClick={() => !disabled && setStep(t.n)}
             >
               {t.n}. {t.label}

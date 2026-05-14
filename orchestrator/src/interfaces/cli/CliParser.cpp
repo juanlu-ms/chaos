@@ -2,10 +2,11 @@
 
 #include <spdlog/spdlog.h>
 
-#include <atomic>
 #include <chrono>
 #include <csignal>
 #include <memory>
+#include <stop_token>
+#include <string>
 #include <span>
 #include <string>
 #include <string_view>
@@ -33,19 +34,34 @@ namespace {
     return command == "help" || command == "--help" || command == "-h";
 }
 
-std::atomic<std::sig_atomic_t> g_interrupt_requested{0};
+std::stop_source g_stop_source;
+int g_signal_pipe[2] = {-1, -1};
 
-using SignalHandler = void (*)(int);
+void signalHandler(int) {
+    int dummy = 1;
+    [[maybe_unused]] ssize_t result = ::write(g_signal_pipe[1], &dummy, sizeof(dummy));
+}
 
-// Restores the previous SIGINT handler on scope exit.
 class SignalHandlerGuard {
 public:
-    explicit SignalHandlerGuard(SignalHandler previous) : previous_(previous) {}
-
-    ~SignalHandlerGuard() {
-        if (previous_ != SIG_ERR) {
-            std::signal(SIGINT, previous_);
+    SignalHandlerGuard() {
+        if (::pipe(g_signal_pipe) != 0) {
+            g_signal_pipe[0] = g_signal_pipe[1] = -1;
+            return;
         }
+        struct sigaction sa = {};
+        sa.sa_handler = signalHandler;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = SA_RESTART;
+        previous_valid_ = (::sigaction(SIGINT, &sa, &previous_) == 0);
+    }
+
+    ~SignalHandlerGuard() noexcept {
+        if (previous_valid_) {
+            ::sigaction(SIGINT, &previous_, nullptr);
+        }
+        if (g_signal_pipe[0] != -1) ::close(g_signal_pipe[0]);
+        if (g_signal_pipe[1] != -1) ::close(g_signal_pipe[1]);
     }
 
     SignalHandlerGuard(const SignalHandlerGuard&) = delete;
@@ -53,16 +69,13 @@ public:
     SignalHandlerGuard(SignalHandlerGuard&&) = delete;
     SignalHandlerGuard& operator=(SignalHandlerGuard&&) = delete;
 
-private:
-    SignalHandler previous_;
-};
+    [[nodiscard]] int readEnd() const { return g_signal_pipe[0]; }
+    [[nodiscard]] std::stop_token token() const { return g_stop_source.get_token(); }
 
-// Signal handler to request interrupt-driven cancellation.
-void signalHandler(int signal_number) {
-    if (signal_number == SIGINT) {
-        g_interrupt_requested = 1;
-    }
-}
+private:
+    struct sigaction previous_ = {};
+    bool previous_valid_ = false;
+};
 
 }  // namespace
 
@@ -297,23 +310,26 @@ shared::TargetState CliParser::runPerturbationsLoop(
     shared::TargetState lastKnownState{};
     shared::StateBroadcaster broadcaster;
 
-    g_interrupt_requested = 0;
-    const SignalHandler previous_handler = std::signal(SIGINT, signalHandler);
-    const SignalHandlerGuard signal_guard(previous_handler);
+    SignalHandlerGuard signal_guard;
 
     if (duration.count() == 0) {
         lastKnownState = obs.observe(targetId);
         broadcaster.broadcast(lastKnownState);
     } else {
         const auto end_time = std::chrono::steady_clock::now() + duration;
-        while (std::chrono::steady_clock::now() < end_time && g_interrupt_requested == 0) {
+        auto stop_token = signal_guard.token();
+
+        while (std::chrono::steady_clock::now() < end_time && !stop_token.stop_requested()) {
+            int dummy;
+            while (::read(signal_guard.readEnd(), &dummy, sizeof(dummy)) > 0) {}
+
             lastKnownState = obs.observe(targetId);
             broadcaster.broadcast(lastKnownState);
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
     }
 
-    if (g_interrupt_requested != 0) {
+    if (signal_guard.token().stop_requested()) {
         SPDLOG_WARN("Interrupt received; canceling perturbations.");
         pert_engine.cancel();
     }

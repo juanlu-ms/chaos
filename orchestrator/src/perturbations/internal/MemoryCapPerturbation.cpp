@@ -14,7 +14,8 @@ MemoryCapPerturbation::MemoryCapPerturbation(std::shared_ptr<containers::IContai
     : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
 
 void MemoryCapPerturbation::apply() {
-    if (hasBeenApplied_) {
+    bool expected = false;
+    if (!hasBeenApplied_.compare_exchange_strong(expected, true)) {
         SPDLOG_WARN("Memory Cap Perturbation already applied to target {}, skipping", target_id_);
         return;
     }
@@ -32,7 +33,6 @@ void MemoryCapPerturbation::apply() {
 
     try {
         engine_->updateMemoryLimit(target_id_, std::stoll(limit));
-        hasBeenApplied_ = true;
         SPDLOG_INFO("Memory Cap Perturbation applied: limit_bytes={} on target {}", limit, target_id_);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
@@ -41,7 +41,8 @@ void MemoryCapPerturbation::apply() {
 }
 
 void MemoryCapPerturbation::revert() {
-    if (!hasBeenApplied_) {
+    bool expected = true;
+    if (!hasBeenApplied_.compare_exchange_strong(expected, false)) {
         SPDLOG_WARN("Memory Cap Perturbation was not applied, skipping revert");
         return;
     }
@@ -53,7 +54,6 @@ void MemoryCapPerturbation::revert() {
     try {
         auto sysInfo = engine_->getSystemInfo();
         engine_->updateMemoryLimit(target_id_, sysInfo.memTotal);
-        hasBeenApplied_ = false;
         SPDLOG_INFO("Memory Cap Perturbation reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),

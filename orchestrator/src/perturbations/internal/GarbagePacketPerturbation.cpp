@@ -18,7 +18,8 @@ GarbagePacketPerturbation::GarbagePacketPerturbation(std::shared_ptr<containers:
     : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
 
 void GarbagePacketPerturbation::apply() {
-    if (hasBeenApplied_) {
+    bool expected = false;
+    if (!hasBeenApplied_.compare_exchange_strong(expected, true)) {
         SPDLOG_WARN("Garbage Packet Perturbation already applied to target {}, skipping", target_id_);
         return;
     }
@@ -57,7 +58,6 @@ void GarbagePacketPerturbation::apply() {
 
     try {
         (void)engine_->exec(target_id_, fmt::format("tc qdisc add dev {} root netem{}", iface, opts));
-        hasBeenApplied_ = true;
         SPDLOG_INFO("Garbage Packet Perturbation applied on target {} iface={}: {}", target_id_, iface, opts);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
@@ -66,7 +66,8 @@ void GarbagePacketPerturbation::apply() {
 }
 
 void GarbagePacketPerturbation::revert() {
-    if (!hasBeenApplied_) {
+    bool expected = true;
+    if (!hasBeenApplied_.compare_exchange_strong(expected, false)) {
         SPDLOG_WARN("Garbage Packet Perturbation was not applied, skipping revert");
         return;
     }
@@ -82,7 +83,6 @@ void GarbagePacketPerturbation::revert() {
 
     try {
         (void)engine_->exec(target_id_, "tc qdisc del dev " + iface + " root netem");
-        hasBeenApplied_ = false;
         SPDLOG_INFO("Garbage Packet Perturbation reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),

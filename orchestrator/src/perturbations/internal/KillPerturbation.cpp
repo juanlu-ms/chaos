@@ -11,7 +11,8 @@ KillPerturbation::KillPerturbation(std::shared_ptr<containers::IContainerEngine>
     : engine_(std::move(engine)), target_id_(std::move(target_id)) {}
 
 void KillPerturbation::apply() {
-    if (hasBeenApplied_) {
+    bool expected = false;
+    if (!hasBeenApplied_.compare_exchange_strong(expected, true)) {
         SPDLOG_WARN("Kill Perturbation already applied to target {}, skipping", target_id_);
         return;
     }
@@ -22,7 +23,6 @@ void KillPerturbation::apply() {
 
     try {
         engine_->killContainer(target_id_);
-        hasBeenApplied_ = true;
         SPDLOG_INFO("Kill Perturbation applied successfully to target {}", target_id_);
     } catch (const std::exception& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_canceled), e.what());
@@ -30,7 +30,8 @@ void KillPerturbation::apply() {
 }
 
 void KillPerturbation::revert() {
-    if (!hasBeenApplied_) {
+    bool expected = true;
+    if (!hasBeenApplied_.compare_exchange_strong(expected, false)) {
         SPDLOG_WARN("Kill Perturbation was not applied, skipping revert");
         return;
     }
@@ -41,7 +42,6 @@ void KillPerturbation::revert() {
 
     try {
         engine_->startContainer(target_id_);
-        hasBeenApplied_ = false;
         SPDLOG_INFO("Kill Perturbation reverted successfully for target {}", target_id_);
     } catch (const std::exception& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_canceled), e.what());

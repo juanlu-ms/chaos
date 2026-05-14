@@ -22,7 +22,8 @@ CpuCapPerturbation::CpuCapPerturbation(std::shared_ptr<containers::IContainerEng
     : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
 
 void CpuCapPerturbation::apply() {
-    if (hasBeenApplied_) {
+    bool expected = false;
+    if (!hasBeenApplied_.compare_exchange_strong(expected, true)) {
         SPDLOG_WARN("CPU Cap Perturbation already applied to target {}, skipping", target_id_);
         return;
     }
@@ -51,7 +52,6 @@ void CpuCapPerturbation::apply() {
 
     try {
         engine_->updateCpuQuota(target_id_, cpu_quota, kCpuPeriod);
-        hasBeenApplied_ = true;
         SPDLOG_INFO("CPU Cap Perturbation applied: quota={}us/{}us on target {}", cpu_quota, kCpuPeriod, target_id_);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
@@ -60,7 +60,8 @@ void CpuCapPerturbation::apply() {
 }
 
 void CpuCapPerturbation::revert() {
-    if (!hasBeenApplied_) {
+    bool expected = true;
+    if (!hasBeenApplied_.compare_exchange_strong(expected, false)) {
         SPDLOG_WARN("CPU Cap Perturbation was not applied, skipping revert");
         return;
     }
@@ -72,7 +73,6 @@ void CpuCapPerturbation::revert() {
     try {
         SPDLOG_INFO("Reverting CPU cap for target '{}'", target_id_);
         engine_->updateCpuQuota(target_id_, kDefaultCpuQuota, kCpuPeriod);
-        hasBeenApplied_ = false;
         SPDLOG_INFO("CPU Cap Perturbation reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),

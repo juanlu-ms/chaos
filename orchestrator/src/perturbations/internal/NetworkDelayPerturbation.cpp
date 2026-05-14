@@ -17,7 +17,8 @@ NetworkDelayPerturbation::NetworkDelayPerturbation(std::shared_ptr<containers::I
     : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
 
 void NetworkDelayPerturbation::apply() {
-    if (hasBeenApplied_) {
+    bool expected = false;
+    if (!hasBeenApplied_.compare_exchange_strong(expected, true)) {
         SPDLOG_WARN("Network Delay Perturbation already applied to target {}, skipping", target_id_);
         return;
     }
@@ -35,7 +36,6 @@ void NetworkDelayPerturbation::apply() {
 
     try {
         (void)engine_->exec(target_id_, fmt::format("tc qdisc add dev eth0 root netem delay {}ms", delay));
-        hasBeenApplied_ = true;
         SPDLOG_INFO("Network Delay Perturbation applied: delay={}ms on target {}", delay, target_id_);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
@@ -44,7 +44,8 @@ void NetworkDelayPerturbation::apply() {
 }
 
 void NetworkDelayPerturbation::revert() {
-    if (!hasBeenApplied_) {
+    bool expected = true;
+    if (!hasBeenApplied_.compare_exchange_strong(expected, false)) {
         SPDLOG_WARN("Network Delay Perturbation was not applied, skipping revert");
         return;
     }
@@ -55,7 +56,6 @@ void NetworkDelayPerturbation::revert() {
 
     try {
         (void)engine_->exec(target_id_, "tc qdisc del dev eth0 root netem");
-        hasBeenApplied_ = false;
         SPDLOG_INFO("Network Delay Perturbation reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),

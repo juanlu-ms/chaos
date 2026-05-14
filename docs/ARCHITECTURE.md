@@ -23,7 +23,10 @@ The system is designed using SOLID principles, enforcing strict separation of co
 * **Manifest Parsing & Command Generation:**
     * **ManifestParser:** Reads JSON files containing the test configuration (target container, perturbation types, duration, and success expectations).
     * **PerturbationFactory:** Implements the **Factory Pattern**. It translates string identifiers from the JSON (e.g., `kill`, `memory_cap`, `cpu_cap`, `network_delay`) into concrete objects that implement the `IPerturbation` interface.
-* **Execution Engine (Asynchronous Task Scheduler):** * **PerturbationEngine:** The heart of the orchestrator. It uses the **Command Pattern** to encapsulate faults. Instead of applying faults synchronously, it dispatches each perturbation to an isolated background thread using `std::async`. This allows multiple faults to be injected simultaneously with independent lifecycles.
+* **Execution Engine (Asynchronous Task Scheduler):**
+    * **PerturbationEngine:** The heart of the orchestrator. It uses the **Command Pattern** to encapsulate faults. Instead of applying faults synchronously, it dispatches each perturbation to an isolated background thread using `std::jthread` (with `std::stop_token` for cancellation). This allows multiple faults to be injected simultaneously with independent lifecycles.
+* **Orchestration Layer:**
+    * **ChaosRunner (core module):** Sits between the adapters (CLI/Server) and the lower-level components. Provides three operations: `buildPerturbations` (delegates to `PerturbationFactory`), `validateExpectations` (delegates to `ValidationEngine`), and `parseManifest` (delegates to `ManifestParser`). Both `CliParser` and `Server` delegate to `ChaosRunner`, eliminating the business logic duplication that previously existed.
 * **Real-Time Observability & Event Bus:**
     * **ObservabilityEngine:** Actively polls the Docker container to fetch real-time metrics during a chaos experiment.
     * **StateBroadcaster:** Implements the **Observer Pattern** acting as a thread-safe event bus. The engine publishes container states here, and consumers subscribe to receive real-time updates without data races.
@@ -64,6 +67,14 @@ The Web UI lives in `frontend/` as a **Vite + Bun** project. It is built to stat
 - **React** — UI framework with component-based architecture
 - **Recharts** — charting library for live and results charts
 
+### Frontend Component Architecture
+The UI is built around reusable, extracted modules:
+- **Hooks** (`src/hooks/`): `useSSEStream` (SSE lifecycle, reconnection, epoch tracking), `useStreamData` (SSE event transformation into chart data/logs/phase zones), `useElapsedTimer` (live timer for Step2Monitor).
+- **Components** (`src/components/`): `ChartBase` (shared Recharts config: axes, tooltip, gradient, theme), `ConfigRow` (generic type-aware row used by both perturbations and expectations).
+- **Utilities** (`src/utils/`): `validateManifest` (form validation), `stringifyParams` (parameter serialization). Both fully unit tested.
+- **Constants** (`src/constants/`): `perturbations.js` and `expectations.js` use a consistent dict-based pattern.
+- **Test infrastructure:** Vitest with `globals: true`, 20+ unit tests across all modules.
+
 ### 3-Step Flow
 1. **Configure** — form-based manifest builder (target, duration, perturbations, expectations)
 2. **Monitor** — real-time Recharts line charts (CPU, Memory, Network I/O) fed by SSE `GET /events`
@@ -73,9 +84,9 @@ The Web UI lives in `frontend/` as a **Vite + Bun** project. It is built to stat
 ```
 Step 1: POST /api/run  (manifest JSON) → returns 202
 Step 2: EventSource /events  → SSE stream
-  - event: state  → push chart data → Recharts AreaChart
-  - event: complete → showResults() → Recharts AreaChart with full dataset
-Callback: Abort → POST /api/run/abort → closes SSE
+  - event: state  → useSSEStream calls handleState → useStreamData transforms → Recharts AreaChart
+  - event: complete → closeStream() → showResults() → Recharts AreaChart with full dataset
+Callback: Abort → POST /api/run/abort → closeStream()
 ```
 
 ### Theming

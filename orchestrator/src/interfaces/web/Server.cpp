@@ -242,11 +242,12 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
 
         auto perturbation_instances = runner_.buildPerturbations(manifest);
 
-        std::thread([engine = m_engine, session, manifest = std::move(manifest),
-                     perturbation_instances = std::move(perturbation_instances)]() mutable {
-            try {
-                using namespace std::chrono;
-                using namespace std::chrono_literals;
+auto worker_thread = std::make_shared<std::jthread>(
+            [engine = m_engine, session, manifest = std::move(manifest),
+             perturbation_instances = std::move(perturbation_instances)]() mutable {
+                try {
+                    using namespace std::chrono;
+                    using namespace std::chrono_literals;
 
                 observability::ObservabilityEngine obs(engine);
                 shared::TargetState lastKnownState;
@@ -426,7 +427,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                 session->cv.notify_all();
                 SPDLOG_ERROR("/api/run async failed: {}", ex.what());
             }
-        }).detach();
+        });
 
         json resp;
         resp["status"] = "started";

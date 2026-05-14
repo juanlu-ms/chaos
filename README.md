@@ -40,6 +40,20 @@ A dark-themed SPA (`chaos serve`) with 3 auto-advancing steps:
 - **Step 2: Monitor** — real-time line charts (CPU, Memory, Network I/O) updated via SSE, container info panel, scrollable logs, **Abort** button to stop the run
 - **Step 3: Results** — summary stats, timeline charts with Normal/Chaos/Recovery color zones, expectation validation results, run replay logs, **Run Again** and **Modify Manifest** buttons
 
+### Shared Business Logic Layer
+CHAOS centralises duplicated orchestration logic via `core::ChaosRunner`:
+- **`buildPerturbations`** — creates concrete `IPerturbation` instances from manifest spec entries via `PerturbationFactory`.
+- **`validateExpectations`** — evaluates final container state against manifest expectations using `ValidationEngine`.
+- **`parseManifest`** — reads and parses JSON manifest files via `ManifestParser`.
+
+Both the CLI parser (`CliParser`) and Web Server (`Server`) delegate to `ChaosRunner`, eliminating the business logic duplication that previously existed between the two adapters. Tested with 8 unit tests.
+
+### Signal Handling
+The `signals::SignalHandlerGuard` RAII class (extracted from `CliParser.cpp`) manages POSIX signal handlers via a self-pipe trick. SIGINT writes to the pipe; the event loop reads from `readEnd()` and calls `request_stop()`. Tested with 5 unit tests.
+
+### JSON Serialization
+The `web::JsonSerializer` module (extracted from `Server.cpp`) provides `stateToJson`, `limitsToJson`, and `parseLogLines` helpers. These convert internal data types to JSON for SSE streaming. Tested with 7 unit tests.
+
 ### OpenTelemetry Export
 CHAOS can export run events to OTLP-compatible backends (Grafana, Datadog, etc.) via the `OtlpExporter`, which sends JSON-encoded OTLP Logs over HTTP. Configure via `CHAOS_OTLP_ENDPOINT` environment variable.
 
@@ -54,7 +68,7 @@ CHAOS uses a hybrid architecture:
     - `frontend/`: Vite + Bun project for the Web UI (builds to `orchestrator/src/interfaces/web/static/`).
     - `wrapper/`: in-container agent (`PID 1`) for process supervision and telemetry handoff.
 - Inside `orchestrator/`, public contracts live in `include/` and implementation details stay in `src/`.
-- Ownership is organized by responsibility (interfaces, containers, manifests, perturbations, observability).
+- Ownership is organized by responsibility (interfaces, containers, manifests, perturbations, observability, core, signals, web).
 
 ## Repository Layout
 
@@ -67,20 +81,32 @@ chaos/
 │   ├── index.html
 │   ├── package.json
 │   ├── vite.config.js
+│   ├── vitest.config.js
 │   └── src/
 │       ├── main.jsx
-│       └── style.css
+│       ├── style.css
+│       ├── components/
+│       ├── constants/
+│       │   └── __tests__/
+│       ├── hooks/
+│       ├── steps/
+│       └── utils/
+│           └── __tests__/
 ├── orchestrator/
 │   ├── CMakeLists.txt
 │   ├── include/
 │   │   ├── containers/
+│   │   ├── core/
 │   │   ├── manifests/
 │   │   ├── observability/
 │   │   ├── perturbations/
 │   │   ├── shared/
-│   │   └── validation/
+│   │   ├── signals/
+│   │   ├── validation/
+│   │   └── web/
 │   ├── src/
 │   │   ├── main.cpp
+│   │   ├── core/
 │   │   ├── interfaces/
 │   │   │   ├── cli/
 │   │   │   └── web/
@@ -91,17 +117,21 @@ chaos/
 │   │   │   └── internal/
 │   │   ├── observability/
 │   │   │   └── internal/
+│   │   ├── signals/
 │   │   ├── validation/
 │   │   │   └── internal/
 │   └── tests/
 │       ├── containers/
 │       │   └── internal/
+│       ├── core/
 │       ├── interfaces/
 │       │   └── cli/
 │       ├── manifests/
 │       ├── observability/
 │       ├── perturbations/
-│       └── smoke/
+│       ├── signals/
+│       ├── smoke/
+│       └── web/
 ├── wrapper/
 │   ├── CMakeLists.txt
 │   ├── src/
@@ -118,7 +148,8 @@ For direct CMake control, use these exact commands:
 - Build the C++ orchestrator: `cmake --build --preset debug-clang -- -j$(nproc)`
 - Build the Web UI (required before C++ build, or whenever frontend changes): `cd frontend && bun install && bun run build`
 - Full build (frontend + C++): `cd frontend && bun install && bun run build && cd .. && cmake --build --preset debug-clang -- -j$(nproc)`
-- Test: `ctest --test-dir build/dev-linux-clang --output-on-failure`
+- C++ test: `ctest --test-dir build/dev-linux-clang --output-on-failure`
+- Frontend test: `cd frontend && npm test` (uses Vitest, 20+ tests for hooks, utils, constants)
 - Build the Web UI: see [Build the Web UI](#build-the-web-ui) below
 
 ## Run the Orchestrator (CLI)
@@ -182,7 +213,11 @@ Switch themes (Amber / Dark / Cyber) from the topbar dropdown. Your preference i
 - `orchestrator/tests/observability`: observability, validation engine, and OTLP exporter unit tests.
 - `orchestrator/tests/shared`: StateBroadcaster unit tests (subscribe/unsubscribe, concurrency, exception safety).
 - `orchestrator/tests/perturbations`: perturbation engine and factory unit tests.
+- `orchestrator/tests/core`: `ChaosRunner` unit tests (build perturbations, validate expectations, parse manifest).
+- `orchestrator/tests/signals`: `SignalHandlerGuard` unit tests (RAII, pipe, self-signal).
+- `orchestrator/tests/web`: `JsonSerializer` unit tests (state/limits JSON, log parsing).
 - `orchestrator/tests/smoke`: minimal host smoke checks through public APIs (no direct `internal` includes).
+- `frontend/src/utils/__tests__/` and `frontend/src/constants/__tests__/`: Vitest unit tests for frontend utilities and constants.
 - `tests/e2e`: cross-component integration tests.
 
 ## Project Roadmap

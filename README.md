@@ -29,7 +29,7 @@ The `ValidationEngine` evaluates JSON manifests automatically against these expe
 Perturbations execute asynchronously using `std::async` for concurrent fault injection. The `PerturbationEngine` manages their lifecycle, scheduling apply/revert cycles and providing thread-safe cancellation.
 
 ### Real-Time State Streaming
-During perturbation runs, the system polls target state and broadcasts updates via `StateBroadcaster`. The Web UI receives live updates via **SSE** (`GET /events`), and the TUI subscribes directly. `StateBroadcaster` supports exception-safe handle-based subscribe/unsubscribe.
+During perturbation runs, the system polls target state and broadcasts updates via `StateBroadcaster`. The Web UI receives live updates via **SSE** (`GET /events`). `StateBroadcaster` supports exception-safe handle-based subscribe/unsubscribe.
 
 ### Graceful Interruption
 SIGINT (Ctrl+C) triggers immediate cancellation of running perturbations, with automatic rollback/reversion of all applied faults before the tool exits.
@@ -39,11 +39,6 @@ A dark-themed SPA (`chaos serve`) with 3 auto-advancing steps:
 - **Step 1: Configure** — compact form with target selector, duration, perturbation rows (6 types with type-aware param inputs), expectation rows, theme switcher (Amber/Dark/Cyber)
 - **Step 2: Monitor** — real-time line charts (CPU, Memory, Network I/O) updated via SSE, container info panel, scrollable logs, **Abort** button to stop the run
 - **Step 3: Results** — summary stats, timeline charts with Normal/Chaos/Recovery color zones, expectation validation results, run replay logs, **Run Again** and **Modify Manifest** buttons
-
-### TUI (Dashboard + Wizard)
-Two-mode interactive terminal UI (`chaos tui`):
-- **Dashboard** — container list with arrow navigation, live target state panel (status, CPU, memory)
-- **Wizard** — 4-step guided manifest creation (select target → add perturbations → set expectations → run with progress bar), structured results summary after run completes
 
 ### OpenTelemetry Export
 CHAOS can export run events to OTLP-compatible backends (Grafana, Datadog, etc.) via the `OtlpExporter`, which sends JSON-encoded OTLP Logs over HTTP. Configure via `CHAOS_OTLP_ENDPOINT` environment variable.
@@ -88,7 +83,6 @@ chaos/
 │   │   ├── main.cpp
 │   │   ├── interfaces/
 │   │   │   ├── cli/
-│   │   │   ├── tui/
 │   │   │   └── web/
 │   │   ├── containers/
 │   │   │   └── internal/
@@ -179,14 +173,6 @@ Switch themes (Amber / Dark / Cyber) from the topbar dropdown. Your preference i
 | POST | `/containers/{id}/stop` | Stop a container |
 | POST | `/containers/{id}/kill` | Kill a container |
 | GET | `/containers/{id}/logs` | Fetch container logs |
-
-## Run the TUI
-
-Launch the interactive terminal UI:
-
-- `./build/dev-linux-clang/orchestrator/chaos tui`
-
-Tab toggles between Dashboard mode (container list + live state) and Wizard mode (4-step manifest builder). q/Escape to go back or quit.
 
 ## Testing Strategy
 

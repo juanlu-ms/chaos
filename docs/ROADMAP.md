@@ -50,8 +50,8 @@ To compete with tools like Chaos Mesh or Gremlin, CHAOS needs to expand its blas
 
 ## 4. Observability Enhancements
 
-* **Live UI Integrations (TUI & Web):** ✅ **IMPLEMENTED**
-    * The `StateBroadcaster` now streams real-time telemetry via SSE (Server-Sent Events) on `GET /events`. The Web UI has a Live Monitor panel that visualizes container stress (CPU, memory, status) in real time during a run. The TUI Dashboard mode shows live state updates via direct broadcaster subscription.
+* **Live UI Integrations (Web):** ✅ **IMPLEMENTED**
+    * The `StateBroadcaster` now streams real-time telemetry via SSE (Server-Sent Events) on `GET /events`. The Web UI has a Live Monitor panel that visualizes container stress (CPU, memory, status) in real time during a run.
 
 * **Integration with OpenTelemetry:** ✅ **IMPLEMENTED**
     * A minimal `OtlpExporter` class builds OTLP Logs JSON payloads and exports them over HTTP to configurable endpoints. Configure via `CHAOS_OTLP_ENDPOINT` environment variable. Supports resource attributes, severity levels, and run_id tracking.
@@ -59,13 +59,13 @@ To compete with tools like Chaos Mesh or Gremlin, CHAOS needs to expand its blas
 * **Advanced Metric Extraction (ObservationNeeds):** 
     * Moving beyond basic pass/fail validation. The goal is to capture granular metrics (e.g., capturing the exact CPU spike during the "Garbage Collection Death Spiral" right before an `OOMKilled` event occurs) to provide developers with deep diagnostic insights.
 
-## 5. Visual Chaos Configuration (GUI/TUI Test Builder)
+## 5. Visual Chaos Configuration (GUI Test Builder)
 
-Relying on users to manually write a manifest.json is error-prone. To make CHAOS accessible to QA teams and developers, the Web Server and TUI should be upgraded from simple monitoring dashboards into interactive test builders.
+Relying on users to manually write a manifest.json is error-prone. To make CHAOS accessible to QA teams and developers, the Web Server should be upgraded from a simple monitoring dashboard into an interactive test builder.
 
-* **The Improvement:** ✅ **IMPLEMENTED** — Built a dynamic Manifest Builder in the Web UI (form-based with type-aware parameter inputs) and a 4-step step-by-step wizard in the TUI to configure, validate, and launch chaos experiments visually.
+* **The Improvement:** ✅ **IMPLEMENTED** — Built a dynamic Manifest Builder in the Web UI (form-based with type-aware parameter inputs) to configure, validate, and launch chaos experiments visually.
 
-* **Live Target Discovery:** ✅ **IMPLEMENTED** — The UI fetches available targets via `GET /api/targets` from the backend's `IContainerEngine`. Users select a running container from a live dropdown (Web) or arrow-key list (TUI).
+* **Live Target Discovery:** ✅ **IMPLEMENTED** — The UI fetches available targets via `GET /api/targets` from the backend's `IContainerEngine`. Users select a running container from a live dropdown.
 
 * **Dynamic Schema Validation:** ✅ **IMPLEMENTED** — The UI queries the backend via `GET /api/limits` for the host's CPU cores and memory. Perturbation inputs are constrained to valid ranges.
 

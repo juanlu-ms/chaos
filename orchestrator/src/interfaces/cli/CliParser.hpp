@@ -79,11 +79,6 @@ private:
      * @return Exit code (0 on success, non-zero on error).
      */
     int handleRun(const std::string& manifestPath) const;
-    /**
-     * @brief Handle the 'tui' command — launches the interactive terminal UI.
-     * @return Exit code (0 on clean exit).
-     */
-    int handleTui() const;
 
     [[nodiscard]] manifests::ChaosManifest parseManifest(const std::string& path) const;
 

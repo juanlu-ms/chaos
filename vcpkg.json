@@ -7,7 +7,6 @@
     "spdlog",
     "cpp-httplib",
     "fmt",
-    "ftxui",
     "gtest",
     "libarchive"
   ]

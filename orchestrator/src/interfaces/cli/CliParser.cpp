@@ -16,7 +16,6 @@
 #include <utility>
 #include <vector>
 
-#include "interfaces/tui/TuiApp.hpp"
 #include "interfaces/web/Server.hpp"
 #include "manifests/ManifestParser.hpp"
 #include "observability/ObservabilityEngine.hpp"
@@ -171,10 +170,6 @@ int CliParser::dispatchCommand(const std::vector<std::string>& args) const {
         return handleServe(port);
     }
 
-    if (command == "tui") {
-        return handleTui();
-    }
-
     SPDLOG_ERROR("Unknown command: '{}'", command);
     printUsage();
     return 1;
@@ -192,7 +187,6 @@ void CliParser::printUsage() const {
         "  kill  <container_id>  Kill a running container\n"
         "  run   <manifest.json> Execute a chaos manifest\n"
         "  serve [--port <n>]    Start the web server (default: 8080)\n"
-        "  tui                   Launch interactive terminal UI\n"
         "  help                  Show this help message\n"
         "\n"
         "Options:\n"
@@ -372,11 +366,6 @@ bool CliParser::validateExpectations(const manifests::ChaosManifest& manifest,
     }
     SPDLOG_INFO("Chaos run PASSED: all expectations met.");
     return true;
-}
-
-int CliParser::handleTui() const {
-    auto app = interfaces::tui::TuiApp(m_engine);
-    return app.run();
 }
 
 }  // namespace chaos::orchestrator::interfaces::cli

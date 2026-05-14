@@ -1,7 +1,7 @@
 # Project Overview: CHAOS (Resilience Tool for Docker Containers)
 CHAOS is an enterprise-grade Chaos Engineering orchestrator built in modern C++ (C++23). Its primary purpose is to inject controlled faults (perturbations) into running Docker containers to validate system resilience, test observability, and ensure that applications recover gracefully from infrastructure degradation (following Site Reliability Engineering principles). 
 
-The tool supports multiple user interfaces—a Command Line Interface (CLI), a Terminal User Interface (TUI), and a Web Server—all powered by a highly concurrent, thread-safe, and event-driven core backend. The Web UI is a separate Vite + Bun project in `frontend/` using React with Recharts for real-time and results charts, built to static files that the C++ binary serves.
+The tool supports multiple user interfaces—a Command Line Interface (CLI) and a Web Server—all powered by a highly concurrent, thread-safe, and event-driven core backend. The Web UI is a separate Vite + Bun project in `frontend/` using React with Recharts for real-time and results charts, built to static files that the C++ binary serves.
 
 ---
 

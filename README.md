@@ -77,7 +77,7 @@ chaos/
 ├── CMakeLists.txt
 ├── CMakePresets.json
 ├── vcpkg.json
-├── frontend/                   # Vite + Bun Web UI project
+├── frontend/                   # Vite + pnpm Web UI project
 │   ├── index.html
 │   ├── package.json
 │   ├── vite.config.js
@@ -146,10 +146,10 @@ chaos/
 For direct CMake control, use these exact commands:
 
 - Build the C++ orchestrator: `cmake --build --preset debug-clang -- -j$(nproc)`
-- Build the Web UI (required before C++ build, or whenever frontend changes): `cd frontend && bun install && bun run build`
-- Full build (frontend + C++): `cd frontend && bun install && bun run build && cd .. && cmake --build --preset debug-clang -- -j$(nproc)`
+- Build the Web UI (required before C++ build, or whenever frontend changes): `cd frontend && pnpm install && pnpm run build`
+- Full build (frontend + C++): `cd frontend && pnpm install && pnpm run build && cd .. && cmake --build --preset debug-clang -- -j$(nproc)`
 - C++ test: `ctest --test-dir build/dev-linux-clang --output-on-failure`
-- Frontend test: `cd frontend && npm test` (uses Vitest, 20+ tests for hooks, utils, constants)
+- Frontend test: `cd frontend && pnpm test` (uses Vitest, 20+ tests for hooks, utils, constants)
 - Build the Web UI: see [Build the Web UI](#build-the-web-ui) below
 
 ## Run the Orchestrator (CLI)
@@ -163,15 +163,15 @@ After building:
 
 ## Build the Web UI
 
-The Web UI is a Vite + Bun project in `frontend/`:
+The Web UI is a Vite + pnpm project in `frontend/`:
 
 ```bash
 cd frontend
-bun install
-bun run build    # outputs to orchestrator/src/interfaces/web/static/
+pnpm install
+pnpm run build    # outputs to orchestrator/src/interfaces/web/static/
 ```
 
-During development, use `bun run dev` for hot module reload at `http://localhost:5173`.
+During development, use `pnpm run dev` for hot module reload at `http://localhost:5173`.
 
 ## Run the Web UI
 

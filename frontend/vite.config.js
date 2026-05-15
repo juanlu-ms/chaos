@@ -14,5 +14,14 @@ export default defineConfig({
     outDir: '../orchestrator/src/interfaces/web/static',
     emptyOutDir: true,
   },
+  rolldownOptions: {
+    output: {
+      manualChunks: {
+        // Crea un archivo separado para las librerías pesadas
+        'vendor-ui': ['react', 'react-dom'],
+        'vendor-charts': ['recharts'],
+      },
+    },
+  },
   server: { proxy },
 });

@@ -11,6 +11,7 @@
 #include <optional>
 #include <stop_token>
 #include <string>
+#include <vector>
 
 #include "shared/TargetState.hpp"
 
@@ -25,6 +26,7 @@ struct RunSession {
     std::mutex mtx;
     std::condition_variable cv;
     std::optional<shared::TargetState> latest;
+    std::vector<std::string> pending_logs;
     bool running = false;
     bool complete = false;
     json results;

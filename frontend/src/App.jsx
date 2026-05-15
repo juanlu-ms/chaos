@@ -7,6 +7,7 @@ import { runManifest, abortRun } from './api.js';
 import { useSSEStream } from './hooks/useSSEStream.js';
 import { useStreamData } from './hooks/useStreamData.js';
 import { DEFAULT_THEME } from './theme.js';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 export default function App() {
   const [theme, setTheme] = useState(
@@ -43,31 +44,35 @@ export default function App() {
     resetData();
     setResult(null);
     setIsRunning(true);
-
-    startStream(start, {
-      onState: (s) => handleState(s, start),
-      onComplete: (payload) => finishWith(payload),
-      onServerError: (payload) => finishWith({
-        passed: false,
-        error: payload.error,
-        results: [],
-      }),
-      onConnectionError: handleConnectionError,
-      onConnectionRestored: handleConnectionRestored,
-    });
     setStep(2);
+
+    // Fire /api/run first (returns 202 quickly). Only attach SSE after the
+    // backend has set m_session, otherwise /events emits "No active run" and
+    // closes — losing all subsequent state events.
+    runManifest(m)
+      .then(() => {
+        startStream(start, {
+          onState: (s) => handleState(s, start),
+          onComplete: (payload) => finishWith(payload),
+          onServerError: (payload) => finishWith({
+            passed: false,
+            error: payload.error,
+            results: [],
+          }),
+          onConnectionError: handleConnectionError,
+          onConnectionRestored: handleConnectionRestored,
+        });
+      })
+      .catch((err) => {
+        finishWith({ passed: false, error: err.message, results: [] });
+      });
   }, [startStream, resetData, handleState, handleConnectionError, handleConnectionRestored, finishWith]);
 
   const handleRun = (m) => startRun(m);
 
-  const handleRunAgain = async () => {
+  const handleRunAgain = () => {
     if (!manifest) return;
-    try {
-      await runManifest(manifest);
-      startRun(manifest);
-    } catch (e) {
-      alert(`Failed to start: ${e.message}`);
-    }
+    startRun(manifest);
   };
 
   const handleAbort = async () => {
@@ -87,6 +92,7 @@ export default function App() {
         runActive={isRunning}
       />
       <main>
+        <ErrorBoundary onReset={() => setStep(1)} key={step}>
         {step === 1 && (
           <Step1Config initial={manifest} onRun={handleRun} />
         )}
@@ -113,6 +119,7 @@ export default function App() {
             onModify={handleModify}
           />
         )}
+        </ErrorBoundary>
       </main>
     </div>
   );

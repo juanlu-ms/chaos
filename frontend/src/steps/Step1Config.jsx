@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { getTargets, getLimits, runManifest } from '../api.js';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { getTargets, getLimits } from '../api.js';
 import PerturbationRow from './PerturbationRow.jsx';
 import ExpectationRow from './ExpectationRow.jsx';
 import { defaultParamsFor } from '../constants/perturbations.js';
@@ -39,23 +39,29 @@ export default function Step1Config({ initial, onRun }) {
   const targetSelectId = useId();
   const durationId = useId();
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadTargets = useCallback(() => {
     setLoadingTargets(true);
-    Promise.all([getTargets(), getLimits()])
+    return Promise.all([getTargets(), getLimits()])
       .then(([t, l]) => {
-        if (cancelled) return;
         setTargets(t);
         setLimits(l);
-        if (!targetIdRef.current && t.length) setTargetId(t[0].id);
+        const current = targetIdRef.current;
+        if (!current || !t.some((x) => x.id === current)) {
+          setTargetId(t[0]?.id || '');
+        }
+        setErrors((prev) =>
+          prev.filter((m) => !m.startsWith('Failed to load targets:'))
+        );
       })
       .catch((e) => {
-        if (cancelled) return;
         setErrors([`Failed to load targets: ${e.message}`]);
       })
-      .finally(() => { if (!cancelled) setLoadingTargets(false); });
-    return () => { cancelled = true; };
+      .finally(() => setLoadingTargets(false));
   }, []);
+
+  useEffect(() => {
+    loadTargets();
+  }, [loadTargets]);
 
   const submit = async () => {
     const errs = validateManifestAll({ testName, targetId, duration, perturbations, expectations });
@@ -80,10 +86,7 @@ export default function Step1Config({ initial, onRun }) {
       })),
     };
     try {
-      await runManifest(manifest);
       onRun(manifest);
-    } catch (e) {
-      setErrors([`Failed to start: ${e.message}`]);
     } finally {
       setSubmitting(false);
     }
@@ -111,19 +114,30 @@ export default function Step1Config({ initial, onRun }) {
           </div>
           <div>
             <label htmlFor={targetSelectId}>Target container</label>
-            <select
-              id={targetSelectId}
-              value={targetId}
-              onChange={(e) => setTargetId(e.target.value)}
-              disabled={loadingTargets}
-            >
-              <option value="">{loadingTargets ? '— loading… —' : '— select —'}</option>
-              {targets.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} ({t.state})
-                </option>
-              ))}
-            </select>
+            <div className="input-with-action">
+              <select
+                id={targetSelectId}
+                value={targetId}
+                onChange={(e) => setTargetId(e.target.value)}
+                disabled={loadingTargets}
+              >
+                <option value="">{loadingTargets ? '— loading… —' : '— select —'}</option>
+                {targets.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.state})
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={loadTargets}
+                disabled={loadingTargets}
+                aria-label="Refresh container list"
+                title="Refresh container list"
+              >
+                {loadingTargets ? 'Refreshing…' : '↻ Refresh'}
+              </button>
+            </div>
           </div>
           <div>
             <label htmlFor={durationId}>Duration (s)</label>

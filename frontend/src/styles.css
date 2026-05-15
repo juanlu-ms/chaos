@@ -389,6 +389,21 @@ main {
   gap: 12px;
 }
 
+.input-with-action {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.input-with-action > select,
+.input-with-action > input {
+  flex: 1;
+  min-width: 0;
+}
+.input-with-action > button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .row {
   display: grid;
   grid-template-columns: 180px 1fr auto;
@@ -423,12 +438,14 @@ main {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 16px;
+  min-width: 0;
 }
 
 .col {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
 
 .panel {
@@ -670,6 +687,8 @@ main {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px;
+  width: 100%;
+  min-width: 0;
 }
 
 .chart-card h4 {

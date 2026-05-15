@@ -48,6 +48,11 @@ export default function Step2Monitor({
       </div>
       <div className="split">
         <div className="col">
+          {data.length === 0 && isRunning && (
+            <div className="panel" role="status" style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+              Waiting for first sample…
+            </div>
+          )}
           <LiveChart title="CPU Usage" data={data} dataKey="cpu" unit="%" themeKey={theme} />
           <LiveChart title="Memory" data={data} dataKey="mem" unit="MB" themeKey={theme} />
           <LiveChart title="Network I/O" data={data} dataKey="net" themeKey={theme} formatter={formatBytesPerSec} />

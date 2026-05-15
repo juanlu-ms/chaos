@@ -28,7 +28,7 @@ export default function ChartBase({ data, dataKey, unit, title, formatter, theme
   return (
     <div className="chart-card">
       {typeof title === 'string' ? <h4>{title}</h4> : title}
-      <ResponsiveContainer width="100%" height={height}>
+      <ResponsiveContainer width="100%" height={height} minWidth={0} minHeight={height}>
         <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">

@@ -6,6 +6,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \  
     clang \
     clangd \
+    clang-format \
+    clang-tidy \
     lld \
     cmake \
     ninja-build \
@@ -21,10 +23,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     stress-ng \
     && apt-get clean -y && rm -rf /var/lib/apt/lists/*
 
-# Bun
-RUN curl -fsSL https://bun.sh/install | bash \
-    && ln -s /root/.bun/bin/bun /usr/local/bin/bun \
-    && /usr/local/bin/bun --version
+# Node.js 24.15.0 and pnpm
+ARG NODE_VERSION=24.15.0
+RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" -o /tmp/node.tar.xz \
+    && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 \
+    && rm /tmp/node.tar.xz \
+    && corepack enable pnpm \
+    && npm cache clean --force
 
 # vcpkg
 ENV VCPKG_ROOT=/vcpkg

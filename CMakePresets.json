@@ -15,26 +15,12 @@
       }
     },
     {
-      "name": "base-gcc",
-      "description": "Base GCC preset — inheritable, not selectable directly",
-      "hidden": true,
-      "inherits": ["local-env"],
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/${presetName}",
-      "cacheVariables": {
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_CXX_COMPILER": "g++-13",
-        "CMAKE_C_COMPILER": "gcc-13",
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_FEATURE_FLAGS": "manifests",
-        "VCPKG_TARGET_TRIPLET": "x64-linux"
-      }
-    },
-    {
       "name": "base-clang",
-      "description": "Base Clang preset — inheritable, not selectable directly",
+      "description": "Base Clang preset",
       "hidden": true,
-      "inherits": ["local-env"],
+      "inherits": [
+        "local-env"
+      ],
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
@@ -47,25 +33,11 @@
       }
     },
     {
-      "name": "dev-linux-gcc",
-      "displayName": "Linux GCC (Debug)",
-      "inherits": ["base-gcc"],
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
-      }
-    },
-    {
-      "name": "release-linux-gcc",
-      "displayName": "Linux GCC (Release)",
-      "inherits": ["base-gcc"],
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
-    },
-    {
       "name": "dev-linux-clang",
       "displayName": "Linux Clang (Debug)",
-      "inherits": ["base-clang"],
+      "inherits": [
+        "base-clang"
+      ],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
@@ -73,7 +45,9 @@
     {
       "name": "release-linux-clang",
       "displayName": "Linux Clang (Release)",
-      "inherits": ["base-clang"],
+      "inherits": [
+        "base-clang"
+      ],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
@@ -82,61 +56,48 @@
   "buildPresets": [
     {
       "name": "debug",
-      "configurePreset": "dev-linux-gcc",
-      "configuration": "Debug"
-    },
-    {
-      "name": "debug-clang",
       "configurePreset": "dev-linux-clang",
       "configuration": "Debug"
     },
     {
       "name": "release",
-      "configurePreset": "release-linux-gcc",
+      "configurePreset": "release-linux-clang",
       "configuration": "Release"
     },
     {
       "name": "check-format",
       "configurePreset": "dev-linux-clang",
       "configuration": "Debug",
-      "targets": ["check-format"]
+      "targets": [
+        "check-format"
+      ]
     },
     {
       "name": "format",
       "configurePreset": "dev-linux-clang",
       "configuration": "Debug",
-      "targets": ["format"]
+      "targets": [
+        "format"
+      ]
     }
   ],
   "testPresets": [
     {
-      "name": "test",
-      "configurePreset": "release-linux-gcc",
-      "configuration": "Release",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error",
-        "stopOnFailure": false
-      }
-    },
-    {
       "name": "test-debug",
-      "configurePreset": "dev-linux-gcc",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error",
-        "stopOnFailure": false
-      }
-    },
-    {
-      "name": "test-debug-clang",
       "configurePreset": "dev-linux-clang",
       "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "stopOnFailure": false
+      }
+    },
+    {
+      "name": "test-release",
+      "configurePreset": "release-linux-clang",
+      "configuration": "Release",
       "output": {
         "outputOnFailure": true
       },

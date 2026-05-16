@@ -7,7 +7,7 @@ add_executable(chaos_e2e_tests
 )
 
 target_link_libraries(chaos_e2e_tests PRIVATE
-    orchestrator_core
+    Chaos::Core
     GTest::gtest_main
 )
 

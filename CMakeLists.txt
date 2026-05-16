@@ -57,6 +57,32 @@ else()
   )
 endif()
 
+option(CHAOS_ENABLE_ASAN_UBSAN "Enable Address and Undefined Behavior Sanitizers" OFF)
+option(CHAOS_ENABLE_TSAN "Enable Thread Sanitizer (Incompatible with ASan)" OFF)
+option(CHAOS_ENABLE_COVERAGE "Enable LLVM Source-Based Code Coverage" OFF)
+
+add_library(chaos_quality_flags INTERFACE)
+
+if(CHAOS_ENABLE_ASAN_UBSAN AND CHAOS_ENABLE_TSAN)
+    message(FATAL_ERROR "ASan and TSan cannot be enabled at the same time. Choose one.")
+endif()
+
+if(CHAOS_ENABLE_ASAN_UBSAN)
+    message(STATUS "Enabling Clang Memory Sanitizers (ASan + UBSan)")
+    target_compile_options(chaos_quality_flags INTERFACE -fsanitize=address,undefined -fno-omit-frame-pointer)
+    target_link_options(chaos_quality_flags INTERFACE -fsanitize=address,undefined)
+elseif(CHAOS_ENABLE_TSAN)
+    message(STATUS "Enabling Clang Thread Sanitizer (TSan)")
+    target_compile_options(chaos_quality_flags INTERFACE -fsanitize=thread)
+    target_link_options(chaos_quality_flags INTERFACE -fsanitize=thread)
+endif()
+
+if(CHAOS_ENABLE_COVERAGE)
+    message(STATUS "Enabling LLVM Code Coverage")
+    target_compile_options(chaos_quality_flags INTERFACE -fprofile-instr-generate -fcoverage-mapping)
+    target_link_options(chaos_quality_flags INTERFACE -fprofile-instr-generate -fcoverage-mapping)
+endif()
+
 add_subdirectory(wrapper)
 add_subdirectory(orchestrator)
 add_subdirectory(tests/e2e)

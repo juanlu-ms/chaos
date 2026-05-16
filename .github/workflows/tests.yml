@@ -9,7 +9,8 @@ jobs:
   tests:
     runs-on: ubuntu-24.04
     env:
-      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      CC: clang-18
+      CXX: clang++-18
       VCPKG_BINARY_SOURCES: 'clear;x-gha,readwrite'
 
     steps:
@@ -20,55 +21,57 @@ jobs:
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
-      - name: Checkout with submodules
+      - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          submodules: true
+          submodules: false
 
-      - name: Install CMake and Ninja (cached)
+      - name: Install Toolchain (Clang 18 & Headers)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang-18 \
+            clang-format-18 \
+            lld-18 \
+            libstdc++-14-dev \
+            ninja-build
+          
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100
+
+      - name: Setup CMake
         uses: lukka/get-cmake@latest
 
-      - name: Install clang-format v22 (match dev environment)
-        run: |
-          wget -qO- https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.3/LLVM-22.1.3-Linux-X64.tar.xz \
-            | sudo tar -xJ --strip-components=1 -C /usr/local/ --wildcards '*/bin/clang-format'
-
-      - name: Get vcpkg submodule commit
-        id: vcpkg-commit
-        run: echo "sha=$(git submodule status vcpkg | awk '{print $1}' | tr -d ' -')" >> "$GITHUB_OUTPUT"
-
-      - name: Cache vcpkg directory
-        uses: actions/cache@v5
+      - name: Setup vcpkg and Cache
+        uses: lukka/run-vcpkg@11
         with:
-          path: |
-            ${{ env.VCPKG_ROOT }}
-            !${{ env.VCPKG_ROOT }}/buildtrees
-            !${{ env.VCPKG_ROOT }}/packages
-            !${{ env.VCPKG_ROOT }}/downloads
-            !${{ env.VCPKG_ROOT }}/installed
-          key: vcpkg-${{ steps.vcpkg-commit.outputs.sha }}
-          restore-keys: vcpkg-
+          vcpkgGitCommitId: '66c0373dc7fca549e5803087b9487edfe3aca0a1'
 
-      - name: Verify vcpkg toolchain
-        run: test -f "$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
-
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
         with:
-          bun-version: latest
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Build Web UI
         working-directory: frontend
-        run: bun install && bun run build
+        run: pnpm install && pnpm run build
 
-      - name: Check formatting (configures dev-linux-clang, builds check-format target)
+      - name: Check formatting
         run: cmake --workflow --preset check-format
 
-      - name: Configure release build
-        run: cmake --preset release-linux-gcc
+      - name: Configure Release
+        run: cmake --preset release-linux-clang
 
       - name: Build
         run: cmake --build --preset release
 
       - name: Test
-        run: ctest --preset test
+        run: ctest --preset test-release

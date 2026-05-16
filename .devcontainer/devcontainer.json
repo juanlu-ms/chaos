@@ -13,6 +13,8 @@
             "extensions": [
                 "ms-vscode.cmake-tools",
                 "llvm-vs-code-extensions.vscode-clangd",
+                "vadimcn.vscode-lldb",
+                "ryanluker.vscode-coverage-gutters",
                 "ms-azuretools.vscode-containers",
                 "eamodio.gitlens",
                 "SonarSource.sonarlint-vscode"
@@ -27,15 +29,22 @@
                     "--completion-style=detailed",
                     "--header-insertion=iwyu"
                 ],
+                "cmake.generator": "Ninja",
                 "cmake.exportCompileCommands": true,
                 "cmake.configureOnOpen": true,
-                "cmake.buildDirectory": "${workspaceFolder}/build"
+                "cmake.buildDirectory": "${workspaceFolder}/build",
+                "cmake.environment": {
+                    "CC": "/usr/bin/clang",
+                    "CXX": "/usr/bin/clang++"
+                },
+                "cmake.configureSettings": {
+                    "CMAKE_CXX_FLAGS": "-fuse-ld=lld"
+                }
             }
         }
     },
     "remoteEnv": {
-        "VCPKG_ROOT": "/vcpkg",
-        "PATH": "/vcpkg:${containerEnv:PATH}"
+        "PATH": "${containerEnv:VCPKG_ROOT}:${containerEnv:PATH}"
     },
     "runArgs": [
         "--privileged",
@@ -46,6 +55,6 @@
     "mounts": [
         "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
     ],
-    "postCreateCommand": "sudo chmod 666 /var/run/docker.sock && cd frontend && pnpm install",
+    "postCreateCommand": "cd frontend && pnpm install",
     "remoteUser": "vscode"
 }

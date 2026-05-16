@@ -2,7 +2,6 @@ CompileFlags:
   Add: 
     - "-Wall"
     - "-Wextra"
-    - "-Werror"
 
 Diagnostics:
   ClangTidy:

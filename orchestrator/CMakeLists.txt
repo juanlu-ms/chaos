@@ -5,6 +5,14 @@ find_package(GTest CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(LibArchive REQUIRED)
 
+add_library(chaos_compiler_flags INTERFACE)
+if(UNIX)
+    target_compile_options(chaos_compiler_flags INTERFACE
+        -Wall -Wextra -Wpedantic
+        -Wconversion -Wshadow
+    )
+endif()
+
 set(ORCHESTRATOR_SOURCES
     src/containers/ContainerEngineFactory.cpp
     src/containers/internal/DockerClient.cpp
@@ -34,6 +42,8 @@ set(ORCHESTRATOR_SOURCES
 
 add_library(orchestrator_core STATIC ${ORCHESTRATOR_SOURCES})
 
+add_library(Chaos::Core ALIAS orchestrator_core)
+
 target_include_directories(orchestrator_core
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -45,24 +55,17 @@ target_link_libraries(orchestrator_core PUBLIC
     spdlog::spdlog
     fmt::fmt
     LibArchive::LibArchive
+    chaos_compiler_flags
+    chaos_quality_flags
 )
-
-if(UNIX)
-    target_compile_options(orchestrator_core PRIVATE
-        -Wall -Wextra -Wpedantic
-        -Wconversion -Wshadow
-    )
-endif()
 
 if(CHAOS_CLANG_TIDY)
     set_target_properties(orchestrator_core PROPERTIES CXX_CLANG_TIDY "${CHAOS_CLANG_TIDY}")
 endif()
 
 add_executable(orchestrator_app src/main.cpp)
-target_include_directories(orchestrator_app PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-target_link_libraries(orchestrator_app PRIVATE orchestrator_core)
+target_include_directories(orchestrator_app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(orchestrator_app PRIVATE Chaos::Core chaos_compiler_flags)
 set_target_properties(orchestrator_app PROPERTIES OUTPUT_NAME chaos)
 
 add_executable(orchestrator_unit_tests 
@@ -87,7 +90,7 @@ target_include_directories(orchestrator_unit_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
 target_link_libraries(orchestrator_unit_tests PRIVATE
-    orchestrator_core
+    Chaos::Core
     GTest::gmock
     GTest::gtest_main
 )
@@ -108,10 +111,24 @@ target_compile_definitions(orchestrator_smoke_tests PRIVATE
     CHAOS_EXAMPLES_DIR="${CMAKE_SOURCE_DIR}/examples"
 )
 target_link_libraries(orchestrator_smoke_tests PRIVATE
-    orchestrator_core
+    Chaos::Core
     GTest::gtest_main
 )
 
 include(GoogleTest)
 gtest_discover_tests(orchestrator_unit_tests PROPERTIES LABELS "unit")
 gtest_discover_tests(orchestrator_smoke_tests PROPERTIES LABELS "smoke")
+
+if(CHAOS_ENABLE_COVERAGE)
+    add_custom_target(coverage_report
+        COMMAND ${CMAKE_CTEST_COMMAND} --preset test-debug
+        COMMAND llvm-profdata-18 merge -sparse default.profraw -o default.profdata
+        COMMAND llvm-cov-18 export $<TARGET_FILE:orchestrator_unit_tests>
+            -instr-profile=default.profdata
+            -format=lcov
+            -ignore-filename-regex="tests/|vcpkg/"
+            > ${CMAKE_BINARY_DIR}/coverage.lcov
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMENT "Generating automated coverage report in LCOV format..."
+    )
+endif()

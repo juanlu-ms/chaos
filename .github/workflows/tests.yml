@@ -1,4 +1,4 @@
-name: Tests
+name: Tests & Quality
 
 on:
   push:
@@ -6,12 +6,58 @@ on:
       - "**"
 
 jobs:
-  tests:
+  formatting:
+    name: Check Code Formatting
     runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Clang-Format 18
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-format-18
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+      - name: Check formatting
+        run: cmake --workflow --preset check-format
+
+  build_and_test:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "Release Build"
+            config_preset: "release-linux-clang"
+            build_preset: "release"
+            test_cmd: "ctest --preset test-release"
+            cmake_args: ""
+          
+          - name: "Memory Check (ASan/UBSan)"
+            config_preset: "dev-linux-clang"
+            build_preset: "debug"
+            test_cmd: "ctest --preset test-debug"
+            cmake_args: "-DCHAOS_ENABLE_ASAN_UBSAN=ON"
+          
+          - name: "Concurrency Check (TSan)"
+            config_preset: "dev-linux-clang"
+            build_preset: "debug"
+            test_cmd: "ctest --preset test-debug"
+            cmake_args: "-DCHAOS_ENABLE_TSAN=ON"
+            
+          - name: "Code Coverage"
+            config_preset: "dev-linux-clang"
+            build_preset: "debug"
+            test_cmd: "cmake --build build/dev-linux-clang --target coverage_report"
+            cmake_args: "-DCHAOS_ENABLE_COVERAGE=ON"
+
     env:
       CC: clang-18
       CXX: clang++-18
       VCPKG_BINARY_SOURCES: 'clear;x-gha,readwrite'
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
 
     steps:
       - name: Export GitHub Actions cache variables
@@ -31,20 +77,26 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             clang-18 \
-            clang-format-18 \
             lld-18 \
             libstdc++-14-dev \
             ninja-build
           
           sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 100
           sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
-          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ runner.os }}-clang-18-${{ matrix.name }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-clang-18-${{ matrix.name }}-
+          max-size: 1G
 
       - name: Setup CMake
         uses: lukka/get-cmake@latest
 
       - name: Setup vcpkg and Cache
-        uses: lukka/run-vcpkg@11
+        uses: lukka/run-vcpkg@latest
         with:
           vcpkgGitCommitId: '66c0373dc7fca549e5803087b9487edfe3aca0a1'
 
@@ -64,14 +116,19 @@ jobs:
         working-directory: frontend
         run: pnpm install && pnpm run build
 
-      - name: Check formatting
-        run: cmake --workflow --preset check-format
+      - name: Configure CMake
+        run: cmake --preset ${{ matrix.config_preset }} ${{ matrix.cmake_args }}
 
-      - name: Configure Release
-        run: cmake --preset release-linux-clang
+      - name: Build C++ Backend
+        run: cmake --build --preset ${{ matrix.build_preset }}
 
-      - name: Build
-        run: cmake --build --preset release
+      - name: Run Tests & Quality Checks
+        run: ${{ matrix.test_cmd }}
 
-      - name: Test
-        run: ctest --preset test-release
+      - name: Upload Coverage Artifact (Only for Coverage job)
+        if: matrix.name == 'Code Coverage'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcov-report
+          path: build/dev-linux-clang/coverage.lcov
+          if-no-files-found: ignore

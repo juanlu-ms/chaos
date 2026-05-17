@@ -9,15 +9,33 @@ jobs:
   formatting:
     name: Check Code Formatting
     runs-on: ubuntu-24.04
+    env:
+      VCPKG_BINARY_SOURCES: 'clear;x-gha,readwrite'
+
     steps:
+      - name: Export GitHub Actions cache variables
+        uses: actions/github-script@v9
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
       - uses: actions/checkout@v6
-      - name: Install Clang-Format 18
+
+      - name: Install Clang-Format 18 & Ninja
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang-format-18
+          sudo apt-get install -y --no-install-recommends clang-format-18 ninja-build
           sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100
+
       - name: Setup CMake
         uses: lukka/get-cmake@latest
+
+      - name: Setup vcpkg and Cache
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: '66c0373dc7fca549e5803087b9487edfe3aca0a1'
+        
       - name: Check formatting
         run: cmake --workflow --preset check-format
 
@@ -96,7 +114,7 @@ jobs:
         uses: lukka/get-cmake@latest
 
       - name: Setup vcpkg and Cache
-        uses: lukka/run-vcpkg@latest
+        uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: '66c0373dc7fca549e5803087b9487edfe3aca0a1'
 

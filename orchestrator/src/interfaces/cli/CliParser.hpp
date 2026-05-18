@@ -39,7 +39,7 @@ public:
     int run(std::span<char*> argv) const;
 
 private:
-    std::shared_ptr<containers::IContainerEngine> m_engine;
+    std::shared_ptr<containers::IContainerEngine> engine_;
     mutable core::ChaosRunner runner_;
 
     void printUsage() const;

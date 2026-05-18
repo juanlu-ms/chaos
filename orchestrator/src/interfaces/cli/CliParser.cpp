@@ -33,7 +33,7 @@ namespace {
 }  // namespace
 
 CliParser::CliParser(std::shared_ptr<containers::IContainerEngine> engine)
-    : m_engine(std::move(engine)), runner_(m_engine) {}
+    : engine_(std::move(engine)), runner_(engine_) {}
 
 int CliParser::run(std::span<char*> argv) const {
     if (argv.size() < 2) {
@@ -139,7 +139,7 @@ void CliParser::printUsage() const {
 
 int CliParser::handleList() const {
     try {
-        auto containers = m_engine->listContainers();
+        auto containers = engine_->listContainers();
         if (containers.empty()) {
             SPDLOG_INFO("No containers found.");
             return 0;
@@ -165,7 +165,7 @@ int CliParser::handleList() const {
 
 int CliParser::handleStop(const std::string& containerId) const {
     try {
-        m_engine->stopContainer(containerId);
+        engine_->stopContainer(containerId);
         SPDLOG_INFO("Container {} stopped.", containerId);
     } catch (const std::invalid_argument& ex) {
         SPDLOG_ERROR("Failed to stop container {}: {}", containerId, ex.what());
@@ -180,7 +180,7 @@ int CliParser::handleStop(const std::string& containerId) const {
 
 int CliParser::handleKill(const std::string& containerId) const {
     try {
-        m_engine->killContainer(containerId);
+        engine_->killContainer(containerId);
         SPDLOG_INFO("Container {} killed.", containerId);
     } catch (const std::invalid_argument& ex) {
         SPDLOG_ERROR("Failed to kill container {}: {}", containerId, ex.what());
@@ -195,7 +195,7 @@ int CliParser::handleKill(const std::string& containerId) const {
 
 int CliParser::handleServe(int port) const {
     try {
-        auto server = interfaces::web::Server(m_engine);
+        auto server = interfaces::web::Server(engine_);
         server.listen(port);
     } catch (const std::system_error& ex) {
         SPDLOG_ERROR("Server error: {}", ex.what());
@@ -240,7 +240,7 @@ shared::TargetState CliParser::runPerturbationsLoop(
     perturbations::PerturbationEngine pert_engine;
     pert_engine.scheduleAllAsync(std::move(perturbations), duration);
 
-    observability::ObservabilityEngine obs(m_engine);
+    observability::ObservabilityEngine obs(engine_);
     shared::TargetState lastKnownState{};
     shared::StateBroadcaster broadcaster;
 

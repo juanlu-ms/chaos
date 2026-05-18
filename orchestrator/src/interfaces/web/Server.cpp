@@ -44,30 +44,30 @@ std::optional<std::filesystem::path> findWebRoot() {
 }
 }  // namespace
 
-Server::Server(std::shared_ptr<containers::IContainerEngine> engine) : m_engine(std::move(engine)), runner_(m_engine) {
+Server::Server(std::shared_ptr<containers::IContainerEngine> engine) : engine_(std::move(engine)), runner_(engine_) {
     setupRoutes();
 }
 
 void Server::listen(int port) {
     SPDLOG_INFO("chaos listening to http://127.0.0.1:{}", port);
-    m_server.listen("127.0.0.1", port);
+    server_.listen("127.0.0.1", port);
 }
 
 void Server::setupRoutes() {
     if (auto webRoot = findWebRoot(); webRoot.has_value()) {
-        if (!m_server.set_mount_point("/", webRoot->string())) {
+        if (!server_.set_mount_point("/", webRoot->string())) {
             SPDLOG_WARN("Failed to mount static UI from {}", webRoot->string());
         } else {
             SPDLOG_INFO("Serving static UI from {}", webRoot->string());
         }
 
-        m_server.Get(
-            "/", [](const httplib::Request&, httplib::Response& response) { response.set_redirect("/index.html"); });
+        server_.Get("/",
+                    [](const httplib::Request&, httplib::Response& response) { response.set_redirect("/index.html"); });
     } else {
         SPDLOG_WARN("Static UI not found. Expected orchestrator/src/interfaces/web/static relative to project root.");
     }
 
-    m_server.Get("/status", [](const httplib::Request&, httplib::Response& response) {
+    server_.Get("/status", [](const httplib::Request&, httplib::Response& response) {
         json result;
         result["project"] = "Chaos Engine";
         result["status"] = "Online (Web Adapter)";
@@ -75,10 +75,10 @@ void Server::setupRoutes() {
         response.set_content(result.dump(4), "application/json");
     });
 
-    m_server.Get("/containers", [this](const httplib::Request&, httplib::Response& response) {
+    server_.Get("/containers", [this](const httplib::Request&, httplib::Response& response) {
         try {
             SPDLOG_DEBUG("/containers requested");
-            auto containers = m_engine->listContainers();
+            auto containers = engine_->listContainers();
             json result = json::array();
             for (const auto& container : containers) {
                 result.push_back({{"id", container.id}, {"name", container.name}, {"state", container.state}});
@@ -94,7 +94,7 @@ void Server::setupRoutes() {
         }
     });
 
-    m_server.Post(R"(/containers/([^/]+)/stop)", [this](const httplib::Request& request, httplib::Response& response) {
+    server_.Post(R"(/containers/([^/]+)/stop)", [this](const httplib::Request& request, httplib::Response& response) {
         if (request.matches.size() < 2) {
             response.status = 400;
             response.set_content(R"({"error":"Missing container id"})", "application/json");
@@ -104,7 +104,7 @@ void Server::setupRoutes() {
         const std::string containerId = request.matches[1];
         try {
             SPDLOG_INFO("/containers/{}/stop requested", containerId);
-            m_engine->stopContainer(containerId);
+            engine_->stopContainer(containerId);
             json result;
             result["status"] = "ok";
             result["action"] = "stop";
@@ -119,7 +119,7 @@ void Server::setupRoutes() {
         }
     });
 
-    m_server.Post(R"(/containers/([^/]+)/kill)", [this](const httplib::Request& request, httplib::Response& response) {
+    server_.Post(R"(/containers/([^/]+)/kill)", [this](const httplib::Request& request, httplib::Response& response) {
         if (request.matches.size() < 2) {
             response.status = 400;
             response.set_content(R"({"error":"Missing container id"})", "application/json");
@@ -129,7 +129,7 @@ void Server::setupRoutes() {
         const std::string containerId = request.matches[1];
         try {
             SPDLOG_INFO("/containers/{}/kill requested", containerId);
-            m_engine->killContainer(containerId);
+            engine_->killContainer(containerId);
             json result;
             result["status"] = "ok";
             result["action"] = "kill";
@@ -144,7 +144,7 @@ void Server::setupRoutes() {
         }
     });
 
-    m_server.Get(R"(/containers/([^/]+)/logs)", [this](const httplib::Request& request, httplib::Response& response) {
+    server_.Get(R"(/containers/([^/]+)/logs)", [this](const httplib::Request& request, httplib::Response& response) {
         if (request.matches.size() < 2) {
             response.status = 400;
             response.set_content("Missing container id", "text/plain");
@@ -152,7 +152,7 @@ void Server::setupRoutes() {
         }
         const std::string id = request.matches[1];
         try {
-            const auto logs = m_engine->getLogs(id);
+            const auto logs = engine_->getLogs(id);
             response.set_content(logs, "text/plain");
         } catch (const std::exception& ex) {
             response.status = 500;
@@ -165,30 +165,30 @@ void Server::setupRoutes() {
 
     // --- New API endpoints ---
 
-    m_server.Get("/api/targets", [this](const httplib::Request& request, httplib::Response& response) {
+    server_.Get("/api/targets", [this](const httplib::Request& request, httplib::Response& response) {
         handleTargets(request, response);
     });
 
-    m_server.Get("/api/limits", [this](const httplib::Request& request, httplib::Response& response) {
+    server_.Get("/api/limits", [this](const httplib::Request& request, httplib::Response& response) {
         handleLimits(request, response);
     });
 
-    m_server.Post("/api/run", [this](const httplib::Request& request, httplib::Response& response) {
+    server_.Post("/api/run", [this](const httplib::Request& request, httplib::Response& response) {
         handleRun(request, response);
     });
 
-    m_server.Post("/api/run/abort", [this](const httplib::Request& request, httplib::Response& response) {
+    server_.Post("/api/run/abort", [this](const httplib::Request& request, httplib::Response& response) {
         handleAbort(request, response);
     });
 
-    m_server.Get("/events", [this](const httplib::Request& request, httplib::Response& response) {
+    server_.Get("/events", [this](const httplib::Request& request, httplib::Response& response) {
         handleEvents(request, response);
     });
 }
 
 void Server::handleTargets(const httplib::Request&, httplib::Response& response) {
     try {
-        auto containers = m_engine->listContainers();
+        auto containers = engine_->listContainers();
         json result = json::array();
         for (const auto& container : containers) {
             result.push_back({{"id", container.id}, {"name", container.name}, {"state", container.state}});
@@ -206,7 +206,7 @@ void Server::handleTargets(const httplib::Request&, httplib::Response& response)
 
 void Server::handleLimits(const httplib::Request&, httplib::Response& response) {
     try {
-        auto info = m_engine->getSystemInfo();
+        auto info = engine_->getSystemInfo();
         json result = limitsToJson(info);
         response.set_content(result.dump(4), "application/json");
         SPDLOG_INFO("/api/limits served");
@@ -234,19 +234,19 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
 
         {
             std::lock_guard<std::mutex> lock(session_mutex_);
-            m_session.reset();
+            session_.reset();
         }
 
         auto session = std::make_shared<RunSession>();
         {
             std::lock_guard<std::mutex> lock(session_mutex_);
-            m_session = session;
+            session_ = session;
             session->running = true;
         }
 
         auto perturbation_instances = runner_.buildPerturbations(manifest);
 
-        std::thread([engine = m_engine, session, manifest = std::move(manifest),
+        std::thread([engine = engine_, session, manifest = std::move(manifest),
                      perturbation_instances = std::move(perturbation_instances)]() mutable {
             try {
                 using namespace std::chrono;
@@ -462,7 +462,7 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& response) 
     std::shared_ptr<RunSession> session;
     {
         std::lock_guard<std::mutex> lock(session_mutex_);
-        session = m_session;
+        session = session_;
     }
 
     response.set_chunked_content_provider(
@@ -528,13 +528,13 @@ void Server::handleAbort(const httplib::Request&, httplib::Response& response) {
     std::shared_ptr<RunSession> session;
     {
         std::lock_guard<std::mutex> lock(session_mutex_);
-        if (!m_session || !m_session->running) {
+        if (!session_ || !session_->running) {
             json error = {{"error", "No active run to abort"}};
             response.status = 409;
             response.set_content(error.dump(4), "application/json");
             return;
         }
-        session = m_session;
+        session = session_;
     }
     {
         std::lock_guard<std::mutex> lock(session->mtx);

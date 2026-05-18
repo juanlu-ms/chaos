@@ -32,12 +32,12 @@ public:
     void listen(int port);
 
 private:
-    httplib::Server m_server;
-    std::shared_ptr<containers::IContainerEngine> m_engine;
+    httplib::Server server_;
+    std::shared_ptr<containers::IContainerEngine> engine_;
     core::ChaosRunner runner_;
 
     std::mutex session_mutex_;
-    std::shared_ptr<RunSession> m_session;
+    std::shared_ptr<RunSession> session_;
 
     void setupRoutes();
     void handleRun(const httplib::Request& req, httplib::Response& res);

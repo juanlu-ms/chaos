@@ -14,6 +14,7 @@
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 
+#include "containers/IContainerEngine.hpp"
 #include "shared/ContainerStatus.hpp"
 
 namespace {
@@ -368,7 +369,7 @@ std::string DockerClient::exec(const std::string_view containerId, const std::st
     }
     const auto execId = createJson["Id"].get<std::string>();
 
-    nlohmann::json startConfig = {
+    const nlohmann::json startConfig = {
         {"Detach", false},
         {"Tty", false},
     };
@@ -377,6 +378,13 @@ std::string DockerClient::exec(const std::string_view containerId, const std::st
     if (startResponse.status != 200) {
         SPDLOG_ERROR("Docker exec start failed with status {}: {}", startResponse.status, startResponse.body);
         throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", startResponse.status));
+    }
+
+    const auto exitResponse = request_(HttpMethod::GET, fmt::format("/exec/{}/json", execId), "");
+    if (const auto exitJson = parseResponse(exitResponse);
+        exitJson.contains("ExitCode") && exitJson["ExitCode"].get<int>() != 0) {
+        throw containers::ContainerEngineError(fmt::format("Command '{}' in container '{}' exited with code {}",
+                                                           command, containerId, exitJson["ExitCode"].get<int>()));
     }
 
     SPDLOG_INFO("DockerClient: command executed successfully in container {}", containerId);

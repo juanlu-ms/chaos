@@ -47,8 +47,8 @@ void NetworkCutoffPerturbation::apply() {
 
         it = params_.find("src_port");
         if (it != params_.end()) {
-            addRule("-A INPUT -p tcp --dport " + it->second + " -j DROP",
-                    "-D INPUT -p tcp --dport " + it->second + " -j DROP");
+            addRule("-A INPUT -p tcp --sport " + it->second + " -j DROP",
+                    "-D INPUT -p tcp --sport " + it->second + " -j DROP");
         }
 
         if (!hasFilter) {

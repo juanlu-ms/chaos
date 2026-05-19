@@ -62,3 +62,6 @@ RUN git config --global --add safe.directory ${VCPKG_ROOT} \
     && vcpkg install --triplet x64-linux --clean-after-build
 
 ENV PATH="/usr/lib/ccache:${PATH}"
+
+# Set the working directory to the project folder
+WORKDIR /workspaces/chaos

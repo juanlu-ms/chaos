@@ -16,8 +16,7 @@ NetworkCutoffPerturbation::NetworkCutoffPerturbation(std::shared_ptr<containers:
     : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
 
 void NetworkCutoffPerturbation::apply() {
-    bool expected = false;
-    if (!hasBeenApplied_.compare_exchange_strong(expected, true)) {
+    if (bool expected = false; !hasBeenApplied_.compare_exchange_strong(expected, true)) {
         SPDLOG_WARN("Network Cutoff Perturbation already applied to target {}, skipping", target_id_);
         return;
     }
@@ -67,8 +66,7 @@ void NetworkCutoffPerturbation::apply() {
 }
 
 void NetworkCutoffPerturbation::revert() {
-    bool expected = true;
-    if (!hasBeenApplied_.compare_exchange_strong(expected, false)) {
+    if (bool expected = true; !hasBeenApplied_.compare_exchange_strong(expected, false)) {
         SPDLOG_WARN("Network Cutoff Perturbation was not applied, skipping revert");
         return;
     }

@@ -14,8 +14,7 @@ MemoryCapPerturbation::MemoryCapPerturbation(std::shared_ptr<containers::IContai
     : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
 
 void MemoryCapPerturbation::apply() {
-    bool expected = false;
-    if (!hasBeenApplied_.compare_exchange_strong(expected, true)) {
+    if (bool expected = false; !hasBeenApplied_.compare_exchange_strong(expected, true)) {
         SPDLOG_WARN("Memory Cap Perturbation already applied to target {}, skipping", target_id_);
         return;
     }
@@ -41,8 +40,7 @@ void MemoryCapPerturbation::apply() {
 }
 
 void MemoryCapPerturbation::revert() {
-    bool expected = true;
-    if (!hasBeenApplied_.compare_exchange_strong(expected, false)) {
+    if (bool expected = true; !hasBeenApplied_.compare_exchange_strong(expected, false)) {
         SPDLOG_WARN("Memory Cap Perturbation was not applied, skipping revert");
         return;
     }

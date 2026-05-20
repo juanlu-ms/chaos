@@ -59,3 +59,18 @@ TEST(SignalHandlerGuardTest, SignalWritesToPipe) {
     ssize_t n = ::read(guard.readEnd(), &dummy, sizeof(dummy));
     EXPECT_GT(n, 0);
 }
+
+/**
+ * @test Verifies stop_requested() becomes true after SIGINT.
+ */
+TEST(SignalHandlerGuardTest, StopTokenIsRequestedAfterSignal) {
+    SignalHandlerGuard guard;
+    ASSERT_TRUE(guard.valid());
+
+    EXPECT_FALSE(guard.token().stop_requested());
+
+    std::raise(SIGINT);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    EXPECT_TRUE(guard.token().stop_requested());
+}

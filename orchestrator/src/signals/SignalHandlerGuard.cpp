@@ -18,6 +18,7 @@ std::stop_source g_stop_source;
 int g_signal_pipe[2] = {-1, -1};
 
 void signalHandler(int) {
+    g_stop_source.request_stop();
     int dummy = 1;
     [[maybe_unused]] ssize_t result = ::write(g_signal_pipe[1], &dummy, sizeof(dummy));
 }

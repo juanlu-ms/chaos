@@ -47,7 +47,7 @@ export function useStreamData() {
     setLastState(s);
     lastStateRef.current = s;
 
-    if (s.recent_logs && s.recent_logs.length) {
+    if (s.recent_logs?.length) {
       // Prefer a backend-provided sequence id when available.
       if (typeof s.log_seq === 'number') {
         if (s.log_seq > lastSeqRef.current) {

@@ -560,7 +560,8 @@ containers::ContainerStats DockerClient::getStats(const std::string_view contain
     }
 
     // Network I/O — cumulative bytes across all interfaces.
-    double rx_bytes = 0, tx_bytes = 0;
+    double rx_bytes = 0;
+    double tx_bytes = 0;
     if (jsonResponse.contains("networks") && jsonResponse["networks"].is_object()) {
         for (const auto& [iface, net] : jsonResponse["networks"].items()) {
             if (net.contains("rx_bytes") && net["rx_bytes"].is_number()) rx_bytes += net["rx_bytes"].get<double>();

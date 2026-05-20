@@ -33,7 +33,7 @@ public:
      * @return Handle that can be used to unsubscribe.
      */
     Handle subscribe(StateCallback callback) {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard lock(mutex_);
         auto id = ++next_id_;
         subscribers_.push_back({id, std::move(callback)});
         return Handle{id};
@@ -44,7 +44,7 @@ public:
      * @param handle Handle returned by subscribe().
      */
     void unsubscribe(Handle handle) {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard lock(mutex_);
         auto it =
             std::remove_if(subscribers_.begin(), subscribers_.end(), [&](const Entry& e) { return e.id == handle.id; });
         subscribers_.erase(it, subscribers_.end());
@@ -57,7 +57,7 @@ public:
     void broadcast(const TargetState& state) {
         std::vector<Entry> snapshot;
         {
-            std::lock_guard<std::mutex> lock(mutex_);
+            std::lock_guard lock(mutex_);
             snapshot = subscribers_;
         }
 

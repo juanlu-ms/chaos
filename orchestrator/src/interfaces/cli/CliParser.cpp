@@ -253,7 +253,7 @@ shared::TargetState CliParser::runPerturbationsLoop(
         const auto end_time = std::chrono::steady_clock::now() + duration;
 
         while (std::chrono::steady_clock::now() < end_time) {
-            int dummy;
+            int dummy = 0;
             ssize_t n = ::read(signal_guard.readEnd(), &dummy, sizeof(dummy));
             if (n > 0) {
                 break;

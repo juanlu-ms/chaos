@@ -163,8 +163,6 @@ void Server::setupRoutes() {
         }
     });
 
-    // --- New API endpoints ---
-
     server_.Get("/api/targets", [this](const httplib::Request& request, httplib::Response& response) {
         handleTargets(request, response);
     });
@@ -233,13 +231,13 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
         SPDLOG_INFO("Executing manifest '{}' against target '{}' (async)", manifest.test_name, manifest.target.id);
 
         {
-            std::lock_guard<std::mutex> lock(session_mutex_);
+            std::lock_guard lock(session_mutex_);
             session_.reset();
         }
 
         auto session = std::make_shared<RunSession>();
         {
-            std::lock_guard<std::mutex> lock(session_mutex_);
+            std::lock_guard lock(session_mutex_);
             session_ = session;
             session->running = true;
         }
@@ -263,7 +261,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
 
                 // Phase manager — runs on the calling thread.
                 {
-                    std::lock_guard<std::mutex> lock(session->mtx);
+                    std::lock_guard lock(session->mtx);
                     session->phase = "normal";
                 }
 
@@ -311,7 +309,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                             }
                         }
                         {
-                            std::lock_guard<std::mutex> lock(session->mtx);
+                            std::lock_guard lock(session->mtx);
                             session->latest = std::move(state);
                         }
                         session->cv.notify_all();
@@ -332,7 +330,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                         std::vector<std::string> logLines;
                         parseLogLines(rawLogs, logLines);
                         {
-                            std::lock_guard<std::mutex> lock(session->mtx);
+                            std::lock_guard lock(session->mtx);
                             session->pending_logs = std::move(logLines);
                         }
                         session->cv.notify_all();
@@ -359,7 +357,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                     pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration, session_stop);
                     SPDLOG_INFO("Injecting faults for {}s.", duration.count());
                     {
-                        std::lock_guard<std::mutex> lock(session->mtx);
+                        std::lock_guard lock(session->mtx);
                         session->phase = "chaos";
                     }
                     session->cv.notify_all();
@@ -377,7 +375,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                 // Teardown and recovery.
                 pert_engine.waitForTeardown();
                 {
-                    std::lock_guard<std::mutex> lock(session->mtx);
+                    std::lock_guard lock(session->mtx);
                     if (session->latest.has_value()) {
                         session->latest->container_ip = lastKnownState.container_ip;
                     } else {
@@ -408,7 +406,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                 }
 
                 {
-                    std::lock_guard<std::mutex> lock(session->mtx);
+                    std::lock_guard lock(session->mtx);
                     if (!session->running) {
                         return;
                     }
@@ -421,7 +419,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                 // jthread destructors call request_stop() + join() here.
             } catch (const std::exception& ex) {
                 {
-                    std::lock_guard<std::mutex> lock(session->mtx);
+                    std::lock_guard lock(session->mtx);
                     if (!session->running) {
                         return;
                     }
@@ -461,14 +459,13 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& response) 
 
     std::shared_ptr<RunSession> session;
     {
-        std::lock_guard<std::mutex> lock(session_mutex_);
+        std::lock_guard lock(session_mutex_);
         session = session_;
     }
 
     response.set_chunked_content_provider(
-        "text/event-stream",
-        [session, wasCompleteAtConnect = session ? session->complete : false](size_t /*offset*/,
-                                                                              httplib::DataSink& sink) -> bool {
+        "text/event-stream", [session, wasCompleteAtConnect = session ? session->complete : false](
+                                 size_t /*offset*/, httplib::DataSink const& sink) {
             if (!session) {
                 if (!sink.write("event: error\ndata: {\"error\":\"No active run\"}\n\n", 47)) {
                     return false;
@@ -485,7 +482,7 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& response) 
                 return false;
             }
 
-            std::unique_lock<std::mutex> lock(session->mtx);
+            std::unique_lock lock(session->mtx);
             session->cv.wait_for(lock, std::chrono::milliseconds(100),
                                  [session]() { return session->latest.has_value() || session->complete; });
 
@@ -495,8 +492,8 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& response) 
                     session->pending_logs.clear();
                 }
                 auto stateJson = stateToJson(*session->latest, session->phase);
-                std::string data = "event: state\ndata: " + stateJson.dump() + "\n\n";
-                if (!sink.write(data.data(), data.size())) {
+                if (std::string data = "event: state\ndata: " + stateJson.dump() + "\n\n";
+                    !sink.write(data.data(), data.size())) {
                     return false;
                 }
                 session->latest.reset();
@@ -527,7 +524,7 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& response) 
 void Server::handleAbort(const httplib::Request&, httplib::Response& response) {
     std::shared_ptr<RunSession> session;
     {
-        std::lock_guard<std::mutex> lock(session_mutex_);
+        std::lock_guard lock(session_mutex_);
         if (!session_ || !session_->running) {
             json error = {{"error", "No active run to abort"}};
             response.status = 409;
@@ -537,7 +534,7 @@ void Server::handleAbort(const httplib::Request&, httplib::Response& response) {
         session = session_;
     }
     {
-        std::lock_guard<std::mutex> lock(session->mtx);
+        std::lock_guard lock(session->mtx);
         session->error = "Aborted by user";
         session->complete = true;
         session->running = false;

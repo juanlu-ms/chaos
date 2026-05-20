@@ -20,28 +20,27 @@ void PerturbationEngine::scheduleAllAsync(std::vector<std::unique_ptr<IPerturbat
                                           std::chrono::seconds duration, std::stop_token external_stop) {
     stop_source_ = std::stop_source{};
 
-    std::lock_guard<std::mutex> lock(threads_mutex_);
+    std::lock_guard lock(threads_mutex_);
     active_threads_.reserve(active_threads_.size() + perturbations.size());
 
     for (auto& perturbation : perturbations) {
         auto internal_token = stop_source_.get_token();
-        active_threads_.emplace_back([this, duration, perturbation = std::move(perturbation), internal_token,
-                                      external_stop]() mutable {
-            try {
-                perturbation->apply();
+        active_threads_.emplace_back(
+            [this, duration, perturbation = std::move(perturbation), internal_token, external_stop]() mutable {
+                try {
+                    perturbation->apply();
 
-                std::unique_lock<std::mutex> lock(threads_mutex_);
-                cancel_cv_.wait_for(lock, duration,
-                                    [&] { return internal_token.stop_requested() || external_stop.stop_requested(); });
-                lock.unlock();
+                    std::unique_lock lock(threads_mutex_);
+                    cancel_cv_.wait_for(lock, duration, [&internal_token, &external_stop] {
+                        return internal_token.stop_requested() || external_stop.stop_requested();
+                    });
+                    lock.unlock();
 
-                perturbation->revert();
-            } catch (const std::exception& e) {
-                SPDLOG_ERROR("Perturbation task failed: {}", e.what());
-            } catch (...) {
-                SPDLOG_ERROR("Perturbation task failed: unknown error");
-            }
-        });
+                    perturbation->revert();
+                } catch (const std::exception& e) {
+                    SPDLOG_ERROR("Perturbation task failed: {}", e.what());
+                }
+            });
     }
 }
 
@@ -53,7 +52,7 @@ void PerturbationEngine::cancel() {
 void PerturbationEngine::waitForTeardown() {
     std::vector<std::jthread> threads;
     {
-        std::lock_guard<std::mutex> lock(threads_mutex_);
+        std::lock_guard lock(threads_mutex_);
         threads.swap(active_threads_);
     }
     for (auto& thread : threads) {

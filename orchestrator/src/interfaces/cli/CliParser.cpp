@@ -258,9 +258,6 @@ shared::TargetState CliParser::runPerturbationsLoop(
             if (n > 0) {
                 break;
             }
-            if (n == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-                // No data available — this is normal for non-blocking pipe
-            }
 
             lastKnownState = obs.observe(targetId);
             broadcaster.broadcast(lastKnownState);

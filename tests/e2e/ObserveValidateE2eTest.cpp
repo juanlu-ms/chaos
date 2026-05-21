@@ -37,22 +37,26 @@ protected:
         }
     }
 
+    std::shared_ptr<IContainerEngine> engine() const { return engine_; }
+    const std::string& containerId() const { return containerId_; }
+
+private:
     std::shared_ptr<IContainerEngine> engine_;
     std::string containerId_;
 };
 
 TEST_F(ObserveValidateE2eTest, ObserveReturnsRunningState) {
-    ObservabilityEngine observer(engine_);
-    const auto state = observer.observe(containerId_);
+    ObservabilityEngine observer(engine());
+    const auto state = observer.observe(containerId());
 
-    EXPECT_EQ(state.container_id, containerId_);
+    EXPECT_EQ(state.container_id, containerId());
     EXPECT_EQ(state.status, ContainerStatus::Running);
     EXPECT_TRUE(state.memory_usage_mb.has_value());
 }
 
 TEST_F(ObserveValidateE2eTest, ValidateContainerRunningExpectation) {
-    ObservabilityEngine observer(engine_);
-    const auto state = observer.observe(containerId_);
+    ObservabilityEngine observer(engine());
+    const auto state = observer.observe(containerId());
 
     std::vector<Expectation> expectations = {
         {"container_running", Parameters{}},
@@ -65,8 +69,8 @@ TEST_F(ObserveValidateE2eTest, ValidateContainerRunningExpectation) {
 }
 
 TEST_F(ObserveValidateE2eTest, ValidateContainerNotRunningFails) {
-    ObservabilityEngine observer(engine_);
-    const auto state = observer.observe(containerId_);
+    ObservabilityEngine observer(engine());
+    const auto state = observer.observe(containerId());
 
     std::vector<Expectation> expectations = {
         {"container_not_running", Parameters{}},
@@ -78,10 +82,10 @@ TEST_F(ObserveValidateE2eTest, ValidateContainerNotRunningFails) {
 }
 
 TEST_F(ObserveValidateE2eTest, ObserveStoppedContainerReturnsExitedState) {
-    engine_->stopContainer(containerId_);
+    engine()->stopContainer(containerId());
 
-    ObservabilityEngine observer(engine_);
-    const auto state = observer.observe(containerId_);
+    ObservabilityEngine observer(engine());
+    const auto state = observer.observe(containerId());
 
     EXPECT_EQ(state.status, ContainerStatus::Exited);
 }

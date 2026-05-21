@@ -34,7 +34,7 @@ void NetworkDelayPerturbation::apply() {
     const std::string& delay = delay_it->second;
 
     try {
-        (void)engine_->exec(target_id_, fmt::format("tc qdisc add dev eth0 root netem delay {}ms", delay));
+        (void)engine_->execInNetNs(target_id_, fmt::format("tc qdisc add dev eth0 root netem delay {}ms", delay));
         SPDLOG_INFO("Network Delay Perturbation applied: delay={}ms on target {}", delay, target_id_);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
@@ -53,7 +53,7 @@ void NetworkDelayPerturbation::revert() {
     }
 
     try {
-        (void)engine_->exec(target_id_, "tc qdisc del dev eth0 root netem");
+        (void)engine_->execInNetNs(target_id_, "tc qdisc del dev eth0 root netem");
         SPDLOG_INFO("Network Delay Perturbation reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),

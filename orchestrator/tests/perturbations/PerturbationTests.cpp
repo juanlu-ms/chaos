@@ -260,10 +260,11 @@ TEST(PerturbationTests, GarbagePacketRevertCallsExecWithDeleteCommand) {
     manifests::Perturbation spec{"garbage_packet", {{"corrupt_pct", "5%"}}};
 
     testing::InSequence seq;
-    EXPECT_CALL(*mockEngine,
-                exec(std::string_view("target"), std::string_view("tc qdisc add dev eth0 root netem corrupt 5%")))
+    EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target"),
+                                         std::string_view("tc qdisc add dev eth0 root netem corrupt 5%")))
         .WillOnce(Return(std::string{}));
-    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("tc qdisc del dev eth0 root netem")))
+    EXPECT_CALL(*mockEngine,
+                execInNetNs(std::string_view("target"), std::string_view("tc qdisc del dev eth0 root netem")))
         .WillOnce(Return(std::string{}));
 
     perturbations::GarbagePacketPerturbation pert(mockEngine, "target", spec);
@@ -285,15 +286,15 @@ TEST(PerturbationTests, GarbagePacketThrowsOnEmptyTargetId) {
 /**
  * @test Verifies NetworkDelayPerturbation::apply calls exec with the correct tc netem command.
  *
- * Now that NetworkDelayPerturbation delegates to IContainerEngine::exec, it can be
+ * Now that NetworkDelayPerturbation delegates to IContainerEngine::execInNetNs, it can be
  * fully verified through the mock without any real Docker dependency.
  */
 TEST(PerturbationTests, NetworkDelayApplyCallsExecWithCorrectCommand) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     manifests::Perturbation spec{"network_delay", {{"delay_ms", "100"}}};
 
-    EXPECT_CALL(*mockEngine,
-                exec(std::string_view("target-c"), std::string_view("tc qdisc add dev eth0 root netem delay 100ms")))
+    EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target-c"),
+                                         std::string_view("tc qdisc add dev eth0 root netem delay 100ms")))
         .Times(1)
         .WillOnce(Return(std::string{}));
 
@@ -309,10 +310,11 @@ TEST(PerturbationTests, NetworkDelayRevertCallsExecWithCorrectCommand) {
     manifests::Perturbation spec{"network_delay", {{"delay_ms", "50"}}};
 
     testing::InSequence seq;
-    EXPECT_CALL(*mockEngine,
-                exec(std::string_view("target-c"), std::string_view("tc qdisc add dev eth0 root netem delay 50ms")))
+    EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target-c"),
+                                         std::string_view("tc qdisc add dev eth0 root netem delay 50ms")))
         .WillOnce(Return(std::string{}));
-    EXPECT_CALL(*mockEngine, exec(std::string_view("target-c"), std::string_view("tc qdisc del dev eth0 root netem")))
+    EXPECT_CALL(*mockEngine,
+                execInNetNs(std::string_view("target-c"), std::string_view("tc qdisc del dev eth0 root netem")))
         .WillOnce(Return(std::string{}));
 
     perturbations::NetworkDelayPerturbation pert(mockEngine, "target-c", spec);
@@ -328,7 +330,7 @@ TEST(PerturbationTests, NetworkDelayApplyIsSkippedWhenAlreadyApplied) {
     manifests::Perturbation spec{"network_delay", {{"delay_ms", "100"}}};
 
     // exec should be called only once despite two apply() calls
-    EXPECT_CALL(*mockEngine, exec(::testing::_, ::testing::_)).Times(1).WillOnce(Return(std::string{}));
+    EXPECT_CALL(*mockEngine, execInNetNs(::testing::_, ::testing::_)).Times(1).WillOnce(Return(std::string{}));
 
     perturbations::NetworkDelayPerturbation pert(mockEngine, "target-c", spec);
     pert.apply();
@@ -342,7 +344,7 @@ TEST(PerturbationTests, NetworkDelayRevertIsNoOpWhenNotApplied) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     manifests::Perturbation spec{"network_delay", {{"delay_ms", "100"}}};
 
-    EXPECT_CALL(*mockEngine, exec(::testing::_, ::testing::_)).Times(0);
+    EXPECT_CALL(*mockEngine, execInNetNs(::testing::_, ::testing::_)).Times(0);
 
     perturbations::NetworkDelayPerturbation pert(mockEngine, "target-c", spec);
     EXPECT_NO_THROW(pert.revert());
@@ -378,8 +380,8 @@ TEST(PerturbationTests, MemoryCapApplyCallsUpdateResourcesWithCorrectLimit) {
 TEST(PerturbationTests, GarbagePacketApplyCallsExecWithDefaultNetemCommand) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     manifests::Perturbation spec{"garbage_packet", {}};
-    EXPECT_CALL(*mockEngine,
-                exec(std::string_view("target"), std::string_view("tc qdisc add dev eth0 root netem corrupt 100")))
+    EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target"),
+                                         std::string_view("tc qdisc add dev eth0 root netem corrupt 100")))
         .Times(1)
         .WillOnce(Return(std::string{}));
     perturbations::GarbagePacketPerturbation pert(mockEngine, "target", spec);
@@ -391,9 +393,9 @@ TEST(PerturbationTests, NetworkCutoffApplyCallsExecWithIptablesDropRules) {
     manifests::Perturbation spec{"network_cutoff", {}};
 
     testing::InSequence seq;
-    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -A OUTPUT -j DROP")))
+    EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target"), std::string_view("iptables -A OUTPUT -j DROP")))
         .WillOnce(Return(std::string{}));
-    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -A INPUT -j DROP")))
+    EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target"), std::string_view("iptables -A INPUT -j DROP")))
         .WillOnce(Return(std::string{}));
 
     perturbations::NetworkCutoffPerturbation pert(mockEngine, "target", spec);
@@ -421,13 +423,13 @@ TEST(PerturbationTests, NetworkCutoffRevertCallsExecWithDeleteRules) {
     // apply() calls addRule(OUTPUT first, then INPUT) — each calls exec with "iptables -A ..."
     // revertCommands_ is populated in same order, so revert() calls "iptables -D OUTPUT ..." then "iptables -D INPUT
     // ..."
-    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -A OUTPUT -j DROP")))
+    EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target"), std::string_view("iptables -A OUTPUT -j DROP")))
         .WillOnce(Return(std::string{}));
-    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -A INPUT -j DROP")))
+    EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target"), std::string_view("iptables -A INPUT -j DROP")))
         .WillOnce(Return(std::string{}));
-    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -D OUTPUT -j DROP")))
+    EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target"), std::string_view("iptables -D OUTPUT -j DROP")))
         .WillOnce(Return(std::string{}));
-    EXPECT_CALL(*mockEngine, exec(std::string_view("target"), std::string_view("iptables -D INPUT -j DROP")))
+    EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target"), std::string_view("iptables -D INPUT -j DROP")))
         .WillOnce(Return(std::string{}));
 
     perturbations::NetworkCutoffPerturbation pert(mockEngine, "target", spec);

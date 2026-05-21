@@ -1,15 +1,13 @@
 {
-    "test_name": "Network Delay Demo",
+    "test_name": "Network Cutoff Demo",
     "target": {
         "id": "chaos-demo-1"
     },
     "duration_s": 10,
     "perturbations": [
         {
-            "type": "network_delay",
-            "parameters": {
-                "delay_ms": "500"
-            }
+            "type": "network_cutoff",
+            "parameters": {}
         }
     ],
     "expectations": [
@@ -17,12 +15,11 @@
             "type": "container_running"
         },
         {
-            "type": "http_latency",
+            "type": "http_status",
             "parameters": {
                 "port": "8080",
                 "path": "/ping",
-                "min_latency_ms": "400",
-                "max_latency_ms": "2000"
+                "expected_status": "200"
             }
         }
     ]

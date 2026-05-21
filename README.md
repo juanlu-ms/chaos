@@ -152,14 +152,18 @@ For direct CMake control, use these exact commands:
 - Frontend test: `cd frontend && pnpm test` (uses Vitest, 20+ tests for hooks, utils, constants)
 - Build the Web UI: see [Build the Web UI](#build-the-web-ui) below
 
+## Privilege Requirements
+
+Network perturbations (`network_delay`, `network_cutoff`, `garbage_packet`) use `nsenter` to inject tc/iptables rules directly into the target container's network namespace. This requires **root privileges** — run the orchestrator with `sudo` or as root.
+
 ## Run the Orchestrator (CLI)
 
 After building:
 
-- `./build/dev-linux-clang/orchestrator/chaos help`
-- `./build/dev-linux-clang/orchestrator/chaos list`
-- `./build/dev-linux-clang/orchestrator/chaos stop <container_id>`
-- `./build/dev-linux-clang/orchestrator/chaos kill <container_id>`
+- `sudo ./build/dev-linux-clang/orchestrator/chaos help`
+- `sudo ./build/dev-linux-clang/orchestrator/chaos list`
+- `sudo ./build/dev-linux-clang/orchestrator/chaos stop <container_id>`
+- `sudo ./build/dev-linux-clang/orchestrator/chaos kill <container_id>`
 
 ## Build the Web UI
 
@@ -177,7 +181,7 @@ During development, use `pnpm run dev` for hot module reload at `http://localhos
 
 Start the server:
 
-- `./build/dev-linux-clang/orchestrator/chaos serve --port 8080`
+- `sudo ./build/dev-linux-clang/orchestrator/chaos serve --port 8080`
 
 Then open:
 

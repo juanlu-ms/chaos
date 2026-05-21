@@ -36,6 +36,8 @@ Perturbations are the fault injection mechanisms applied to a target container. 
 - **Under the hood**: Uses the Docker Update API to enforce a CPU limit using a fixed period of `100000` and the configured `cpu_cores` as the quota.
 - **Effect**: Execution of the container is artificially paused or slowed down to enforce the configured CPU quota limit.
 
+> **Note:** Network perturbations (4–6) require the orchestrator to run as root, since they use `nsenter` to execute tc/iptables commands in the target container's network namespace.
+
 ### 4. `network_delay`
 - **Description**: Introduces artificial latency to all outgoing network traffic.
 - **Parameters**:

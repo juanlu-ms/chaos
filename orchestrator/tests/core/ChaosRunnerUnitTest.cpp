@@ -51,7 +51,7 @@ TEST(ChaosRunnerUnitTest, BuildPerturbationsThrowsOnUnknownType) {
     manifest.target.id = "abc123";
     manifest.perturbations.push_back({.type = "nonexistent_perturbation", .parameters = {}});
 
-    EXPECT_THROW(runner.buildPerturbations(manifest), std::invalid_argument);
+    EXPECT_THROW((void)runner.buildPerturbations(manifest), std::invalid_argument);
 }
 
 TEST(ChaosRunnerUnitTest, ValidateExpectationsReturnsTrueWhenEmpty) {
@@ -106,5 +106,5 @@ TEST(ChaosRunnerUnitTest, ParseManifestThrowsOnBadPath) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     core::ChaosRunner runner(mockEngine);
 
-    EXPECT_THROW(runner.parseManifest("/nonexistent/path/manifest.json"), manifests::ManifestParserError);
+    EXPECT_THROW((void)runner.parseManifest("/nonexistent/path/manifest.json"), manifests::ManifestParserError);
 }

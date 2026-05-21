@@ -50,7 +50,9 @@ Server::Server(std::shared_ptr<containers::IContainerEngine> engine) : engine_(s
 
 void Server::listen(int port) {
     SPDLOG_INFO("chaos listening to http://127.0.0.1:{}", port);
-    server_.listen("127.0.0.1", port);
+    if (!server_.listen("127.0.0.1", port)) {
+        throw std::system_error(errno, std::generic_category(), "Failed to bind to port " + std::to_string(port));
+    }
 }
 
 void Server::setupRoutes() {

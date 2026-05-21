@@ -48,6 +48,7 @@
     },
     "runArgs": [
         "--privileged",
+        "--pid=host",
         "--cap-add=SYS_PTRACE",
         "--security-opt",
         "seccomp=unconfined"

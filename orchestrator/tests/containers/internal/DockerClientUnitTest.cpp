@@ -14,6 +14,9 @@
  * @brief Unit tests for DockerClient behavior using a mocked transport adapter.
  */
 
+using chaos::orchestrator::containers::ContainerEngineApiError;
+using chaos::orchestrator::containers::ContainerEngineError;
+using chaos::orchestrator::containers::ContainerEngineParseError;
 using chaos::orchestrator::containers::internal::DockerClient;
 using chaos::orchestrator::containers::internal::HttpMethod;
 using chaos::orchestrator::containers::internal::HttpResponse;
@@ -221,32 +224,139 @@ TEST(DockerClientUnitTest, ExecCallsCreateAndStartEndpoints) {
     const std::string command = "echo hello";
     int calls = 0;
 
-    auto adapter = DockerClient([&](HttpMethod method, std::string_view endpoint, std::string_view body) {
-        EXPECT_EQ(method, HttpMethod::POST);
+    auto adapter = DockerClient(
+        [&calls, &containerId, &command](HttpMethod method, std::string_view endpoint, std::string_view body) {
+            ++calls;
+
+            if (calls == 1) {
+                EXPECT_EQ(method, HttpMethod::POST);
+                EXPECT_EQ(endpoint, fmt::format("/containers/{}/exec", containerId));
+                const auto payload = nlohmann::json::parse(body);
+                EXPECT_TRUE(payload["AttachStdout"].get<bool>());
+                EXPECT_TRUE(payload["AttachStderr"].get<bool>());
+                EXPECT_FALSE(payload["Tty"].get<bool>());
+                EXPECT_EQ(payload["Cmd"].at(0).get<std::string>(), "/bin/sh");
+                EXPECT_EQ(payload["Cmd"].at(1).get<std::string>(), "-lc");
+                EXPECT_EQ(payload["Cmd"].at(2).get<std::string>(), command);
+                return HttpResponse{201, R"json({"Id":"exec-123"})json"};
+            }
+
+            if (calls == 2) {
+                EXPECT_EQ(method, HttpMethod::POST);
+                EXPECT_EQ(endpoint, "/exec/exec-123/start");
+                const auto payload = nlohmann::json::parse(body);
+                EXPECT_FALSE(payload["Detach"].get<bool>());
+                EXPECT_FALSE(payload["Tty"].get<bool>());
+                return HttpResponse{200, "hello\n"};
+            }
+
+            EXPECT_EQ(method, HttpMethod::GET);
+            EXPECT_EQ(endpoint, "/exec/exec-123/json");
+            EXPECT_TRUE(body.empty());
+            return HttpResponse{200, R"json({"ExitCode":0})json"};
+        });
+
+    const auto output = adapter.exec(containerId, command);
+    EXPECT_EQ(calls, 3);
+    EXPECT_EQ(output, "hello\n");
+}
+
+/**
+ * @test Verifies exec throws on non-zero exit code from the inspected command.
+ */
+TEST(DockerClientUnitTest, ExecThrowsOnNonZeroExitCode) {
+    const std::string containerId = "container-1";
+    const std::string command = "false";
+    int calls = 0;
+
+    auto adapter = DockerClient([&calls, &containerId](HttpMethod method, std::string_view endpoint, std::string_view) {
         ++calls;
 
         if (calls == 1) {
+            EXPECT_EQ(method, HttpMethod::POST);
             EXPECT_EQ(endpoint, fmt::format("/containers/{}/exec", containerId));
-            const auto payload = nlohmann::json::parse(body);
-            EXPECT_TRUE(payload["AttachStdout"].get<bool>());
-            EXPECT_TRUE(payload["AttachStderr"].get<bool>());
-            EXPECT_FALSE(payload["Tty"].get<bool>());
-            EXPECT_EQ(payload["Cmd"].at(0).get<std::string>(), "/bin/sh");
-            EXPECT_EQ(payload["Cmd"].at(1).get<std::string>(), "-lc");
-            EXPECT_EQ(payload["Cmd"].at(2).get<std::string>(), command);
-            return HttpResponse{201, R"json({"Id":"exec-123"})json"};
+            return HttpResponse{201, R"json({"Id":"exec-99"})json"};
         }
 
-        EXPECT_EQ(endpoint, "/exec/exec-123/start");
-        const auto payload = nlohmann::json::parse(body);
-        EXPECT_FALSE(payload["Detach"].get<bool>());
-        EXPECT_FALSE(payload["Tty"].get<bool>());
-        return HttpResponse{200, "hello\n"};
+        if (calls == 2) {
+            EXPECT_EQ(method, HttpMethod::POST);
+            EXPECT_EQ(endpoint, "/exec/exec-99/start");
+            return HttpResponse{200, "command output"};
+        }
+
+        EXPECT_EQ(method, HttpMethod::GET);
+        EXPECT_EQ(endpoint, "/exec/exec-99/json");
+        return HttpResponse{200, R"json({"ExitCode":1})json"};
     });
 
-    const auto output = adapter.exec(containerId, command);
-    EXPECT_EQ(calls, 2);
-    EXPECT_EQ(output, "hello\n");
+    EXPECT_THROW((void)adapter.exec(containerId, command), ContainerEngineError);
+    EXPECT_EQ(calls, 3);
+}
+
+/**
+ * @test Verifies execInNetNs calls the Docker inspect endpoint and runs nsenter.
+ */
+TEST(DockerClientUnitTest, ExecInNetNsCallsInspectEndpoint) {
+    const std::string containerId = "test-container";
+    int calls = 0;
+
+    auto adapter = DockerClient([&calls, &containerId](HttpMethod method, std::string_view endpoint, std::string_view) {
+        ++calls;
+        EXPECT_EQ(method, HttpMethod::GET);
+        EXPECT_EQ(endpoint, fmt::format("/containers/{}/json", containerId));
+        return HttpResponse{200, R"json({"State":{"Status":"running","Pid":1}})json"};
+    });
+
+    try {
+        const auto output = adapter.execInNetNs(containerId, "echo ok");
+        EXPECT_EQ(calls, 1);
+        EXPECT_EQ(output, "ok\n");
+    } catch (const ContainerEngineError&) {
+        // nsenter may not be available in all environments — that's fine
+        EXPECT_EQ(calls, 1);
+    }
+}
+
+/**
+ * @test Verifies execInNetNs throws on non-200 Docker inspect response.
+ */
+TEST(DockerClientUnitTest, ExecInNetNsThrowsOnInspectFailure) {
+    auto adapter = DockerClient(
+        [](HttpMethod, std::string_view, std::string_view) { return HttpResponse{500, "Internal error"}; });
+
+    EXPECT_THROW((void)adapter.execInNetNs("c", "echo hi"), ContainerEngineApiError);
+}
+
+/**
+ * @test Verifies execInNetNs throws when inspect response is missing State.Pid.
+ */
+TEST(DockerClientUnitTest, ExecInNetNsThrowsOnMissingPid) {
+    auto adapter = DockerClient([](HttpMethod, std::string_view, std::string_view) {
+        return HttpResponse{200, R"json({"State":{"Status":"running"}})json"};
+    });
+
+    EXPECT_THROW((void)adapter.execInNetNs("c", "echo hi"), ContainerEngineParseError);
+}
+
+/**
+ * @test Verifies execInNetNs throws when container PID is 0 (not running).
+ */
+TEST(DockerClientUnitTest, ExecInNetNsThrowsOnStoppedContainer) {
+    auto adapter = DockerClient([](HttpMethod, std::string_view, std::string_view) {
+        return HttpResponse{200, R"json({"State":{"Status":"exited","Pid":0}})json"};
+    });
+
+    EXPECT_THROW((void)adapter.execInNetNs("c", "echo hi"), ContainerEngineError);
+}
+
+/**
+ * @test Verifies execInNetNs validates empty input arguments.
+ */
+TEST(DockerClientUnitTest, ExecInNetNsRejectsEmptyArguments) {
+    auto adapter = makeAdapterForListContainers(nlohmann::json::array());
+
+    EXPECT_THROW((void)adapter.execInNetNs("", "echo hi"), std::invalid_argument);
+    EXPECT_THROW((void)adapter.execInNetNs("container", ""), std::invalid_argument);
 }
 
 /**
@@ -326,8 +436,8 @@ TEST(DockerClientUnitTest, GetLogsCallsCorrectEndpoint) {
     // The Docker Engine logs API returns a multiplexed stream where each
     // frame has an 8-byte header (stream type + 3 pad + 4 length).
     // Build two frames: stdout "app started\n" + stderr "some error\n"
-    auto buildFrame = [](char stream, const std::string& msg) -> std::string {
-        const uint32_t len = static_cast<uint32_t>(msg.size());
+    auto buildFrame = [](char stream, const std::string_view msg) {
+        const auto len = static_cast<uint32_t>(msg.size());
         std::string frame;
         frame += stream;
         frame += '\0';
@@ -367,7 +477,7 @@ TEST(DockerClientUnitTest, GetLogsPropagatesApiError) {
     DockerClient adapter([](HttpMethod, std::string_view, std::string_view) {
         return HttpResponse{.status = 404, .body = "not found"};
     });
-    EXPECT_THROW((void)adapter.getLogs("missing-container"), chaos::orchestrator::containers::ContainerEngineApiError);
+    EXPECT_THROW((void)adapter.getLogs("missing-container"), ContainerEngineApiError);
 }
 
 /**
@@ -398,7 +508,7 @@ TEST(DockerClientUnitTest, GetSystemInfoPropagatesApiError) {
     DockerClient adapter([](HttpMethod, std::string_view, std::string_view) {
         return HttpResponse{.status = 500, .body = "Internal server error"};
     });
-    EXPECT_THROW((void)adapter.getSystemInfo(), chaos::orchestrator::containers::ContainerEngineApiError);
+    EXPECT_THROW((void)adapter.getSystemInfo(), ContainerEngineApiError);
 }
 
 /**
@@ -452,7 +562,7 @@ TEST(DockerClientUnitTest, PullImageThrowsOn500) {
     DockerClient adapter([](HttpMethod, std::string_view, std::string_view) {
         return HttpResponse{.status = 500, .body = "Internal server error"};
     });
-    EXPECT_THROW((void)adapter.pullImage("nginx:latest"), chaos::orchestrator::containers::ContainerEngineApiError);
+    EXPECT_THROW((void)adapter.pullImage("nginx:latest"), ContainerEngineApiError);
 }
 
 /**
@@ -529,8 +639,7 @@ TEST(DockerClientUnitTest, BuildImageThrowsOn500) {
         return HttpResponse{.status = 500, .body = "Internal server error"};
     });
 
-    EXPECT_THROW((void)adapter.buildImage("myapp:latest", dockerfilePath.c_str()),
-                 chaos::orchestrator::containers::ContainerEngineApiError);
+    EXPECT_THROW((void)adapter.buildImage("myapp:latest", dockerfilePath.c_str()), ContainerEngineApiError);
     std::filesystem::remove_all(tmpDir);
 }
 

@@ -7,7 +7,9 @@
 #include <spdlog/spdlog.h>
 #include <sys/socket.h>
 
+#include <array>
 #include <cstdint>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -381,6 +383,11 @@ std::string DockerClient::exec(const std::string_view containerId, const std::st
     }
 
     const auto exitResponse = request_(HttpMethod::GET, fmt::format("/exec/{}/json", execId), "");
+    if (exitResponse.status != 200) {
+        SPDLOG_ERROR("Docker exec inspect failed with status {}: {}", exitResponse.status, exitResponse.body);
+        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", exitResponse.status));
+    }
+
     if (const auto exitJson = parseResponse(exitResponse);
         exitJson.contains("ExitCode") && exitJson["ExitCode"].get<int>() != 0) {
         throw containers::ContainerEngineError(fmt::format("Command '{}' in container '{}' exited with code {}",
@@ -389,6 +396,60 @@ std::string DockerClient::exec(const std::string_view containerId, const std::st
 
     SPDLOG_INFO("DockerClient: command executed successfully in container {}", containerId);
     return startResponse.body;
+}
+
+std::string DockerClient::execInNetNs(const std::string_view containerId, const std::string_view command) const {
+    if (containerId.empty()) {
+        throw std::invalid_argument("Container ID cannot be empty");
+    }
+    if (command.empty()) {
+        throw std::invalid_argument("Command cannot be empty");
+    }
+
+    SPDLOG_DEBUG("DockerClient: executing in netns of container {}: {}", containerId, command);
+
+    const auto inspectResponse = request_(HttpMethod::GET, fmt::format("/containers/{}/json", containerId), "");
+    if (inspectResponse.status != 200) {
+        throw containers::ContainerEngineApiError(
+            fmt::format("Failed to inspect container '{}': HTTP {}", containerId, inspectResponse.status));
+    }
+
+    auto inspectJson = parseResponse(inspectResponse);
+    if (!inspectJson.contains("State") || !inspectJson["State"].is_object() || !inspectJson["State"].contains("Pid") ||
+        !inspectJson["State"]["Pid"].is_number_integer()) {
+        throw containers::ContainerEngineParseError(
+            fmt::format("Failed to get State.Pid for container '{}'", containerId));
+    }
+
+    const auto pid = inspectJson["State"]["Pid"].get<int>();
+    if (pid <= 0) {
+        throw containers::ContainerEngineError(fmt::format("Container '{}' is not running (PID={})", containerId, pid));
+    }
+
+    const std::string nsenterCmd = fmt::format("nsenter -t {} -n {} 2>&1", pid, command);
+
+    auto pipe = std::unique_ptr<FILE, decltype([](FILE* f) noexcept {
+                                    if (f) {
+                                        pclose(f);
+                                    }
+                                })>(popen(nsenterCmd.c_str(), "r"));
+    if (!pipe) {
+        throw containers::ContainerEngineError(fmt::format("Failed to execute: nsenter -t {} -n {}", pid, command));
+    }
+
+    std::array<char, 4096> buffer{};
+    std::string result;
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result += buffer.data();
+    }
+
+    if (const int status = pclose(pipe.release()); status != 0) {
+        throw containers::ContainerEngineError(
+            fmt::format("Network command in container '{}' failed (exit {}): {}", containerId, status, result));
+    }
+
+    SPDLOG_INFO("DockerClient: network command executed in container {} netns", containerId);
+    return result;
 }
 
 void DockerClient::updateMemoryLimit(const std::string_view containerId, int64_t memory_bytes) const {
@@ -564,8 +625,12 @@ containers::ContainerStats DockerClient::getStats(const std::string_view contain
     double tx_bytes = 0;
     if (jsonResponse.contains("networks") && jsonResponse["networks"].is_object()) {
         for (const auto& [iface, net] : jsonResponse["networks"].items()) {
-            if (net.contains("rx_bytes") && net["rx_bytes"].is_number()) rx_bytes += net["rx_bytes"].get<double>();
-            if (net.contains("tx_bytes") && net["tx_bytes"].is_number()) tx_bytes += net["tx_bytes"].get<double>();
+            if (net.contains("rx_bytes") && net["rx_bytes"].is_number()) {
+                rx_bytes += net["rx_bytes"].get<double>();
+            }
+            if (net.contains("tx_bytes") && net["tx_bytes"].is_number()) {
+                tx_bytes += net["tx_bytes"].get<double>();
+            }
         }
     }
     // Convert cumulative bytes to B/s using the stored previous values.

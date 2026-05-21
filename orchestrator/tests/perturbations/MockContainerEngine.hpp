@@ -2,10 +2,10 @@
 
 #include <gmock/gmock.h>
 
-#include "containers/IContainerEngine.hpp"
 #include <string_view>
-#include <utility>
 #include <vector>
+
+#include "containers/IContainerEngine.hpp"
 
 /**
  * @file MockContainerEngine.hpp
@@ -30,6 +30,8 @@ public:
     MOCK_METHOD(void, killContainer, (const std::string_view containerId), (const, override));
     MOCK_METHOD(void, removeContainer, (const std::string_view containerId), (const, override));
     MOCK_METHOD(std::string, exec, (const std::string_view containerId, const std::string_view command),
+                (const, override));
+    MOCK_METHOD(std::string, execInNetNs, (const std::string_view containerId, const std::string_view command),
                 (const, override));
     MOCK_METHOD(shared::ContainerStatus, getStatus, (const std::string_view containerId), (const, override));
     MOCK_METHOD(std::string, getLogs, (const std::string_view containerId), (const, override));

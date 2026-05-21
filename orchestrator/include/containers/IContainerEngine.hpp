@@ -130,6 +130,22 @@ public:
                                            const std::string_view command) const = 0;
 
     /**
+     * @brief Execute a command in the target container's network namespace from the host.
+     *
+     * Runs @p command on the host via nsenter, entering the container's network
+     * namespace so that tools like tc(8) and iptables(8) affect the container
+     * without needing them installed inside it.
+     *
+     * @param containerId ID of the target container.
+     * @param command Command to execute on the host inside the container's netns.
+     * @return Combined stdout+stderr of the command.
+     * @throws ContainerEngineError If the container PID cannot be retrieved, or
+     *         if the nsenter'd command exits with a non-zero status.
+     */
+    [[nodiscard]] virtual std::string execInNetNs(const std::string_view containerId,
+                                                  const std::string_view command) const = 0;
+
+    /**
      * @brief Get status of a container by ID.
      * @param containerId Docker container ID.
      * @return ContainerStatus enum value representing the container's state.

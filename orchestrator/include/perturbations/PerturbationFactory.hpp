@@ -7,18 +7,19 @@
 
 #include <memory>
 
-#include "../manifests/Manifest.hpp"
-#include "../perturbations/IPerturbation.hpp"
+#include "containers/IContainerEngine.hpp"
+#include "manifests/Manifest.hpp"
+#include "perturbations/IPerturbation.hpp"
 
 namespace chaos::orchestrator::perturbations {
 
 /**
  * @brief Factory class to instantiate IPerturbation objects.
  */
-class PerturbationFactory final : public IPerturbationFactory {
+class PerturbationFactory final {
 public:
     PerturbationFactory() = default;
-    ~PerturbationFactory() override = default;
+    ~PerturbationFactory() = default;
 
     /**
      * @brief Creates the concrete perturbation based on the spec type.
@@ -29,8 +30,7 @@ public:
      * @throws std::invalid_argument If the type is not recognized.
      */
     std::unique_ptr<IPerturbation> create(std::shared_ptr<containers::IContainerEngine> engine,
-                                          const manifests::Target& target,
-                                          const manifests::Perturbation& spec) override;
+                                          const manifests::Target& target, const manifests::Perturbation& spec);
 };
 
 }  // namespace chaos::orchestrator::perturbations

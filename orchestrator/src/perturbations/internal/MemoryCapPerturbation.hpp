@@ -6,7 +6,9 @@
 #pragma once
 
 #include <atomic>
+#include <memory>
 
+#include "containers/IContainerEngine.hpp"
 #include "manifests/Manifest.hpp"
 #include "perturbations/IPerturbation.hpp"
 

@@ -8,11 +8,12 @@
 #include "manifests/Manifest.hpp"
 #include "perturbations/PerturbationFactory.hpp"
 #include "perturbations/internal/CpuCapPerturbation.hpp"
-#include "perturbations/internal/GarbagePacketPerturbation.hpp"
 #include "perturbations/internal/KillPerturbation.hpp"
 #include "perturbations/internal/MemoryCapPerturbation.hpp"
 #include "perturbations/internal/NetworkCutoffPerturbation.hpp"
 #include "perturbations/internal/NetworkDelayPerturbation.hpp"
+#include "perturbations/internal/PacketFloodPerturbation.hpp"
+#include "perturbations/internal/TrafficCorruptionPerturbation.hpp"
 
 /**
  * @file PerturbationTests.cpp
@@ -207,16 +208,29 @@ TEST(PerturbationTests, FactoryCreatesNetworkCutoffPerturbation) {
 }
 
 /**
- * @test Verifies the factory creates GarbagePacketPerturbation for type "garbage_packet".
+ * @test Verifies the factory creates TrafficCorruptionPerturbation for type "traffic_corruption".
  */
-TEST(PerturbationTests, FactoryCreatesGarbagePacketPerturbation) {
+TEST(PerturbationTests, FactoryCreatesTrafficCorruptionPerturbation) {
     perturbations::PerturbationFactory factory;
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     manifests::Target target{"test-container"};
 
-    manifests::Perturbation spec{"garbage_packet", {{"corrupt_pct", "5%"}}};
+    manifests::Perturbation spec{"traffic_corruption", {{"corrupt_pct", "5%"}}};
     auto pert = factory.create(mockEngine, target, spec);
-    EXPECT_NE(dynamic_cast<perturbations::GarbagePacketPerturbation*>(pert.get()), nullptr);
+    EXPECT_NE(dynamic_cast<perturbations::TrafficCorruptionPerturbation*>(pert.get()), nullptr);
+}
+
+/**
+ * @test Verifies the factory creates PacketFloodPerturbation for type "packet_flood".
+ */
+TEST(PerturbationTests, FactoryCreatesPacketFloodPerturbation) {
+    perturbations::PerturbationFactory factory;
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Target target{"test-container"};
+
+    manifests::Perturbation spec{"packet_flood", {}};
+    auto pert = factory.create(mockEngine, target, spec);
+    EXPECT_NE(dynamic_cast<perturbations::PacketFloodPerturbation*>(pert.get()), nullptr);
 }
 
 /**
@@ -242,22 +256,22 @@ TEST(PerturbationTests, NetworkCutoffThrowsOnEmptyTargetId) {
 }
 
 /**
- * @test Verifies GarbagePacketPerturbation::revert is a no-op when not applied.
+ * @test Verifies TrafficCorruptionPerturbation::revert is a no-op when not applied.
  */
-TEST(PerturbationTests, GarbagePacketRevertIsNoOpWhenNotApplied) {
+TEST(PerturbationTests, TrafficCorruptionRevertIsNoOpWhenNotApplied) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
-    manifests::Perturbation spec{"garbage_packet", {{"corrupt_pct", "5%"}}};
+    manifests::Perturbation spec{"traffic_corruption", {{"corrupt_pct", "5%"}}};
 
-    perturbations::GarbagePacketPerturbation pert(mockEngine, "test-container", spec);
+    perturbations::TrafficCorruptionPerturbation pert(mockEngine, "test-container", spec);
     EXPECT_NO_THROW(pert.revert());
 }
 
 /**
- * @test Verifies GarbagePacketPerturbation::revert calls exec with the correct delete command after apply.
+ * @test Verifies TrafficCorruptionPerturbation::revert calls exec with the correct delete command after apply.
  */
-TEST(PerturbationTests, GarbagePacketRevertCallsExecWithDeleteCommand) {
+TEST(PerturbationTests, TrafficCorruptionRevertCallsExecWithDeleteCommand) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
-    manifests::Perturbation spec{"garbage_packet", {{"corrupt_pct", "5%"}}};
+    manifests::Perturbation spec{"traffic_corruption", {{"corrupt_pct", "5%"}}};
 
     testing::InSequence seq;
     EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target"),
@@ -267,19 +281,19 @@ TEST(PerturbationTests, GarbagePacketRevertCallsExecWithDeleteCommand) {
                 execInNetNs(std::string_view("target"), std::string_view("tc qdisc del dev eth0 root netem")))
         .WillOnce(Return(std::string{}));
 
-    perturbations::GarbagePacketPerturbation pert(mockEngine, "target", spec);
+    perturbations::TrafficCorruptionPerturbation pert(mockEngine, "target", spec);
     pert.apply();
     pert.revert();
 }
 
 /**
- * @test Verifies GarbagePacketPerturbation::apply throws when target ID is empty.
+ * @test Verifies TrafficCorruptionPerturbation::apply throws when target ID is empty.
  */
-TEST(PerturbationTests, GarbagePacketThrowsOnEmptyTargetId) {
+TEST(PerturbationTests, TrafficCorruptionThrowsOnEmptyTargetId) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
-    manifests::Perturbation spec{"garbage_packet", {{"corrupt_pct", "5%"}}};
+    manifests::Perturbation spec{"traffic_corruption", {{"corrupt_pct", "5%"}}};
 
-    perturbations::GarbagePacketPerturbation pert(mockEngine, "", spec);
+    perturbations::TrafficCorruptionPerturbation pert(mockEngine, "", spec);
     EXPECT_THROW(pert.apply(), std::invalid_argument);
 }
 
@@ -377,15 +391,40 @@ TEST(PerturbationTests, MemoryCapApplyCallsUpdateResourcesWithCorrectLimit) {
     EXPECT_NO_THROW(pert.apply());
 }
 
-TEST(PerturbationTests, GarbagePacketApplyCallsExecWithDefaultNetemCommand) {
+/**
+ * @test Verifies TrafficCorruptionPerturbation::apply uses default corrupt 100 when no parameters provided.
+ */
+TEST(PerturbationTests, TrafficCorruptionApplyCallsExecWithDefaultNetemCommand) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
-    manifests::Perturbation spec{"garbage_packet", {}};
+    manifests::Perturbation spec{"traffic_corruption", {}};
     EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target"),
                                          std::string_view("tc qdisc add dev eth0 root netem corrupt 100")))
         .Times(1)
         .WillOnce(Return(std::string{}));
-    perturbations::GarbagePacketPerturbation pert(mockEngine, "target", spec);
+    perturbations::TrafficCorruptionPerturbation pert(mockEngine, "target", spec);
     EXPECT_NO_THROW(pert.apply());
+}
+
+/**
+ * @test Verifies PacketFloodPerturbation::revert is a no-op when not applied.
+ */
+TEST(PerturbationTests, PacketFloodRevertIsNoOpWhenNotApplied) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"packet_flood", {{"iface", "eth0"}}};
+
+    perturbations::PacketFloodPerturbation pert(mockEngine, "test-container", spec);
+    EXPECT_NO_THROW(pert.revert());
+}
+
+/**
+ * @test Verifies PacketFloodPerturbation::apply throws when target ID is empty.
+ */
+TEST(PerturbationTests, PacketFloodThrowsOnEmptyTargetId) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"packet_flood", {}};
+
+    perturbations::PacketFloodPerturbation pert(mockEngine, "", spec);
+    EXPECT_THROW(pert.apply(), std::invalid_argument);
 }
 
 TEST(PerturbationTests, NetworkCutoffApplyCallsExecWithIptablesDropRules) {

@@ -4,11 +4,12 @@
 #include <utility>
 
 #include "internal/CpuCapPerturbation.hpp"
-#include "internal/GarbagePacketPerturbation.hpp"
 #include "internal/KillPerturbation.hpp"
 #include "internal/MemoryCapPerturbation.hpp"
 #include "internal/NetworkCutoffPerturbation.hpp"
 #include "internal/NetworkDelayPerturbation.hpp"
+#include "internal/PacketFloodPerturbation.hpp"
+#include "internal/TrafficCorruptionPerturbation.hpp"
 
 namespace chaos::orchestrator::perturbations {
 
@@ -25,11 +26,12 @@ std::unique_ptr<IPerturbation> PerturbationFactory::create(std::shared_ptr<conta
         return std::make_unique<NetworkDelayPerturbation>(std::move(engine), target.id, spec);
     } else if (spec.type == "network_cutoff") {
         return std::make_unique<NetworkCutoffPerturbation>(std::move(engine), target.id, spec);
-    } else if (spec.type == "garbage_packet") {
-        return std::make_unique<GarbagePacketPerturbation>(std::move(engine), target.id, spec);
+    } else if (spec.type == "traffic_corruption") {
+        return std::make_unique<TrafficCorruptionPerturbation>(std::move(engine), target.id, spec);
+    } else if (spec.type == "packet_flood") {
+        return std::make_unique<PacketFloodPerturbation>(std::move(engine), target.id, spec);
     }
 
-    // Fallback for unimplemented types
     throw std::invalid_argument("Unsupported perturbation type or type not yet implemented: " + spec.type);
 }
 

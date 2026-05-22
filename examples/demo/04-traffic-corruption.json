@@ -1,0 +1,30 @@
+{
+    "test_name": "Traffic Corruption Demo",
+    "target": {
+        "id": "chaos-demo-1"
+    },
+    "duration_s": 10,
+    "perturbations": [
+        {
+            "type": "traffic_corruption",
+            "parameters": {
+                "corrupt_pct": "10%",
+                "loss_pct": "5%",
+                "duplicate_pct": "1%"
+            }
+        }
+    ],
+    "expectations": [
+        {
+            "type": "container_running"
+        },
+        {
+            "type": "http_status",
+            "parameters": {
+                "port": "8080",
+                "path": "/ping",
+                "expected_status": "200"
+            }
+        }
+    ]
+}

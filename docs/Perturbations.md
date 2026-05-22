@@ -36,7 +36,7 @@ Perturbations are the fault injection mechanisms applied to a target container. 
 - **Under the hood**: Uses the Docker Update API to enforce a CPU limit using a fixed period of `100000` and the configured `cpu_cores` as the quota.
 - **Effect**: Execution of the container is artificially paused or slowed down to enforce the configured CPU quota limit.
 
-> **Note:** Network perturbations (4–6) require the orchestrator to run as root, since they use `nsenter` to execute tc/iptables commands in the target container's network namespace.
+> **Note:** Network perturbations (4–7) require the orchestrator to run as root, since they use `nsenter` or `setns()` to execute commands in the target container's network namespace.
 
 ### 4. `network_delay`
 - **Description**: Introduces artificial latency to all outgoing network traffic.
@@ -55,11 +55,24 @@ Perturbations are the fault injection mechanisms applied to a target container. 
 - **Under the hood**: Applies `iptables -A INPUT` and `OUTPUT` rules with `-j DROP` inside the container namespace, using the provided filters if any.
 - **Effect**: The specified network traffic (or all traffic if unfiltered) is dropped, severing communication for those endpoints.
 
-### 6. `garbage_packet`
-- **Description**: Corrupts, drops, and duplicates network packets on the interface.
-- **Parameters**: None.
-- **Under the hood**: Executes `tc qdisc add dev eth0 root netem` with corruption, loss, and duplication rules (e.g., `corrupt 5% loss 5% duplicate 1%`).
-- **Effect**: Network traffic experiences data corruption and packet loss, forcing protocol parsers and network stacks to handle malformed or dropped packets.
+### 6. `packet_flood`
+- **Description**: DDoS-style flood that overwhelms the container with crafted IP packets containing random garbage payload.
+- **Parameters** (all optional):
+  - `iface` (string): Network interface to flood (default: `"eth0"`).
+  - `rate` (integer): Packets per second (default: `1000`).
+  - `packet_size` (integer): Frame size in bytes including headers (default: `128`).
+- **Under the hood**: Enters the container's network namespace via `setns()`, opens an `AF_PACKET` raw socket, then floods the container's own IP with structurally valid Ethernet+IP+UDP frames targeted at random ports. Random source MACs and IPs are spoofed.
+- **Effect**: The container receives a high volume of packets that survive layer-2/3 validation, causing resource exhaustion (SYN backlog, CPU, interrupt storm). Unlike a network cutoff, traffic still flows but the container is too overwhelmed to serve its application.
+
+### 7. `traffic_corruption`
+- **Description**: Corrupts, drops, or duplicates existing network packets on the interface using `tc netem`.
+- **Parameters** (at least one recommended):
+  - `corrupt_pct` (string): Packet corruption percentage (e.g. `"5%"`).
+  - `loss_pct` (string): Packet loss percentage (e.g. `"10%"`).
+  - `duplicate_pct` (string): Packet duplication percentage (e.g. `"3%"`).
+  - `iface` (string): Network interface to apply qdisc on (default: `"eth0"`).
+- **Under the hood**: Executes `tc qdisc add dev <iface> root netem` with the configured parameters inside the target's network namespace via nsenter.
+- **Effect**: Network traffic experiences data corruption, packet loss, and duplication, simulating a faulty network link.
 
 ---
 

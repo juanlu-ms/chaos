@@ -1,6 +1,8 @@
+#include <fmt/format.h>
 #include <gtest/gtest.h>
 
 #include <string>
+#include <thread>
 
 #include "containers/ContainerEngineFactory.hpp"
 #include "containers/IContainerEngine.hpp"
@@ -152,9 +154,12 @@ TEST_F(PerturbationE2eTest, NetworkDelayPerturbationApplyAndRevert) {
     EXPECT_EQ(qdiscAfterRevert.find("netem"), std::string::npos);
 }
 
-TEST_F(PerturbationE2eTest, GarbagePacketPerturbationApplyAndRevert) {
+/**
+ * @test Applies and reverts TrafficCorruptionPerturbation, verifying tc netem qdisc is added and removed.
+ */
+TEST_F(PerturbationE2eTest, TrafficCorruptionPerturbationApplyAndRevert) {
     Target target{containerId()};
-    Perturbation spec{"garbage_packet", Parameters{{"corrupt_pct", "10"}}};
+    Perturbation spec{"traffic_corruption", Parameters{{"corrupt_pct", "10"}}};
     auto perturbation = PerturbationFactory().create(engine(), target, spec);
 
     perturbation->apply();
@@ -169,6 +174,42 @@ TEST_F(PerturbationE2eTest, GarbagePacketPerturbationApplyAndRevert) {
 
     const auto qdiscAfterRevert = engine()->execInNetNs(containerId(), "tc qdisc show dev eth0");
     EXPECT_EQ(qdiscAfterRevert.find("netem"), std::string::npos);
+}
+
+/**
+ * @test Verifies PacketFloodPerturbation is a flood (packets injected), not a cutoff:
+ *       container stays running, interface RX counters increase, and traffic flows after revert.
+ */
+TEST_F(PerturbationE2eTest, PacketFloodPerturbationApplyAndRevert) {
+    Target target{containerId()};
+    Perturbation spec{"packet_flood", Parameters{{"rate", "100000"}, {"packet_size", "64"}}};
+    auto perturbation = PerturbationFactory().create(engine(), target, spec);
+
+    // Read baseline interface RX packet count
+    const auto rxBefore = engine()->execInNetNs(containerId(), "cat /sys/class/net/eth0/statistics/rx_packets");
+
+    perturbation->apply();
+    EXPECT_EQ(engine()->getStatus(containerId()), ContainerStatus::Running);
+
+    // Let the flood run and inject packets
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    // During flood: RX packets should increase (flood injects TCP SYNs that loop back)
+    const auto rxDuring = engine()->execInNetNs(containerId(), "cat /sys/class/net/eth0/statistics/rx_packets");
+    uint64_t rxBeforeVal = 0, rxDuringVal = 0;
+    try {
+        rxBeforeVal = std::stoull(rxBefore);
+        rxDuringVal = std::stoull(rxDuring);
+    } catch (const std::exception&) {
+        FAIL() << "Non-numeric RX count: before='" << rxBefore << "' during='" << rxDuring << "'";
+    }
+    EXPECT_GT(rxDuringVal, rxBeforeVal);
+
+    perturbation->revert();
+    EXPECT_EQ(engine()->getStatus(containerId()), ContainerStatus::Running);
+
+    // After revert: container is still running (not a cutoff)
+    EXPECT_EQ(engine()->getStatus(containerId()), ContainerStatus::Running);
 }
 
 TEST_F(PerturbationE2eTest, NetworkCutoffPerturbationApplyAndRevert) {

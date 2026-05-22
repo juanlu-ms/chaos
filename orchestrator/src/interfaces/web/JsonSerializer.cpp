@@ -50,26 +50,4 @@ json limitsToJson(const containers::SystemInfo& info) {
     return result;
 }
 
-void parseLogLines(const std::string& raw, std::vector<std::string>& out) {
-    out.clear();
-    if (raw.empty()) {
-        return;
-    }
-    size_t start = 0;
-    while (start < raw.size()) {
-        size_t end = raw.find('\n', start);
-        if (end == std::string::npos) {
-            end = raw.size();
-        }
-        std::string line = raw.substr(start, end - start);
-        if (!line.empty() && line.back() == '\r') {
-            line.pop_back();
-        }
-        if (!line.empty()) {
-            out.push_back(std::move(line));
-        }
-        start = end + 1;
-    }
-}
-
 }  // namespace chaos::orchestrator::interfaces::web

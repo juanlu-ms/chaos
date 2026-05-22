@@ -28,9 +28,4 @@ json stateToJson(const shared::TargetState& state, const std::string& phase = ""
  */
 json limitsToJson(const containers::SystemInfo& info);
 
-/**
- * @brief Split raw log text into individual lines, stripping CR.
- */
-void parseLogLines(const std::string& raw, std::vector<std::string>& out);
-
 }  // namespace chaos::orchestrator::interfaces::web

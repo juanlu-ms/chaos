@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "../containers/IContainerEngine.hpp"
 #include "../shared/TargetState.hpp"
@@ -51,5 +52,12 @@ public:
 private:
     std::shared_ptr<containers::IContainerEngine> engine_;
 };
+
+/**
+ * @brief Split raw container log text into individual lines, stripping trailing CR.
+ * @param raw Raw log text from the container engine.
+ * @param out Output vector of individual log lines.
+ */
+void parseLogLines(std::string_view raw, std::vector<std::string>& out);
 
 }  // namespace chaos::orchestrator::observability

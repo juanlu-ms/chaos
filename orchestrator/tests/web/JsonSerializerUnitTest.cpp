@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "observability/ObservabilityEngine.hpp"
 #include "web/JsonSerializer.hpp"
 
 using namespace chaos::orchestrator::interfaces::web;
@@ -54,7 +55,7 @@ TEST(JsonSerializerTest, LimitsToJsonContainsCpuAndMemory) {
 
 TEST(JsonSerializerTest, ParseLogLinesSplitsOnNewline) {
     std::vector<std::string> out;
-    parseLogLines("line1\nline2\nline3", out);
+    chaos::orchestrator::observability::parseLogLines("line1\nline2\nline3", out);
     EXPECT_EQ(out.size(), 3u);
     EXPECT_EQ(out[0], "line1");
     EXPECT_EQ(out[1], "line2");
@@ -63,13 +64,13 @@ TEST(JsonSerializerTest, ParseLogLinesSplitsOnNewline) {
 
 TEST(JsonSerializerTest, ParseLogLinesHandlesEmptyInput) {
     std::vector<std::string> out;
-    parseLogLines("", out);
+    chaos::orchestrator::observability::parseLogLines("", out);
     EXPECT_TRUE(out.empty());
 }
 
 TEST(JsonSerializerTest, ParseLogLinesStripsCarriageReturns) {
     std::vector<std::string> out;
-    parseLogLines("line1\r\nline2\r", out);
+    chaos::orchestrator::observability::parseLogLines("line1\r\nline2\r", out);
     EXPECT_EQ(out.size(), 2u);
     EXPECT_EQ(out[0], "line1");
     EXPECT_EQ(out[1], "line2");
@@ -77,6 +78,6 @@ TEST(JsonSerializerTest, ParseLogLinesStripsCarriageReturns) {
 
 TEST(JsonSerializerTest, ParseLogLinesSkipsEmptyLines) {
     std::vector<std::string> out;
-    parseLogLines("line1\n\nline2", out);
+    chaos::orchestrator::observability::parseLogLines("line1\n\nline2", out);
     EXPECT_EQ(out.size(), 2u);
 }

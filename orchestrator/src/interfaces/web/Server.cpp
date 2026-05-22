@@ -334,7 +334,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                         auto tick = steady_clock::now();
                         auto rawLogs = obs.getLogs(manifest.target.id);
                         std::vector<std::string> logLines;
-                        parseLogLines(rawLogs, logLines);
+                        observability::parseLogLines(rawLogs, logLines);
                         {
                             std::lock_guard lock(session->mtx);
                             session->pending_logs = std::move(logLines);

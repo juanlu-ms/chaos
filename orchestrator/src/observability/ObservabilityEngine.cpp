@@ -8,8 +8,10 @@
 #include <spdlog/spdlog.h>
 
 #include <future>
+#include <ranges>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace chaos::orchestrator::observability {
 
@@ -28,27 +30,7 @@ shared::TargetState ObservabilityEngine::observe(const std::string_view containe
     state.status = getStatus(containerId);
 
     // Parse logs (already fetched in background).
-    {
-        const std::string rawLogs = logsFut.get();
-        state.recent_logs.clear();
-        if (!rawLogs.empty()) {
-            size_t start = 0;
-            while (start < rawLogs.size()) {
-                size_t end = rawLogs.find('\n', start);
-                if (end == std::string::npos) {
-                    end = rawLogs.size();
-                }
-                std::string line = rawLogs.substr(start, end - start);
-                if (!line.empty() && line.back() == '\r') {
-                    line.pop_back();
-                }
-                if (!line.empty()) {
-                    state.recent_logs.push_back(std::move(line));
-                }
-                start = end + 1;
-            }
-        }
-    }
+    parseLogLines(logsFut.get(), state.recent_logs);
 
     if (state.status != shared::ContainerStatus::Running) {
         SPDLOG_DEBUG("Container '{}' is not running. Skipping resource usage metrics.", containerId);
@@ -80,6 +62,19 @@ std::string ObservabilityEngine::getLogs(const std::string_view containerId) con
 containers::ContainerStats ObservabilityEngine::getStats(const std::string_view containerId) const {
     SPDLOG_DEBUG("ObservabilityEngine: getting stats for container '{}'", containerId);
     return engine_->getStats(containerId);
+}
+
+void parseLogLines(const std::string_view raw, std::vector<std::string>& out) {
+    out.clear();
+    for (auto&& part : raw | std::views::split('\n')) {
+        std::string_view line(part);
+        if (!line.empty() && line.back() == '\r') {
+            line.remove_suffix(1);
+        }
+        if (!line.empty()) {
+            out.emplace_back(line);
+        }
+    }
 }
 
 std::optional<std::string> ObservabilityEngine::getContainerIp(const std::string_view containerId) const {

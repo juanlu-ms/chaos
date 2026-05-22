@@ -15,7 +15,7 @@ Unlike production cluster chaos orchestrators, CHAOS focuses on development-time
 ### Perturbations
 CHAOS supports injecting various faults into target containers:
 - **Resource Limits**: `cpu_cap`, `memory_cap` (Powered by Docker Update API)
-- **Network Faults**: `network_delay`, `network_cutoff`, `garbage_packet`
+- **Network Faults**: `network_delay`, `network_cutoff`, `packet_flood`, `traffic_corruption`
 - **Lifecycle**: `kill`
 
 ### Observability & Validation
@@ -154,7 +154,7 @@ For direct CMake control, use these exact commands:
 
 ## Privilege Requirements
 
-Network perturbations (`network_delay`, `network_cutoff`, `garbage_packet`) use `nsenter` to inject tc/iptables rules directly into the target container's network namespace. This requires **root privileges** — run the orchestrator with `sudo` or as root.
+Network perturbations (`network_delay`, `network_cutoff`, `packet_flood`, `traffic_corruption`) use `nsenter` or `setns()` to inject tc/iptables rules or raw packets directly into the target container's network namespace. This requires **root privileges** — run the orchestrator with `sudo` or as root.
 
 ## Run the Orchestrator (CLI)
 

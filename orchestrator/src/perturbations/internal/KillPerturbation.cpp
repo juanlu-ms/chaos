@@ -29,8 +29,7 @@ void KillPerturbation::apply() {
 }
 
 void KillPerturbation::revert() {
-    bool expected = true;
-    if (!hasBeenApplied_.compare_exchange_strong(expected, false)) {
+    if (bool expected = true; !hasBeenApplied_.compare_exchange_strong(expected, false)) {
         SPDLOG_WARN("Kill Perturbation was not applied, skipping revert");
         return;
     }

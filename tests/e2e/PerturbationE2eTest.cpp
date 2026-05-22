@@ -1,3 +1,8 @@
+/**
+ * @file PerturbationE2eTest.cpp
+ * @brief End-to-end tests for perturbation types (kill, memory cap, cpu cap, network delay/corruption/flood/cutoff).
+ */
+
 #include <fmt/format.h>
 #include <gtest/gtest.h>
 
@@ -17,6 +22,9 @@ using chaos::orchestrator::perturbations::PerturbationFactory;
 
 class PerturbationE2eTest : public E2eTestBase {};
 
+/**
+ * @test Applies kill perturbation and verifies container stops, then reverts and verifies restart.
+ */
 TEST_F(PerturbationE2eTest, KillPerturbationStopsAndRestartsContainer) {
     Target target{containerId()};
     Perturbation spec{"kill", {}};
@@ -31,6 +39,9 @@ TEST_F(PerturbationE2eTest, KillPerturbationStopsAndRestartsContainer) {
     EXPECT_EQ(statusAfterRevert, ContainerStatus::Running);
 }
 
+/**
+ * @test Applies memory cap, verifies container stays running, reverts and verifies memory limit restored.
+ */
 TEST_F(PerturbationE2eTest, MemoryCapPerturbationApplyAndRevert) {
     Target target{containerId()};
     Perturbation spec{"memory_cap", Parameters{{"limit_bytes", "33554432"}}};  // 32 MiB
@@ -57,6 +68,9 @@ TEST_F(PerturbationE2eTest, MemoryCapPerturbationApplyAndRevert) {
     }
 }
 
+/**
+ * @test Applies CPU cap, verifies container stays running, reverts and verifies quota reset to unlimited.
+ */
 TEST_F(PerturbationE2eTest, CpuCapPerturbationApplyAndRevert) {
     Target target{containerId()};
     Perturbation spec{"cpu_cap", Parameters{{"cpu_cores", "0.5"}}};
@@ -83,6 +97,9 @@ TEST_F(PerturbationE2eTest, CpuCapPerturbationApplyAndRevert) {
     EXPECT_NE(result.find("ok"), std::string::npos) << "Container not functional after CPU cap revert";
 }
 
+/**
+ * @test Verifies kill perturbation can be applied, reverted, and applied again (reentrant).
+ */
 TEST_F(PerturbationE2eTest, KillPerturbationIsReentrant) {
     Target target{containerId()};
     Perturbation spec{"kill", {}};
@@ -103,6 +120,9 @@ TEST_F(PerturbationE2eTest, KillPerturbationIsReentrant) {
     EXPECT_EQ(engine()->getStatus(containerId()), ContainerStatus::Running);
 }
 
+/**
+ * @test Applies network delay, verifies tc netem qdisc is added, reverts and verifies qdisc removed.
+ */
 TEST_F(PerturbationE2eTest, NetworkDelayPerturbationApplyAndRevert) {
     Target target{containerId()};
     Perturbation spec{"network_delay", Parameters{{"delay_ms", "200"}}};
@@ -180,6 +200,9 @@ TEST_F(PerturbationE2eTest, PacketFloodPerturbationApplyAndRevert) {
     EXPECT_EQ(engine()->getStatus(containerId()), ContainerStatus::Running);
 }
 
+/**
+ * @test Applies network cutoff (iptables), verifies container stays running, reverts and verifies state.
+ */
 TEST_F(PerturbationE2eTest, NetworkCutoffPerturbationApplyAndRevert) {
     (void)engine()->execInNetNs(containerId(), "iptables -L -n");
 

@@ -1,3 +1,8 @@
+/**
+ * @file ObserveValidateE2eTest.cpp
+ * @brief End-to-end tests for observability and validation engines.
+ */
+
 #include <gtest/gtest.h>
 
 #include "E2eTestBase.hpp"
@@ -13,6 +18,9 @@ using chaos::orchestrator::validation::validate;
 
 class ObserveValidateE2eTest : public E2eTestBase {};
 
+/**
+ * @test Verifies observability engine returns running state with memory info for a running container.
+ */
 TEST_F(ObserveValidateE2eTest, ObserveReturnsRunningState) {
     ObservabilityEngine observer(engine());
     const auto state = observer.observe(containerId());
@@ -22,6 +30,9 @@ TEST_F(ObserveValidateE2eTest, ObserveReturnsRunningState) {
     EXPECT_TRUE(state.memory_usage_mb.has_value());
 }
 
+/**
+ * @test Validates that a running container passes the container_running expectation.
+ */
 TEST_F(ObserveValidateE2eTest, ValidateContainerRunningExpectation) {
     ObservabilityEngine observer(engine());
     const auto state = observer.observe(containerId());
@@ -36,6 +47,9 @@ TEST_F(ObserveValidateE2eTest, ValidateContainerRunningExpectation) {
     EXPECT_EQ(results[0].expectationType, "container_running");
 }
 
+/**
+ * @test Validates that container_not_running expectation fails for a running container.
+ */
 TEST_F(ObserveValidateE2eTest, ValidateContainerNotRunningFails) {
     ObservabilityEngine observer(engine());
     const auto state = observer.observe(containerId());
@@ -49,6 +63,9 @@ TEST_F(ObserveValidateE2eTest, ValidateContainerNotRunningFails) {
     EXPECT_FALSE(results[0].passed);
 }
 
+/**
+ * @test Verifies observability engine returns Exited status after stopping a container.
+ */
 TEST_F(ObserveValidateE2eTest, ObserveStoppedContainerReturnsExitedState) {
     engine()->stopContainer(containerId());
 

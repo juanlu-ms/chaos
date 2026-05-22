@@ -1,3 +1,8 @@
+/**
+ * @file ManifestE2eTest.cpp
+ * @brief End-to-end tests for manifest parsing and execution.
+ */
+
 #include <gtest/gtest.h>
 
 #include "E2eTestBase.hpp"
@@ -17,6 +22,9 @@ using chaos::orchestrator::validation::validate;
 
 class ManifestE2eTest : public E2eTestBase {};
 
+/**
+ * @test Parses a kill manifest, schedules perturbation async, and validates container_running expectation.
+ */
 TEST_F(ManifestE2eTest, ManifestWithKillRunsToCompletion) {
     std::string json = R"({
         "test_name": "manifest-kill-test",
@@ -51,6 +59,9 @@ TEST_F(ManifestE2eTest, ManifestWithKillRunsToCompletion) {
     EXPECT_TRUE(results[0].passed);
 }
 
+/**
+ * @test Parses a memory_cap manifest, schedules perturbation async, and validates container_running expectation.
+ */
 TEST_F(ManifestE2eTest, ManifestWithMemoryCapRunsToCompletion) {
     std::string json = R"({
         "test_name": "manifest-memory-test",
@@ -84,6 +95,9 @@ TEST_F(ManifestE2eTest, ManifestWithMemoryCapRunsToCompletion) {
     EXPECT_TRUE(results[0].passed);
 }
 
+/**
+ * @test Parses a valid JSON manifest without a container fixture and verifies all fields.
+ */
 TEST(ManifestE2eTest_NoFixture, ParseValidManifest) {
     std::string json = R"({
         "test_name": "simple-test",

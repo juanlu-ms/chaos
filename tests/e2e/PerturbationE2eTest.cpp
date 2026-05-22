@@ -4,12 +4,10 @@
 #include <string>
 #include <thread>
 
+#include "E2eTestBase.hpp"
 #include "manifests/Manifest.hpp"
 #include "perturbations/IPerturbation.hpp"
 #include "perturbations/PerturbationFactory.hpp"
-#include "shared/ContainerStatus.hpp"
-
-#include "E2eTestBase.hpp"
 
 using chaos::orchestrator::containers::ContainerEngineError;
 using chaos::orchestrator::manifests::Parameters;
@@ -17,8 +15,7 @@ using chaos::orchestrator::manifests::Perturbation;
 using chaos::orchestrator::manifests::Target;
 using chaos::orchestrator::perturbations::PerturbationFactory;
 
-class PerturbationE2eTest : public E2eTestBase {
-};
+class PerturbationE2eTest : public E2eTestBase {};
 
 TEST_F(PerturbationE2eTest, KillPerturbationStopsAndRestartsContainer) {
     Target target{containerId()};

@@ -1,20 +1,17 @@
 #include <gtest/gtest.h>
 
+#include "E2eTestBase.hpp"
 #include "manifests/Manifest.hpp"
 #include "observability/ObservabilityEngine.hpp"
-#include "shared/ContainerStatus.hpp"
 #include "shared/TargetState.hpp"
 #include "validation/ValidationEngine.hpp"
-
-#include "E2eTestBase.hpp"
 
 using chaos::orchestrator::manifests::Expectation;
 using chaos::orchestrator::manifests::Parameters;
 using chaos::orchestrator::observability::ObservabilityEngine;
 using chaos::orchestrator::validation::validate;
 
-class ObserveValidateE2eTest : public E2eTestBase {
-};
+class ObserveValidateE2eTest : public E2eTestBase {};
 
 TEST_F(ObserveValidateE2eTest, ObserveReturnsRunningState) {
     ObservabilityEngine observer(engine());

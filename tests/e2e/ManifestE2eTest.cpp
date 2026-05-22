@@ -1,13 +1,12 @@
 #include <gtest/gtest.h>
 
+#include "E2eTestBase.hpp"
 #include "manifests/Manifest.hpp"
 #include "manifests/ManifestParser.hpp"
 #include "observability/ObservabilityEngine.hpp"
 #include "perturbations/PerturbationEngine.hpp"
 #include "perturbations/PerturbationFactory.hpp"
 #include "validation/ValidationEngine.hpp"
-
-#include "E2eTestBase.hpp"
 
 using chaos::orchestrator::manifests::Expectation;
 using chaos::orchestrator::manifests::Parameters;
@@ -16,8 +15,7 @@ using chaos::orchestrator::perturbations::PerturbationEngine;
 using chaos::orchestrator::perturbations::PerturbationFactory;
 using chaos::orchestrator::validation::validate;
 
-class ManifestE2eTest : public E2eTestBase {
-};
+class ManifestE2eTest : public E2eTestBase {};
 
 TEST_F(ManifestE2eTest, ManifestWithKillRunsToCompletion) {
     std::string json = R"({

@@ -38,7 +38,13 @@ void NetworkDelayPerturbation::apply() {
     const std::string& delay = delay_it->second;
 
     try {
-        (void)engine_->execInNetNs(target_id_, fmt::format("tc qdisc add dev {} root netem delay {}ms", kDefaultIface, delay));
+        {
+            const auto execOut = engine_->execInNetNs(
+                target_id_, fmt::format("tc qdisc add dev {} root netem delay {}ms", kDefaultIface, delay));
+            if (!execOut.empty()) {
+                SPDLOG_DEBUG("tc output: {}", execOut);
+            }
+        }
         SPDLOG_INFO("Network Delay Perturbation applied: delay={}ms on target {}", delay, target_id_);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
@@ -57,7 +63,13 @@ void NetworkDelayPerturbation::revert() {
     }
 
     try {
-        (void)engine_->execInNetNs(target_id_, fmt::format("tc qdisc del dev {} root netem", kDefaultIface));
+        {
+            const auto execOut =
+                engine_->execInNetNs(target_id_, fmt::format("tc qdisc del dev {} root netem", kDefaultIface));
+            if (!execOut.empty()) {
+                SPDLOG_DEBUG("tc output: {}", execOut);
+            }
+        }
         SPDLOG_INFO("Network Delay Perturbation reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),

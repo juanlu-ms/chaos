@@ -29,26 +29,31 @@ void NetworkCutoffPerturbation::apply() {
         bool hasFilter = false;
 
         auto addRule = [&](const std::string& applyArgs, const std::string& revertArgs) {
-            (void)engine_->execInNetNs(target_id_, "iptables " + applyArgs);
+            {
+                const auto execOut = engine_->execInNetNs(target_id_, "iptables " + applyArgs);
+                if (!execOut.empty()) {
+                    SPDLOG_DEBUG("iptables output: {}", execOut);
+                }
+            }
             revertCommands_.push_back("iptables " + revertArgs);
             hasFilter = true;
         };
 
-        auto it = params_.find("dst_ip");
-        if (it != params_.end()) {
-            addRule("-A OUTPUT -d " + it->second + " -j DROP", "-D OUTPUT -d " + it->second + " -j DROP");
+        auto iter = params_.find("dst_ip");
+        if (iter != params_.end()) {
+            addRule("-A OUTPUT -d " + iter->second + " -j DROP", "-D OUTPUT -d " + iter->second + " -j DROP");
         }
 
-        it = params_.find("dst_port");
-        if (it != params_.end()) {
-            addRule("-A OUTPUT -p tcp --dport " + it->second + " -j DROP",
-                    "-D OUTPUT -p tcp --dport " + it->second + " -j DROP");
+        iter = params_.find("dst_port");
+        if (iter != params_.end()) {
+            addRule("-A OUTPUT -p tcp --dport " + iter->second + " -j DROP",
+                    "-D OUTPUT -p tcp --dport " + iter->second + " -j DROP");
         }
 
-        it = params_.find("src_port");
-        if (it != params_.end()) {
-            addRule("-A INPUT -p tcp --sport " + it->second + " -j DROP",
-                    "-D INPUT -p tcp --sport " + it->second + " -j DROP");
+        iter = params_.find("src_port");
+        if (iter != params_.end()) {
+            addRule("-A INPUT -p tcp --sport " + iter->second + " -j DROP",
+                    "-D INPUT -p tcp --sport " + iter->second + " -j DROP");
         }
 
         if (!hasFilter) {
@@ -77,7 +82,10 @@ void NetworkCutoffPerturbation::revert() {
 
     try {
         for (const auto& command : revertCommands_) {
-            (void)engine_->execInNetNs(target_id_, command);
+            const auto execOut = engine_->execInNetNs(target_id_, command);
+            if (!execOut.empty()) {
+                SPDLOG_DEBUG("iptables output: {}", execOut);
+            }
         }
 
         revertCommands_.clear();

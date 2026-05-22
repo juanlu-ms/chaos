@@ -50,7 +50,13 @@ void TrafficCorruptionPerturbation::apply() {
     }();
 
     try {
-        (void)engine_->execInNetNs(target_id_, fmt::format("tc qdisc add dev {} root netem{}", iface, opts));
+        {
+            const auto execOut =
+                engine_->execInNetNs(target_id_, fmt::format("tc qdisc add dev {} root netem{}", iface, opts));
+            if (!execOut.empty()) {
+                SPDLOG_DEBUG("tc output: {}", execOut);
+            }
+        }
         SPDLOG_INFO("Traffic Corruption applied on target {} iface={}: {}", target_id_, iface, opts);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
@@ -74,7 +80,12 @@ void TrafficCorruptionPerturbation::revert() {
     }();
 
     try {
-        (void)engine_->execInNetNs(target_id_, "tc qdisc del dev " + iface + " root netem");
+        {
+            const auto execOut = engine_->execInNetNs(target_id_, "tc qdisc del dev " + iface + " root netem");
+            if (!execOut.empty()) {
+                SPDLOG_DEBUG("tc output: {}", execOut);
+            }
+        }
         SPDLOG_INFO("Traffic Corruption reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),

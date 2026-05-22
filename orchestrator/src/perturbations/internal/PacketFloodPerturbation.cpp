@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <array>
 #include <cerrno>
+#include <charconv>
 #include <cstddef>
 #include <cstring>
 #include <random>
@@ -91,11 +92,21 @@ PacketFloodPerturbation::PacketFloodPerturbation(std::shared_ptr<containers::ICo
     }();
     rate_ = [&] {
         auto iter = spec.parameters.find("rate");
-        return (iter != spec.parameters.end()) ? std::stoi(iter->second) : 1000;
+        if (iter == spec.parameters.end()) {
+            return 1000;
+        }
+        int val = 0;
+        std::from_chars(iter->second.data(), iter->second.data() + iter->second.size(), val);
+        return val;
     }();
     packet_size_ = [&] {
         auto iter = spec.parameters.find("packet_size");
-        return (iter != spec.parameters.end()) ? std::stoi(iter->second) : 128;
+        if (iter == spec.parameters.end()) {
+            return 128;
+        }
+        int val = 0;
+        std::from_chars(iter->second.data(), iter->second.data() + iter->second.size(), val);
+        return val;
     }();
 }
 

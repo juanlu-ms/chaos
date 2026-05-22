@@ -3,6 +3,7 @@
 #include <fmt/format.h>
 #include <httplib.h>
 
+#include <charconv>
 #include <chrono>
 #include <stdexcept>
 #include <string>
@@ -18,25 +19,41 @@ std::string getStringParamOrDefault(const manifests::Expectation& expectation, c
 }
 
 int getIntParamOrDefault(const manifests::Expectation& expectation, const std::string& key, int defaultValue) {
-    return expectation.parameters.contains(key) ? std::stoi(expectation.parameters.at(key)) : defaultValue;
+    if (!expectation.parameters.contains(key)) {
+        return defaultValue;
+    }
+    int val{};
+    const auto& str = expectation.parameters.at(key);
+    auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), val);
+    if (ec != std::errc{}) {
+        throw std::invalid_argument("Invalid integer value for '" + key + "': " + str);
+    }
+    return val;
 }
 
 }  // namespace validation_internal_detail
 
 ValidationResult HttpStatusValidation::validate(const shared::TargetState& targetState,
                                                 const manifests::Expectation& expectation) const {
-    ValidationResult result;
-    result.expectationType = expectation.type;
+    ValidationResult result{.passed = false, .expectationType = expectation.type, .message = {}};
 
     try {
-        std::string ip =
+        const std::string ip =
             targetState.container_ip.value_or("Container IP is required for HTTP validation but was not available");
         const std::string port = validation_internal_detail::getStringParamOrDefault(expectation, "port", "8000");
         const std::string path = validation_internal_detail::getStringParamOrDefault(expectation, "path", "/ping");
         const int expectedStatus =
             validation_internal_detail::getIntParamOrDefault(expectation, "expected_status", 200);
+        const int portInt = [&] {
+            int p{};
+            auto [ptr, ec] = std::from_chars(port.data(), port.data() + port.size(), p);
+            if (ec != std::errc{}) {
+                throw std::invalid_argument("Invalid port: " + port);
+            }
+            return p;
+        }();
 
-        httplib::Client cli(ip, std::stoi(port));
+        httplib::Client cli(ip, portInt);
         cli.set_connection_timeout(2);
         cli.set_read_timeout(5);
 
@@ -68,8 +85,7 @@ ValidationResult HttpStatusValidation::validate(const shared::TargetState& targe
 
 ValidationResult HttpLatencyValidation::validate(const shared::TargetState& targetState,
                                                  const manifests::Expectation& expectation) const {
-    ValidationResult result;
-    result.expectationType = expectation.type;
+    ValidationResult result{.passed = false, .expectationType = expectation.type, .message = {}};
 
     try {
         const std::string ip =
@@ -78,8 +94,14 @@ ValidationResult HttpLatencyValidation::validate(const shared::TargetState& targ
         const std::string path = validation_internal_detail::getStringParamOrDefault(expectation, "path", "/ping");
         const int maxLatencyMs = validation_internal_detail::getIntParamOrDefault(expectation, "max_latency_ms", 1000);
         const int minLatencyMs = validation_internal_detail::getIntParamOrDefault(expectation, "min_latency_ms", 0);
+        const int portInt = [&] {
+            int p{};
+            auto [ptr, ec] = std::from_chars(port.data(), port.data() + port.size(), p);
+            if (ec != std::errc{}) throw std::invalid_argument("Invalid port: " + port);
+            return p;
+        }();
 
-        httplib::Client cli(ip, std::stoi(port));
+        httplib::Client cli(ip, portInt);
         cli.set_connection_timeout(2);
         cli.set_read_timeout(5);
 

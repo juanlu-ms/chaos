@@ -3,7 +3,6 @@
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <system_error>
@@ -27,21 +26,16 @@ void TrafficCorruptionPerturbation::apply() {
         throw std::invalid_argument("Target ID is empty");
     }
 
-    std::ostringstream netemOpts;
-    auto it = params_.find("corrupt_pct");
-    if (it != params_.end()) {
-        netemOpts << " corrupt " << it->second;
+    std::string opts;
+    if (auto iter = params_.find("corrupt_pct"); iter != params_.end()) {
+        opts += fmt::format(" corrupt {}", iter->second);
     }
-    it = params_.find("loss_pct");
-    if (it != params_.end()) {
-        netemOpts << " loss " << it->second;
+    if (auto iter = params_.find("loss_pct"); iter != params_.end()) {
+        opts += fmt::format(" loss {}", iter->second);
     }
-    it = params_.find("duplicate_pct");
-    if (it != params_.end()) {
-        netemOpts << " duplicate " << it->second;
+    if (auto iter = params_.find("duplicate_pct"); iter != params_.end()) {
+        opts += fmt::format(" duplicate {}", iter->second);
     }
-
-    std::string opts = netemOpts.str();
     if (opts.empty()) {
         opts = " corrupt 100";
     }

@@ -3,6 +3,7 @@
 #include <spdlog/spdlog.h>
 #include <unistd.h>
 
+#include <charconv>
 #include <chrono>
 #include <memory>
 #include <span>
@@ -100,14 +101,12 @@ int CliParser::dispatchCommand(const std::vector<std::string>& args) const {
         int port = 8080;
         for (size_t i = 2; i + 1 < args.size(); ++i) {
             if (args[i] == "--port") {
-                try {
-                    port = std::stoi(args[i + 1]);
-                } catch (const std::invalid_argument&) {
-                    SPDLOG_ERROR("Invalid port number: {}", args[i + 1]);
-                    return 1;
-                } catch (const std::out_of_range&) {
-                    SPDLOG_ERROR("Invalid port number: {}", args[i + 1]);
-                    return 1;
+                {
+                    auto [ptr, ec] = std::from_chars(args[i + 1].data(), args[i + 1].data() + args[i + 1].size(), port);
+                    if (ec != std::errc{}) {
+                        SPDLOG_ERROR("Invalid port number: {}", args[i + 1]);
+                        return 1;
+                    }
                 }
             }
         }

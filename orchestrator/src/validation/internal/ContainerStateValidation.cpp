@@ -4,20 +4,22 @@ namespace chaos::orchestrator::validation {
 
 ValidationResult ContainerRunningValidation::validate(const shared::TargetState& targetState,
                                                       const manifests::Expectation& expectation) const {
-    ValidationResult result;
-    result.expectationType = expectation.type;
-    result.passed = targetState.status == shared::ContainerStatus::Running;
-    result.message = result.passed ? "Container is running" : "Container is NOT running (expected running)";
-    return result;
+    const bool isRunning = targetState.status == shared::ContainerStatus::Running;
+    return {
+        .passed = isRunning,
+        .expectationType = expectation.type,
+        .message = isRunning ? "Container is running" : "Container is NOT running (expected running)",
+    };
 }
 
 ValidationResult ContainerNotRunningValidation::validate(const shared::TargetState& targetState,
                                                          const manifests::Expectation& expectation) const {
-    ValidationResult result;
-    result.expectationType = expectation.type;
-    result.passed = targetState.status != shared::ContainerStatus::Running;
-    result.message = result.passed ? "Container is not running" : "Container IS running (expected not running)";
-    return result;
+    const bool isRunning = targetState.status == shared::ContainerStatus::Running;
+    return {
+        .passed = !isRunning,
+        .expectationType = expectation.type,
+        .message = !isRunning ? "Container is not running" : "Container IS running (expected not running)",
+    };
 }
 
 }  // namespace chaos::orchestrator::validation

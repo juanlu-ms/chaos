@@ -9,8 +9,4 @@
  * @param argv Argument vector.
  * @return Exit code.
  */
-int main(int argc, char* argv[]) {
-    (void)argc;
-    (void)argv;
-    return 0;
-}
+int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) { return 0; }

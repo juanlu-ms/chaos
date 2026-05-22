@@ -27,7 +27,7 @@ inline ContainerStatus parseContainerStatus(std::string_view status_str) {
 }
 
 // From enum to string
-inline std::string_view toString(ContainerStatus status) {
+constexpr std::string_view toString(ContainerStatus status) {
     switch (status) {
         using enum chaos::orchestrator::shared::ContainerStatus;
         case Running:

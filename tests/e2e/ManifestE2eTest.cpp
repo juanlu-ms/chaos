@@ -1,7 +1,5 @@
 #include <gtest/gtest.h>
 
-#include "containers/ContainerEngineFactory.hpp"
-#include "containers/IContainerEngine.hpp"
 #include "manifests/Manifest.hpp"
 #include "manifests/ManifestParser.hpp"
 #include "observability/ObservabilityEngine.hpp"
@@ -9,8 +7,8 @@
 #include "perturbations/PerturbationFactory.hpp"
 #include "validation/ValidationEngine.hpp"
 
-using chaos::orchestrator::containers::createContainerEngine;
-using chaos::orchestrator::containers::IContainerEngine;
+#include "E2eTestBase.hpp"
+
 using chaos::orchestrator::manifests::Expectation;
 using chaos::orchestrator::manifests::Parameters;
 using chaos::orchestrator::observability::ObservabilityEngine;
@@ -18,36 +16,14 @@ using chaos::orchestrator::perturbations::PerturbationEngine;
 using chaos::orchestrator::perturbations::PerturbationFactory;
 using chaos::orchestrator::validation::validate;
 
-class ManifestE2eTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        engine_ = createContainerEngine();
-        engine_->buildImage("chaos-demo-target:latest", CHAOS_EXAMPLES_DIR "/demo-target/Dockerfile");
-        containerId_ = engine_->createContainer("chaos-demo-target:latest", {});
-        ASSERT_FALSE(containerId_.empty());
-        engine_->startContainer(containerId_);
-    }
-
-    void TearDown() override {
-        if (engine_ && !containerId_.empty()) {
-            try {
-                engine_->removeContainer(containerId_);
-            } catch (const std::exception& ex) {
-                ADD_FAILURE() << "Failed to remove container " << containerId_ << " during teardown: " << ex.what();
-            }
-            containerId_.clear();
-        }
-    }
-
-    std::shared_ptr<IContainerEngine> engine_;
-    std::string containerId_;
+class ManifestE2eTest : public E2eTestBase {
 };
 
 TEST_F(ManifestE2eTest, ManifestWithKillRunsToCompletion) {
     std::string json = R"({
         "test_name": "manifest-kill-test",
         "target": {"id": ")" +
-                       containerId_ + R"("},
+                       containerId() + R"("},
         "perturbations": [{"type": "kill", "parameters": {}}],
         "expectations": [{"type": "container_running", "parameters": {}}],
         "duration_s": 3
@@ -55,13 +31,13 @@ TEST_F(ManifestE2eTest, ManifestWithKillRunsToCompletion) {
 
     auto manifest = chaos::orchestrator::manifests::ManifestParser::parseFromJson(json);
     EXPECT_EQ(manifest.test_name, "manifest-kill-test");
-    EXPECT_EQ(manifest.target.id, containerId_);
+    EXPECT_EQ(manifest.target.id, containerId());
 
     PerturbationFactory factory;
     std::vector<std::unique_ptr<chaos::orchestrator::perturbations::IPerturbation>> perturbations;
     perturbations.reserve(manifest.perturbations.size());
     for (const auto& spec : manifest.perturbations) {
-        perturbations.push_back(factory.create(engine_, manifest.target, spec));
+        perturbations.push_back(factory.create(engine(), manifest.target, spec));
     }
 
     PerturbationEngine pertEngine;
@@ -69,8 +45,8 @@ TEST_F(ManifestE2eTest, ManifestWithKillRunsToCompletion) {
     pertEngine.scheduleAllAsync(std::move(perturbations), duration);
     pertEngine.waitForTeardown();
 
-    ObservabilityEngine observer(engine_);
-    const auto state = observer.observe(containerId_);
+    ObservabilityEngine observer(engine());
+    const auto state = observer.observe(containerId());
 
     const auto results = validate(state, manifest.expectations);
     ASSERT_EQ(results.size(), 1u);
@@ -81,7 +57,7 @@ TEST_F(ManifestE2eTest, ManifestWithMemoryCapRunsToCompletion) {
     std::string json = R"({
         "test_name": "manifest-memory-test",
         "target": {"id": ")" +
-                       containerId_ + R"("},
+                       containerId() + R"("},
         "perturbations": [{"type": "memory_cap", "parameters": {"limit_bytes": "33554432"}}],
         "expectations": [{"type": "container_running", "parameters": {}}],
         "duration_s": 2
@@ -94,7 +70,7 @@ TEST_F(ManifestE2eTest, ManifestWithMemoryCapRunsToCompletion) {
     std::vector<std::unique_ptr<chaos::orchestrator::perturbations::IPerturbation>> perturbations;
     perturbations.reserve(manifest.perturbations.size());
     for (const auto& spec : manifest.perturbations) {
-        perturbations.push_back(factory.create(engine_, manifest.target, spec));
+        perturbations.push_back(factory.create(engine(), manifest.target, spec));
     }
 
     PerturbationEngine pertEngine;
@@ -102,8 +78,8 @@ TEST_F(ManifestE2eTest, ManifestWithMemoryCapRunsToCompletion) {
     pertEngine.scheduleAllAsync(std::move(perturbations), duration);
     pertEngine.waitForTeardown();
 
-    ObservabilityEngine observer(engine_);
-    const auto state = observer.observe(containerId_);
+    ObservabilityEngine observer(engine());
+    const auto state = observer.observe(containerId());
 
     const auto results = validate(state, manifest.expectations);
     ASSERT_EQ(results.size(), 1u);

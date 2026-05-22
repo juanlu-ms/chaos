@@ -1,6 +1,7 @@
 find_package(GTest CONFIG REQUIRED)
 
 add_executable(chaos_e2e_tests
+    E2eTestBase.hpp
     PerturbationE2eTest.cpp
     ObserveValidateE2eTest.cpp
     ManifestE2eTest.cpp

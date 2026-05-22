@@ -4,50 +4,20 @@
 #include <string>
 #include <thread>
 
-#include "containers/ContainerEngineFactory.hpp"
-#include "containers/IContainerEngine.hpp"
 #include "manifests/Manifest.hpp"
 #include "perturbations/IPerturbation.hpp"
 #include "perturbations/PerturbationFactory.hpp"
 #include "shared/ContainerStatus.hpp"
 
+#include "E2eTestBase.hpp"
+
 using chaos::orchestrator::containers::ContainerEngineError;
-using chaos::orchestrator::containers::createContainerEngine;
-using chaos::orchestrator::containers::IContainerEngine;
 using chaos::orchestrator::manifests::Parameters;
 using chaos::orchestrator::manifests::Perturbation;
 using chaos::orchestrator::manifests::Target;
 using chaos::orchestrator::perturbations::PerturbationFactory;
-using chaos::orchestrator::shared::ContainerStatus;
 
-class PerturbationE2eTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        engine_ = createContainerEngine();
-        engine_->buildImage("chaos-demo-target:latest", CHAOS_EXAMPLES_DIR "/demo-target/Dockerfile");
-        containerId_ = engine_->createContainer("chaos-demo-target:latest", {});
-        ASSERT_FALSE(containerId_.empty());
-        engine_->startContainer(containerId_);
-        ASSERT_EQ(engine_->getStatus(containerId_), ContainerStatus::Running);
-    }
-
-    void TearDown() override {
-        if (engine_ && !containerId_.empty()) {
-            try {
-                engine_->removeContainer(containerId_);
-            } catch (const std::exception& ex) {
-                ADD_FAILURE() << "Failed to remove container " << containerId_ << " during teardown: " << ex.what();
-            }
-            containerId_.clear();
-        }
-    }
-
-    std::shared_ptr<IContainerEngine> engine() const { return engine_; }
-    const std::string& containerId() const { return containerId_; }
-
-private:
-    std::shared_ptr<IContainerEngine> engine_;
-    std::string containerId_;
+class PerturbationE2eTest : public E2eTestBase {
 };
 
 TEST_F(PerturbationE2eTest, KillPerturbationStopsAndRestartsContainer) {

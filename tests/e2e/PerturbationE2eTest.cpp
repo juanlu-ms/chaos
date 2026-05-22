@@ -196,7 +196,8 @@ TEST_F(PerturbationE2eTest, PacketFloodPerturbationApplyAndRevert) {
 
     // During flood: RX packets should increase (flood injects TCP SYNs that loop back)
     const auto rxDuring = engine()->execInNetNs(containerId(), "cat /sys/class/net/eth0/statistics/rx_packets");
-    uint64_t rxBeforeVal = 0, rxDuringVal = 0;
+    uint64_t rxBeforeVal = 0;
+    uint64_t rxDuringVal = 0;
     try {
         rxBeforeVal = std::stoull(rxBefore);
         rxDuringVal = std::stoull(rxDuring);
@@ -213,11 +214,7 @@ TEST_F(PerturbationE2eTest, PacketFloodPerturbationApplyAndRevert) {
 }
 
 TEST_F(PerturbationE2eTest, NetworkCutoffPerturbationApplyAndRevert) {
-    try {
-        (void)engine()->execInNetNs(containerId(), "iptables -L -n");
-    } catch (const ContainerEngineError&) {
-        GTEST_SKIP() << "iptables not available on host, skipping network_cutoff e2e test";
-    }
+    (void)engine()->execInNetNs(containerId(), "iptables -L -n");
 
     Target target{containerId()};
     Perturbation spec{"network_cutoff", {}};

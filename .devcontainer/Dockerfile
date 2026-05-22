@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     iproute2 \
+    iptables \
     iputils-ping \
     lld-18 \
     lldb-18 \

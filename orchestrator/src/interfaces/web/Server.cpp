@@ -17,6 +17,7 @@
 #include "manifests/ManifestParser.hpp"
 #include "observability/ObservabilityEngine.hpp"
 #include "perturbations/PerturbationEngine.hpp"
+#include "core/IRunObserver.hpp"
 #include "validation/ValidationEngine.hpp"
 #include "web/JsonSerializer.hpp"
 
@@ -25,6 +26,25 @@ using json = nlohmann::json;
 namespace chaos::orchestrator::interfaces::web {
 
 namespace {
+
+class WebRunObserver final : public core::IRunObserver {
+    std::shared_ptr<core::RunSession> session_;
+
+public:
+    explicit WebRunObserver(std::shared_ptr<core::RunSession> session) : session_(std::move(session)) {}
+
+    void onStateUpdate(const shared::TargetState& state) override {
+        std::lock_guard lock(session_->mtx);
+        session_->latest = state;
+        session_->cv.notify_all();
+    }
+
+    void onPhaseChange(std::string_view phase) override {
+        std::lock_guard lock(session_->mtx);
+        session_->phase = std::string(phase);
+        session_->cv.notify_all();
+    }
+};
 
 std::optional<std::filesystem::path> findWebRoot() {
     std::vector<std::filesystem::path> candidates = {
@@ -312,14 +332,12 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
 
                 observability::ObservabilityEngine obs(engine);
                 shared::TargetState lastKnownState;
+                WebRunObserver observer(session);
 
                 auto ip = obs.getContainerIp(manifest.target.id);
                 if (ip) lastKnownState.container_ip = ip;
 
-                {
-                    std::lock_guard lock(session->mtx);
-                    session->phase = "normal";
-                }
+                observer.onPhaseChange("normal");
 
                 containers::internal::CgroupMetricsGatherer cgroup;
                 const bool useCgroup =
@@ -372,11 +390,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                             }
                         }
 
-                        {
-                            std::lock_guard lock(session->mtx);
-                            session->latest = std::move(state);
-                        }
-                        session->cv.notify_all();
+                        observer.onStateUpdate(state);
 
                         auto elapsed = steady_clock::now() - tick;
                         auto remaining = kMetricsInterval - elapsed;
@@ -418,11 +432,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                     auto session_stop = session->stop_source.get_token();
                     pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration, session_stop);
                     SPDLOG_INFO("Injecting faults for {}s.", duration.count());
-                    {
-                        std::lock_guard lock(session->mtx);
-                        session->phase = "chaos";
-                    }
-                    session->cv.notify_all();
+                    observer.onPhaseChange("chaos");
 
                     auto chaos_end = steady_clock::now() + duration + 2s;
                     while (steady_clock::now() < chaos_end && !token.stop_requested()) {
@@ -453,15 +463,11 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
 
                 // Recovery phase.
                 {
-                    std::lock_guard lock(session->mtx);
-                    if (session->latest.has_value()) {
-                        session->latest->container_ip = lastKnownState.container_ip;
-                    } else {
-                        session->latest = lastKnownState;
-                    }
-                    session->phase = "recovery";
+                    shared::TargetState recoveryState = session->latest.value_or(lastKnownState);
+                    recoveryState.container_ip = lastKnownState.container_ip;
+                    observer.onStateUpdate(recoveryState);
                 }
-                session->cv.notify_all();
+                observer.onPhaseChange("recovery");
 
                 storeRunResult(session, std::move(result));
                 session->cv.notify_all();

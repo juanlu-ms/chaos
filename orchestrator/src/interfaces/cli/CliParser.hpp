@@ -13,6 +13,7 @@
 
 #include "containers/IContainerEngine.hpp"
 #include "core/ChaosRunner.hpp"
+#include "core/IRunObserver.hpp"
 
 namespace chaos::orchestrator::interfaces::cli {
 
@@ -52,7 +53,7 @@ private:
 
     [[nodiscard]] shared::TargetState runPerturbationsLoop(
         std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations, const std::string& targetId,
-        std::chrono::seconds duration) const;
+        std::chrono::seconds duration, core::IRunObserver& observer) const;
 };
 
 }  // namespace chaos::orchestrator::interfaces::cli

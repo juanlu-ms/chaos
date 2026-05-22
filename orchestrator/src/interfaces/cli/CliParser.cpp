@@ -31,6 +31,20 @@ namespace {
     return command == "help" || command == "--help" || command == "-h";
 }
 
+class CliRunObserver final : public core::IRunObserver {
+public:
+    void onStateUpdate(const shared::TargetState& state) override {
+        broadcaster_.broadcast(state);
+    }
+
+    void onPhaseChange(std::string_view phase) override {
+        SPDLOG_INFO("Entering phase: {}", phase);
+    }
+
+private:
+    shared::StateBroadcaster broadcaster_;
+};
+
 }  // namespace
 
 CliParser::CliParser(std::shared_ptr<containers::IContainerEngine> engine)
@@ -212,7 +226,8 @@ int CliParser::handleRun(const std::string& manifestPath) const {
         auto perturbation_instances = runner_.buildPerturbations(manifest);
         const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
 
-        auto finalState = runPerturbationsLoop(std::move(perturbation_instances), manifest.target.id, duration);
+        CliRunObserver observer;
+        auto finalState = runPerturbationsLoop(std::move(perturbation_instances), manifest.target.id, duration, observer);
 
         auto runResult = runner_.finalize(manifest, finalState);
         for (const auto& result : runResult.results) {
@@ -243,22 +258,22 @@ int CliParser::handleRun(const std::string& manifestPath) const {
 
 shared::TargetState CliParser::runPerturbationsLoop(
     std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations, const std::string& targetId,
-    std::chrono::seconds duration) const {
+    std::chrono::seconds duration, core::IRunObserver& observer) const {
     perturbations::PerturbationEngine pert_engine;
-    pert_engine.scheduleAllAsync(std::move(perturbations), duration);
-
     observability::ObservabilityEngine obs(engine_);
     shared::TargetState lastKnownState{};
-    shared::StateBroadcaster broadcaster;
 
     signals::SignalHandlerGuard signal_guard;
 
-    if (duration.count() == 0) {
-        lastKnownState = obs.observe(targetId);
-        broadcaster.broadcast(lastKnownState);
-    } else {
-        const auto end_time = std::chrono::steady_clock::now() + duration;
+    observer.onPhaseChange("normal");
+    lastKnownState = obs.observe(targetId);
+    observer.onStateUpdate(lastKnownState);
 
+    if (duration.count() > 0) {
+        pert_engine.scheduleAllAsync(std::move(perturbations), duration);
+        observer.onPhaseChange("chaos");
+
+        const auto end_time = std::chrono::steady_clock::now() + duration;
         constexpr auto kPollInterval = std::chrono::milliseconds(500);
 
         while (std::chrono::steady_clock::now() < end_time) {
@@ -269,17 +284,19 @@ shared::TargetState CliParser::runPerturbationsLoop(
             }
 
             lastKnownState = obs.observe(targetId);
-            broadcaster.broadcast(lastKnownState);
+            observer.onStateUpdate(lastKnownState);
             std::this_thread::sleep_for(kPollInterval);
         }
+
+        if (signal_guard.token().stop_requested()) {
+            SPDLOG_WARN("Interrupt received; canceling perturbations.");
+            pert_engine.cancel();
+        }
+
+        pert_engine.waitForTeardown();
     }
 
-    if (signal_guard.token().stop_requested()) {
-        SPDLOG_WARN("Interrupt received; canceling perturbations.");
-        pert_engine.cancel();
-    }
-
-    pert_engine.waitForTeardown();
+    observer.onPhaseChange("recovery");
     return lastKnownState;
 }
 

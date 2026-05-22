@@ -37,7 +37,7 @@ public:
      * @return A populated TargetState DTO with all observed metrics.
      * @throws std::system_error On retrieval failure.
      */
-    shared::TargetState observe(const std::string_view containerId) const;
+    shared::TargetState observe(const std::string_view containerId);
 
     /**
      * @brief Fetch the IP. Called once at run setup, not on every observe tick.
@@ -47,7 +47,7 @@ public:
     // ── Data-source getters ─────────────────────────────────────────
     shared::ContainerStatus getStatus(const std::string_view containerId) const;
     std::string getLogs(const std::string_view containerId) const;
-    containers::ContainerStats getStats(const std::string_view containerId) const;
+    containers::ContainerStats getStats(const std::string_view containerId);
 
 private:
     std::shared_ptr<containers::IContainerEngine> engine_;

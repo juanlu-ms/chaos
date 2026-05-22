@@ -203,7 +203,7 @@ public:
     /**
      * @brief Fetch CPU, memory and network stats in one HTTP call.
      */
-    [[nodiscard]] containers::ContainerStats getStats(const std::string_view containerId) const override;
+    [[nodiscard]] containers::ContainerStats getStats(const std::string_view containerId) override;
 
     /**
      * @brief Fetch the primary IP address of a running container.
@@ -229,10 +229,10 @@ private:
 
     // Network B/s tracking: store previous cumulative bytes and timestamp
     // so getStats() can compute the delta on each call.
-    mutable double prev_net_rx_ = 0;
-    mutable double prev_net_tx_ = 0;
-    mutable std::chrono::steady_clock::time_point prev_net_timestamp_;
-    mutable bool prev_net_valid_ = false;
+    double prev_net_rx_ = 0;
+    double prev_net_tx_ = 0;
+    std::chrono::steady_clock::time_point prev_net_timestamp_;
+    bool prev_net_valid_ = false;
 
     nlohmann::json parseResponse(const HttpResponse& response) const;
 };

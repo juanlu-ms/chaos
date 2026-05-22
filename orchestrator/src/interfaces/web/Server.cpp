@@ -246,8 +246,18 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
 
         auto perturbation_instances = runner_.buildPerturbations(manifest);
 
-        std::thread([engine = engine_, session, manifest = std::move(manifest),
-                     perturbation_instances = std::move(perturbation_instances)]() mutable {
+        // Cancel any previous run.
+        if (run_thread_.joinable()) {
+            run_thread_.request_stop();
+            run_thread_.join();
+        }
+
+        run_thread_ = std::jthread([engine = engine_, session, manifest = std::move(manifest),
+                                    perturbation_instances =
+                                        std::move(perturbation_instances)](const std::stop_token& token) mutable {
+            if (token.stop_requested()) {
+                return;
+            }
             try {
                 using namespace std::chrono;
                 using namespace std::chrono_literals;
@@ -296,11 +306,11 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                             if (useCgroup) {
                                 auto cpu = cgroup.getCpuUsagePercent(manifest.target.id);
                                 auto mem = cgroup.getMemoryUsageMb(manifest.target.id);
-                                if (cpu) {
-                                    state.cpu_usage_percent = cpu;
+                                if (cpu.has_value()) {
+                                    state.cpu_usage_percent = cpu.value();
                                 }
-                                if (mem) {
-                                    state.memory_usage_mb = mem;
+                                if (mem.has_value()) {
+                                    state.memory_usage_mb = mem.value();
                                 }
                             } else {
                                 try {
@@ -357,8 +367,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                 std::this_thread::sleep_for(kBaselineDuration);
                 // Start fault injection.
                 perturbations::PerturbationEngine pert_engine;
-                const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
-                if (duration.count() > 0) {
+                if (const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0)); duration.count() > 0) {
                     auto session_stop = session->stop_source.get_token();
                     pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration, session_stop);
                     SPDLOG_INFO("Injecting faults for {}s.", duration.count());
@@ -369,7 +378,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                     session->cv.notify_all();
 
                     auto chaos_end = std::chrono::steady_clock::now() + duration + 2s;
-                    while (std::chrono::steady_clock::now() < chaos_end) {
+                    while (std::chrono::steady_clock::now() < chaos_end && !token.stop_requested()) {
                         if (session_stop.stop_requested()) {
                             pert_engine.cancel();
                             break;
@@ -436,7 +445,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                 session->cv.notify_all();
                 SPDLOG_ERROR("/api/run async failed: {}", ex.what());
             }
-        }).detach();
+        });
 
         json resp;
         resp["status"] = "started";

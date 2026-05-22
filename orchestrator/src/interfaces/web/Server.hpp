@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <mutex>
+#include <thread>
 
 #include "containers/IContainerEngine.hpp"
 #include "core/ChaosRunner.hpp"
@@ -38,6 +39,7 @@ private:
 
     std::mutex session_mutex_;
     std::shared_ptr<RunSession> session_;
+    std::jthread run_thread_;
 
     void setupRoutes();
     void handleRun(const httplib::Request& req, httplib::Response& res);

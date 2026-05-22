@@ -18,9 +18,9 @@ PerturbationEngine::~PerturbationEngine() {
 
 void PerturbationEngine::scheduleAllAsync(std::vector<std::unique_ptr<IPerturbation>> perturbations,
                                           std::chrono::seconds duration, std::stop_token external_stop) {
+    std::lock_guard lock(threads_mutex_);
     stop_source_ = std::stop_source{};
 
-    std::lock_guard lock(threads_mutex_);
     active_threads_.reserve(active_threads_.size() + perturbations.size());
 
     for (auto& perturbation : perturbations) {
@@ -45,7 +45,10 @@ void PerturbationEngine::scheduleAllAsync(std::vector<std::unique_ptr<IPerturbat
 }
 
 void PerturbationEngine::cancel() {
-    stop_source_.request_stop();
+    {
+        std::lock_guard lock(threads_mutex_);
+        stop_source_.request_stop();
+    }
     cancel_cv_.notify_all();
 }
 

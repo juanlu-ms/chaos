@@ -185,7 +185,7 @@ public:
     /**
      * @brief Fetch CPU, memory and network stats in a single API call.
      */
-    [[nodiscard]] virtual containers::ContainerStats getStats(const std::string_view containerId) const = 0;
+    [[nodiscard]] virtual containers::ContainerStats getStats(const std::string_view containerId) = 0;
 
     /**
      * @brief Fetch the primary IP address of a running container (call once at setup).

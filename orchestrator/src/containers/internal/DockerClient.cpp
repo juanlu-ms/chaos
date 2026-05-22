@@ -610,7 +610,7 @@ std::string DockerClient::getLogs(const std::string_view containerId) const {
     return result;
 }
 
-containers::ContainerStats DockerClient::getStats(const std::string_view containerId) const {
+containers::ContainerStats DockerClient::getStats(const std::string_view containerId) {
     if (containerId.empty()) {
         throw std::invalid_argument("Container ID must not be empty");
     }

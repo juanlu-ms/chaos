@@ -18,7 +18,7 @@ namespace chaos::orchestrator::observability {
 ObservabilityEngine::ObservabilityEngine(std::shared_ptr<containers::IContainerEngine> engine)
     : engine_(std::move(engine)) {}
 
-shared::TargetState ObservabilityEngine::observe(const std::string_view containerId) const {
+shared::TargetState ObservabilityEngine::observe(const std::string_view containerId) {
     SPDLOG_DEBUG("ObservabilityEngine: observing container '{}'", containerId);
 
     shared::TargetState state;
@@ -59,7 +59,7 @@ std::string ObservabilityEngine::getLogs(const std::string_view containerId) con
     return engine_->getLogs(containerId);
 }
 
-containers::ContainerStats ObservabilityEngine::getStats(const std::string_view containerId) const {
+containers::ContainerStats ObservabilityEngine::getStats(const std::string_view containerId) {
     SPDLOG_DEBUG("ObservabilityEngine: getting stats for container '{}'", containerId);
     return engine_->getStats(containerId);
 }

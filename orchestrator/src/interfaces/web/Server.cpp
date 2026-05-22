@@ -67,8 +67,7 @@ json buildRunResults(const manifests::ChaosManifest& manifest, const shared::Tar
     bool passed = true;
     json results = json::array();
     for (const auto& vr : validationResults) {
-        bool continuousFailed = std::find(continuousFailures.begin(), continuousFailures.end(), vr.expectationType) !=
-                                continuousFailures.end();
+        bool continuousFailed = std::ranges::find(continuousFailures, vr.expectationType) != continuousFailures.end();
         bool expectationPassed = vr.passed && !continuousFailed;
         if (!expectationPassed) passed = false;
         results.push_back({{"type", vr.expectationType}, {"passed", expectationPassed}, {"message", vr.message}});

@@ -570,9 +570,12 @@ std::string DockerClient::getLogs(const std::string_view containerId) const {
 
     SPDLOG_DEBUG("Fetching logs for container: {}", containerId);
 
+    constexpr int kLogTailLines = 50;
+
     // tail=50 avoids dumping the entire container log on every poll; demuxing
     // is done below by stripping the 8-byte frame headers.
-    const std::string endpoint = fmt::format("/containers/{}/logs?stdout=1&stderr=1&timestamps=0&tail=50", containerId);
+    const std::string endpoint =
+        fmt::format("/containers/{}/logs?stdout=1&stderr=1&timestamps=0&tail={}", containerId, kLogTailLines);
     const auto response = request_(HttpMethod::GET, endpoint, "");
 
     if (response.status != 200) {

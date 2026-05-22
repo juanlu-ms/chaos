@@ -252,6 +252,10 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                 using namespace std::chrono;
                 using namespace std::chrono_literals;
 
+                constexpr auto kMetricsInterval = 100ms;
+                constexpr auto kLogsInterval = 1500ms;
+                constexpr auto kBaselineDuration = 2s;
+
                 observability::ObservabilityEngine obs(engine);
                 shared::TargetState lastKnownState;
 
@@ -317,7 +321,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                         session->cv.notify_all();
 
                         auto elapsed = steady_clock::now() - tick;
-                        auto remaining = 100ms - elapsed;
+                        auto remaining = kMetricsInterval - elapsed;
                         if (remaining > 0ms) {
                             std::this_thread::sleep_for(remaining);
                         }
@@ -338,7 +342,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                         session->cv.notify_all();
 
                         auto elapsed = steady_clock::now() - tick;
-                        auto remaining = 1500ms - elapsed;
+                        auto remaining = kLogsInterval - elapsed;
                         if (remaining > 0ms) {
                             std::this_thread::sleep_for(remaining);
                         }
@@ -350,7 +354,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                 // ═══════════════════════════════════════════════════════
 
                 // Baseline: 2 seconds of "normal" phase.
-                std::this_thread::sleep_for(2s);
+                std::this_thread::sleep_for(kBaselineDuration);
                 // Start fault injection.
                 perturbations::PerturbationEngine pert_engine;
                 const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));

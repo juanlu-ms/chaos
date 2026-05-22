@@ -251,6 +251,8 @@ shared::TargetState CliParser::runPerturbationsLoop(
     } else {
         const auto end_time = std::chrono::steady_clock::now() + duration;
 
+        constexpr auto kPollInterval = std::chrono::milliseconds(500);
+
         while (std::chrono::steady_clock::now() < end_time) {
             int dummy = 0;
             ssize_t n = ::read(signal_guard.readEnd(), &dummy, sizeof(dummy));
@@ -260,7 +262,7 @@ shared::TargetState CliParser::runPerturbationsLoop(
 
             lastKnownState = obs.observe(targetId);
             broadcaster.broadcast(lastKnownState);
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            std::this_thread::sleep_for(kPollInterval);
         }
     }
 

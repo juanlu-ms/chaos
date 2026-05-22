@@ -29,6 +29,8 @@
 namespace chaos::orchestrator::perturbations {
 namespace {
 
+constexpr auto kDefaultIface = "eth0";
+
 #pragma pack(push, 1)
 struct EthernetHeader {
     std::array<uint8_t, 6> dst;
@@ -88,7 +90,7 @@ PacketFloodPerturbation::PacketFloodPerturbation(std::shared_ptr<containers::ICo
     : engine_(std::move(engine)), target_id_(std::move(target_id)) {
     iface_ = [&] {
         auto iter = spec.parameters.find("iface");
-        return (iter != spec.parameters.end()) ? iter->second : std::string("eth0");
+        return (iter != spec.parameters.end()) ? iter->second : std::string(kDefaultIface);
     }();
     rate_ = [&] {
         auto iter = spec.parameters.find("rate");

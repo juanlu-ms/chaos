@@ -12,6 +12,10 @@
 
 namespace chaos::orchestrator::perturbations {
 
+namespace {
+constexpr auto kDefaultIface = "eth0";
+}
+
 TrafficCorruptionPerturbation::TrafficCorruptionPerturbation(std::shared_ptr<containers::IContainerEngine> engine,
                                                              std::string target_id, const manifests::Perturbation& spec)
     : engine_(std::move(engine)), target_id_(std::move(target_id)), params_(spec.parameters) {}
@@ -42,7 +46,7 @@ void TrafficCorruptionPerturbation::apply() {
 
     const std::string iface = [&] {
         auto ifaceIt = params_.find("iface");
-        return (ifaceIt != params_.end()) ? ifaceIt->second : std::string("eth0");
+        return (ifaceIt != params_.end()) ? ifaceIt->second : std::string(kDefaultIface);
     }();
 
     try {
@@ -66,7 +70,7 @@ void TrafficCorruptionPerturbation::revert() {
 
     const std::string iface = [&] {
         auto ifaceIt = params_.find("iface");
-        return (ifaceIt != params_.end()) ? ifaceIt->second : std::string("eth0");
+        return (ifaceIt != params_.end()) ? ifaceIt->second : std::string(kDefaultIface);
     }();
 
     try {

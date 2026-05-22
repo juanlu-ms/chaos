@@ -40,6 +40,7 @@ public:
                 (const, override));
     MOCK_METHOD(containers::ContainerStats, getStats, (const std::string_view containerId), (const, override));
     MOCK_METHOD(std::string, getContainerIp, (const std::string_view containerId), (const, override));
+    MOCK_METHOD(int, getContainerNetnsFd, (const std::string_view containerId), (const, override));
     MOCK_METHOD(containers::SystemInfo, getSystemInfo, (), (const, override));
 };
 

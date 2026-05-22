@@ -195,6 +195,19 @@ public:
     [[nodiscard]] virtual std::string getContainerIp(const std::string_view containerId) const = 0;
 
     /**
+     * @brief Open a file descriptor on the container's network namespace.
+     *
+     * The returned fd can be used with setns(CLONE_NEWNET) to enter the
+     * container's network namespace from the host process. The caller
+     * is responsible for closing the fd.
+     *
+     * @param containerId Target container ID.
+     * @return A file descriptor opened on /proc/<pid>/ns/net.
+     * @throws ContainerEngineError If the container cannot be inspected.
+     */
+    [[nodiscard]] virtual int getContainerNetnsFd(const std::string_view containerId) const = 0;
+
+    /**
      * @brief Retrieve system-level information from the container engine.
      * @return SystemInfo containing total memory and other host-level details.
      * @throws ContainerEngineApiError On non-200 HTTP response.

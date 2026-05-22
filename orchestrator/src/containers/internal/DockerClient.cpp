@@ -2,12 +2,14 @@
 
 #include <archive.h>
 #include <archive_entry.h>
+#include <fcntl.h>
 #include <fmt/format.h>
 #include <httplib.h>
 #include <spdlog/spdlog.h>
 #include <sys/socket.h>
 
 #include <array>
+#include <cerrno>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
@@ -450,6 +452,39 @@ std::string DockerClient::execInNetNs(const std::string_view containerId, const 
 
     SPDLOG_INFO("DockerClient: network command executed in container {} netns", containerId);
     return result;
+}
+
+int DockerClient::getContainerNetnsFd(const std::string_view containerId) const {
+    if (containerId.empty()) {
+        throw std::invalid_argument("Container ID cannot be empty");
+    }
+
+    const auto inspectResponse = request_(HttpMethod::GET, fmt::format("/containers/{}/json", containerId), "");
+    if (inspectResponse.status != 200) {
+        throw containers::ContainerEngineApiError(
+            fmt::format("Failed to inspect container '{}': HTTP {}", containerId, inspectResponse.status));
+    }
+
+    auto inspectJson = parseResponse(inspectResponse);
+    if (!inspectJson.contains("State") || !inspectJson["State"].is_object() || !inspectJson["State"].contains("Pid") ||
+        !inspectJson["State"]["Pid"].is_number_integer()) {
+        throw containers::ContainerEngineParseError(
+            fmt::format("Failed to get State.Pid for container '{}'", containerId));
+    }
+
+    const auto pid = inspectJson["State"]["Pid"].get<int>();
+    if (pid <= 0) {
+        throw containers::ContainerEngineError(fmt::format("Container '{}' is not running (PID={})", containerId, pid));
+    }
+
+    const std::string nsPath = fmt::format("/proc/{}/ns/net", pid);
+    const int fd = open(nsPath.c_str(), O_RDONLY);
+    if (fd < 0) {
+        throw containers::ContainerEngineError(
+            fmt::format("Failed to open network namespace for container '{}': {}", containerId, std::strerror(errno)));
+    }
+
+    return fd;
 }
 
 void DockerClient::updateMemoryLimit(const std::string_view containerId, int64_t memory_bytes) const {

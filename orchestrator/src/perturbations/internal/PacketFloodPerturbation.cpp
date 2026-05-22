@@ -283,7 +283,7 @@ void PacketFloodPerturbation::floodLoop(const std::stop_token& stop) const {
     tcpHeader->urgentPtr = 0;
     tcpHeader->checksum = 0;
 
-    struct sockaddr_ll dst{};
+    struct sockaddr_ll dst {};
     dst.sll_family = AF_PACKET;
     dst.sll_ifindex = ifindex_;
     dst.sll_protocol = htons(ETH_P_ALL);
@@ -301,8 +301,8 @@ void PacketFloodPerturbation::floodLoop(const std::stop_token& stop) const {
             std::ranges::generate(std::span(payload, payloadLen), rng);
 
             ipHeader->checksum = 0;
-            ipHeader->checksum = ipChecksum(std::span<const uint16_t>(
-                reinterpret_cast<const uint16_t*>(ipHeader), sizeof(IpHeader) / 2));
+            ipHeader->checksum = ipChecksum(
+                std::span<const uint16_t>(reinterpret_cast<const uint16_t*>(ipHeader), sizeof(IpHeader) / 2));
 
             tcpHeader->checksum = 0;
             tcpHeader->checksum = tcpChecksum(
@@ -311,7 +311,9 @@ void PacketFloodPerturbation::floodLoop(const std::stop_token& stop) const {
 
             sendto(raw_sd_, frame.data(), frame.size(), 0, reinterpret_cast<struct sockaddr*>(&dst), sizeof(dst));
         }
-        if (stop.stop_requested()) return;
+        if (stop.stop_requested()) {
+            return;
+        }
     }
 }
 

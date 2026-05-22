@@ -13,14 +13,6 @@ namespace chaos::orchestrator::manifests {
 
 namespace {
 
-struct TransparentStringHash {
-    using is_transparent = void;
-
-    [[nodiscard]] std::size_t operator()(std::string_view value) const noexcept {
-        return std::hash<std::string_view>{}(value);
-    }
-};
-
 struct RequiredParameterRule {
     std::string parameter;
     std::string errorMessage;
@@ -54,12 +46,12 @@ const RuleMap kExpectationRequiredParams = {
       {"max_latency_ms", "Missing 'max_latency_ms' parameter for http_latency expectation"}}}};
 
 void validateRequiredParameters(const std::string& type, const nlohmann::json& parameters, const RuleMap& rules) {
-    const auto it = rules.find(type);
-    if (it == rules.end()) {
+    const auto iter = rules.find(type);
+    if (iter == rules.end()) {
         return;
     }
 
-    for (const auto& rule : it->second) {
+    for (const auto& rule : iter->second) {
         if (!parameters.contains(rule.parameter)) {
             throw ManifestParserError(rule.errorMessage);
         }

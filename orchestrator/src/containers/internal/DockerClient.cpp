@@ -214,7 +214,7 @@ void DockerClient::pullImage(const std::string_view image) const {
 
     if (const auto response = request_(HttpMethod::POST, "/images/create", body.dump()); response.status == 404) {
         SPDLOG_ERROR("Docker API returned status {}: Repository not found", response.status, response.body);
-        throw std::invalid_argument(fmt::format("Repository not found", response.status));
+        throw std::invalid_argument(fmt::format("Repository not found ({})", response.status));
     } else if (response.status != 200) {
         SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
         throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", response.status));

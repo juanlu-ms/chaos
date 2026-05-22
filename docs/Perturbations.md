@@ -61,8 +61,8 @@ Perturbations are the fault injection mechanisms applied to a target container. 
   - `iface` (string): Network interface to flood (default: `"eth0"`).
   - `rate` (integer): Packets per second (default: `1000`).
   - `packet_size` (integer): Frame size in bytes including headers (default: `128`).
-- **Under the hood**: Enters the container's network namespace via `setns()`, opens an `AF_PACKET` raw socket, then floods the container's own IP with structurally valid Ethernet+IP+UDP frames targeted at random ports. Random source MACs and IPs are spoofed.
-- **Effect**: The container receives a high volume of packets that survive layer-2/3 validation, causing resource exhaustion (SYN backlog, CPU, interrupt storm). Unlike a network cutoff, traffic still flows but the container is too overwhelmed to serve its application.
+- **Under the hood**: Enters the container's network namespace via `setns()`, opens an `AF_PACKET` raw socket, then floods the container's own IP with TCP SYN frames targeting port 8000. Random source MACs, IPs, and source ports are spoofed.
+- **Effect**: The container receives a high volume of TCP SYN packets targeting its HTTP port, causing resource exhaustion (SYN backlog, CPU, interrupt storm). Unlike a network cutoff, traffic still flows but the container may be too overwhelmed to serve its application.
 
 ### 7. `traffic_corruption`
 - **Description**: Corrupts, drops, or duplicates existing network packets on the interface using `tc netem`.

@@ -13,12 +13,21 @@
 #include "manifests/Manifest.hpp"
 #include "perturbations/IPerturbation.hpp"
 #include "shared/TargetState.hpp"
+#include "validation/ValidationResult.hpp"
 
 namespace chaos::orchestrator::containers {
 class IContainerEngine;
 }
 
 namespace chaos::orchestrator::core {
+
+/**
+ * @brief Result of running and validating a chaos test.
+ */
+struct RunResult {
+    bool passed{false};
+    std::vector<validation::ValidationResult> results;
+};
 
 /**
  * @brief Shared business logic for running chaos tests.
@@ -47,6 +56,17 @@ public:
      */
     [[nodiscard]] bool validateExpectations(const manifests::ChaosManifest& manifest,
                                             const shared::TargetState& finalState) const;
+
+    /**
+     * @brief Validate expectations and return full results.
+     * @param manifest The chaos test manifest with expectations.
+     * @param finalState The final observed container state.
+     * @param continuousFailures Optional list of expectation types that failed mid-run.
+     * @return RunResult with pass/fail and per-expectation details.
+     */
+    [[nodiscard]] RunResult finalize(const manifests::ChaosManifest& manifest,
+                                     const shared::TargetState& finalState,
+                                     const std::vector<std::string>& continuousFailures = {}) const;
 
     /**
      * @brief Parse a manifest from a JSON file.

@@ -7,6 +7,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -30,23 +31,32 @@ std::vector<std::unique_ptr<perturbations::IPerturbation>> ChaosRunner::buildPer
     return instances;
 }
 
-bool ChaosRunner::validateExpectations(const manifests::ChaosManifest& manifest,
-                                       const shared::TargetState& finalState) const {
+RunResult ChaosRunner::finalize(const manifests::ChaosManifest& manifest, const shared::TargetState& finalState,
+                                const std::vector<std::string>& continuousFailures) const {
     if (manifest.expectations.empty()) {
-        return true;
+        return {true, {}};
     }
 
-    SPDLOG_INFO("Evaluating {} expectation(s)...", manifest.expectations.size());
-    const auto results = validation::validate(finalState, manifest.expectations);
+    auto results = validation::validate(finalState, manifest.expectations);
 
-    for (const auto& result : results) {
+    bool passed = true;
+    for (auto& result : results) {
+        if (bool continuousFailed =
+                std::ranges::find(continuousFailures, result.expectationType) != continuousFailures.end()) {
+            result.passed = false;
+            result.message = "Passed final validation but failed mid-run continuous check";
+        }
         if (!result.passed) {
-            SPDLOG_ERROR("Chaos run FAILED: one or more expectations were not met.");
-            return false;
+            passed = false;
         }
     }
-    SPDLOG_INFO("Chaos run PASSED: all expectations met.");
-    return true;
+
+    return {passed, std::move(results)};
+}
+
+bool ChaosRunner::validateExpectations(const manifests::ChaosManifest& manifest,
+                                       const shared::TargetState& finalState) const {
+    return finalize(manifest, finalState).passed;
 }
 
 manifests::ChaosManifest ChaosRunner::parseManifest(const std::string& path) const {

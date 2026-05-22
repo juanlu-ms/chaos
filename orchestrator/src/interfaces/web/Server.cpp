@@ -60,22 +60,13 @@ std::vector<std::string> checkContinuousExpectations(const shared::TargetState& 
     return failed;
 }
 
-json buildRunResults(const manifests::ChaosManifest& manifest, const shared::TargetState& chaosState,
-                     const std::vector<std::string>& continuousFailures) {
-    const auto validationResults = validation::validate(chaosState, manifest.expectations);
-
-    bool passed = true;
-    json results = json::array();
-    for (const auto& vr : validationResults) {
-        bool continuousFailed = std::ranges::find(continuousFailures, vr.expectationType) != continuousFailures.end();
-        bool expectationPassed = vr.passed && !continuousFailed;
-        if (!expectationPassed) passed = false;
-        results.push_back({{"type", vr.expectationType}, {"passed", expectationPassed}, {"message", vr.message}});
-    }
-
+json runResultToJson(const core::RunResult& runResult) {
     json result;
-    result["passed"] = passed;
-    result["results"] = std::move(results);
+    result["passed"] = runResult.passed;
+    result["results"] = json::array();
+    for (const auto& vr : runResult.results) {
+        result["results"].push_back({{"type", vr.expectationType}, {"passed", vr.passed}, {"message", vr.message}});
+    }
     return result;
 }
 
@@ -305,10 +296,12 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
             run_thread_.join();
         }
 
-        run_thread_ = std::jthread([engine = engine_, session, manifest = std::move(manifest),
+        run_thread_ = std::jthread([this, engine = engine_, session, manifest = std::move(manifest),
                                     perturbation_instances =
                                         std::move(perturbation_instances)](const std::stop_token& token) mutable {
-            if (token.stop_requested()) return;
+            if (token.stop_requested()) {
+                return;
+            }
             try {
                 using namespace std::chrono;
                 using namespace std::chrono_literals;
@@ -452,7 +445,8 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                 }
 
                 // Validate against chaos state (perturbations still active).
-                auto result = buildRunResults(manifest, chaosState, failures);
+                auto runResult = runner_.finalize(manifest, chaosState, failures);
+                auto result = runResultToJson(runResult);
 
                 // Revert all perturbations.
                 pert_engine.waitForTeardown();

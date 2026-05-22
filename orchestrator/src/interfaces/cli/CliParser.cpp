@@ -214,7 +214,15 @@ int CliParser::handleRun(const std::string& manifestPath) const {
 
         auto finalState = runPerturbationsLoop(std::move(perturbation_instances), manifest.target.id, duration);
 
-        if (!runner_.validateExpectations(manifest, finalState)) {
+        auto runResult = runner_.finalize(manifest, finalState);
+        for (const auto& result : runResult.results) {
+            if (result.passed) {
+                SPDLOG_INFO("  ✓ {}: {}", result.expectationType, result.message);
+            } else {
+                SPDLOG_ERROR("  ✗ {}: {}", result.expectationType, result.message);
+            }
+        }
+        if (!runResult.passed) {
             return 1;
         }
     } catch (const manifests::ManifestParserError& ex) {

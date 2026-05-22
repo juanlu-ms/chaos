@@ -30,7 +30,7 @@ The system is designed using SOLID principles, enforcing strict separation of co
 * **Real-Time Observability & Event Bus:**
     * **ObservabilityEngine:** Actively polls the Docker container to fetch real-time metrics during a chaos experiment.
     * **StateBroadcaster:** Implements the **Observer Pattern** acting as a thread-safe event bus. The engine publishes container states here, and consumers subscribe to receive real-time updates without data races.
-* **Validation:** * **ValidationEngine:** Evaluates the container's final or continuous state against the expectations defined in the manifest (e.g., verifying if the container correctly logged an `OOMKilled` exit code 137).
+* **Validation:** * **ValidationEngine:** Evaluates the container's state against the expectations defined in the manifest (e.g., verifying if the container correctly logged an `OOMKilled` exit code 137). Supports **continuous validation**: expectations with `"continuous": true` (default for `container_running`, `log_contains`, `log_not_contains`) are validated every ~500ms during the run. Failures are tracked but the run continues so all expectations are evaluated. Final validation runs on the state captured during chaos, **before** perturbations are reverted, so fault effects are visible in the results.
 
 ---
 

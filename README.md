@@ -26,7 +26,7 @@ The `ValidationEngine` evaluates JSON manifests automatically against these expe
 - `http_status` / `http_latency`
 
 ### Concurrent Perturbations
-Perturbations execute asynchronously using `std::async` for concurrent fault injection. The `PerturbationEngine` manages their lifecycle, scheduling apply/revert cycles and providing thread-safe cancellation.
+Perturbations execute asynchronously using `std::jthread` with `std::stop_token` for concurrent fault injection. The `PerturbationEngine` manages their lifecycle, scheduling apply/revert cycles and providing thread-safe cancellation with built-in RAII join on destruction.
 
 ### Real-Time State Streaming
 During perturbation runs, the system polls target state and broadcasts updates via `StateBroadcaster`. The Web UI receives live updates via **SSE** (`GET /events`). `StateBroadcaster` supports exception-safe handle-based subscribe/unsubscribe.
@@ -43,7 +43,7 @@ A dark-themed SPA (`chaos serve`) with 3 auto-advancing steps:
 ### Shared Business Logic Layer
 CHAOS centralises duplicated orchestration logic via `core::ChaosRunner`:
 - **`buildPerturbations`** — creates concrete `IPerturbation` instances from manifest spec entries via `PerturbationFactory`.
-- **`validateExpectations`** — evaluates final container state against manifest expectations using `ValidationEngine`.
+- **`validateExpectations`** — evaluates container state against manifest expectations using `ValidationEngine`. Expectations with `"continuous": true` (default for `container_running`, `log_contains`, `log_not_contains`) are validated every ~500ms during the run; failures are tracked but the run continues. Final validation runs on the state captured during chaos (before perturbations are reverted).
 - **`parseManifest`** — reads and parses JSON manifest files via `ManifestParser`.
 
 Both the CLI parser (`CliParser`) and Web Server (`Server`) delegate to `ChaosRunner`, eliminating the business logic duplication that previously existed between the two adapters. Tested with 8 unit tests.
@@ -204,7 +204,7 @@ Switch themes (Amber / Dark / Cyber) from the topbar dropdown. Your preference i
 | POST | `/api/run` | Async run — returns 202, streams state via SSE |
 | POST | `/api/run/abort` | Abort the currently running test |
 | GET | `/events` | SSE stream (`event: state` / `event: complete` / `event: error`) |
-| POST | `/run` | Legacy synchronous run (backward compatible) |
+
 | POST | `/containers/{id}/stop` | Stop a container |
 | POST | `/containers/{id}/kill` | Kill a container |
 | GET | `/containers/{id}/logs` | Fetch container logs |

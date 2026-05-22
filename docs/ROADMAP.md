@@ -6,11 +6,9 @@ The current implementation of CHAOS is a solid foundation for chaos engineering 
 
 Right now, concurrency and error handling are robust, but it can leverage modern C++ features to make the code faster, safer, and cleaner.
 
-* **Migrate to std::jthread and std::stop_token:**
+* **Migrate to std::jthread and std::stop_token:** ✅ **IMPLEMENTED**
 
-    * Current State: It is using std::async, a std::mutex, a std::condition_variable, and a boolean flag to handle task cancellation.
-
-    * The Improvement: C++20 introduced std::jthread (Joining Thread), which has built-in cancellation support via std::stop_token. You can pass a std::stop_token directly into perturbation lambdas. When you call request_stop() on the parent thread, the condition variables inside the child threads wake up automatically. This eliminates the need for custom cancel_mutex_ and manual state flags, drastically reducing boilerplate and the risk of deadlocks.
+    * The PerturbationEngine now uses `std::jthread` with `std::stop_token` for concurrent fault injection, with RAII join on destruction (no detached threads). The Web Server's run thread also uses `std::jthread` instead of `std::thread::detach()`, guaranteeing thread completion before `Server` destruction.
 
 * **Adopt std::expected for Error Handling:**
 

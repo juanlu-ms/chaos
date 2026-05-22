@@ -8,7 +8,7 @@ The perturbation runtime executes actions concurrently and coordinates them thro
 
 - The PerturbationEngine acts as the thread scheduler for all perturbations.
 - The perturbation factory is decoupled from the engine so creation and execution are separate concerns.
-- Individual perturbations run concurrently via `std::async`.
+- Individual perturbations run concurrently via `std::jthread` with `std::stop_token` for built-in cancellation and RAII join.
 - The engine uses active polling to track progress and publishes updates through the StateBroadcaster.
 - Cancellation and interrupts use `condition_variable::wait_for` to allow quick exits, and a SIGINT triggers an early revert to unwind running perturbations.
 
@@ -78,7 +78,17 @@ Perturbations are the fault injection mechanisms applied to a target container. 
 
 ## ✅ Expectations
 
-Expectations act as assertions after the perturbations run. They are defined in the `expectations` array of the JSON manifest. If any expectation fails, the orchestrator returns a non-zero exit code or an HTTP 422 error.
+Expectations act as assertions that are validated during and after the perturbations run. They are defined in the `expectations` array of the JSON manifest. If any expectation fails, the orchestrator returns a non-zero exit code or an HTTP 422 error.
+
+### Continuous Validation
+By default, `container_running`, `log_contains`, and `log_not_contains` expectations are validated **continuously** during the run (every ~500ms). Failures are tracked but the run continues so all expectations are evaluated. At the end, any continuous failure causes the expectation to be marked as failed, even if the final state passes. 
+
+You can override this per expectation with the optional `"continuous"` field:
+```json
+{"type": "container_not_running", "continuous": false}
+```
+
+Final validation runs on the container state captured **during** the chaos phase (before perturbations are reverted), so faults like `kill` correctly affect the results. Continuous validation does **not** stop the run — it only records failures.
 
 ### 1. `container_running`
 - **Description**: Asserts that the target container is still alive and running.

@@ -52,6 +52,8 @@ struct Expectation {
     std::string type;
     /** @brief Parameters configuring the expectation. */
     Parameters parameters;
+    /** @brief If true, validated continuously during the run (not just at end). */
+    bool continuous = false;
 };
 
 /** @brief Root structure for a chaos test manifest. */

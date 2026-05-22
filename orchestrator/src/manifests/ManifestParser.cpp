@@ -93,6 +93,13 @@ void from_json(const nlohmann::json& j, Expectation& e) {
         j.at("parameters").get_to(e.parameters);
     }
 
+    if (j.contains("continuous")) {
+        j.at("continuous").get_to(e.continuous);
+    } else {
+        static const StringSet kContinuousTypes = {"container_running", "log_contains", "log_not_contains"};
+        e.continuous = kContinuousTypes.contains(e.type);
+    }
+
     validateRequiredParameters(e.type, e.parameters, kExpectationRequiredParams);
 }
 

@@ -2,6 +2,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <filesystem>
@@ -41,6 +42,58 @@ std::optional<std::filesystem::path> findWebRoot() {
     }
 
     return std::nullopt;
+}
+std::vector<std::string> checkContinuousExpectations(const shared::TargetState& state,
+                                                     const std::vector<manifests::Expectation>& expectations) {
+    std::vector<manifests::Expectation> continuous;
+    std::copy_if(expectations.begin(), expectations.end(), std::back_inserter(continuous),
+                 [](const auto& e) { return e.continuous; });
+    if (continuous.empty()) return {};
+
+    auto results = validation::validate(state, continuous);
+    std::vector<std::string> failed;
+    for (const auto& r : results) {
+        if (!r.passed) {
+            failed.push_back(r.expectationType);
+        }
+    }
+    return failed;
+}
+
+json buildRunResults(const manifests::ChaosManifest& manifest, const shared::TargetState& chaosState,
+                     const std::vector<std::string>& continuousFailures) {
+    const auto validationResults = validation::validate(chaosState, manifest.expectations);
+
+    bool passed = true;
+    json results = json::array();
+    for (const auto& vr : validationResults) {
+        bool continuousFailed = std::find(continuousFailures.begin(), continuousFailures.end(), vr.expectationType) !=
+                                continuousFailures.end();
+        bool expectationPassed = vr.passed && !continuousFailed;
+        if (!expectationPassed) passed = false;
+        results.push_back({{"type", vr.expectationType}, {"passed", expectationPassed}, {"message", vr.message}});
+    }
+
+    json result;
+    result["passed"] = passed;
+    result["results"] = std::move(results);
+    return result;
+}
+
+void storeRunResult(const std::shared_ptr<core::RunSession>& session, json result) {
+    std::lock_guard lock(session->mtx);
+    if (!session->running) return;
+    session->results = std::move(result);
+    session->running = false;
+    session->complete = true;
+}
+
+void storeRunError(const std::shared_ptr<core::RunSession>& session, const std::string& error) {
+    std::lock_guard lock(session->mtx);
+    if (!session->running) return;
+    session->error = error;
+    session->running = false;
+    session->complete = true;
 }
 }  // namespace
 
@@ -245,6 +298,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
         }
 
         auto perturbation_instances = runner_.buildPerturbations(manifest);
+        const std::string runName = manifest.test_name;
 
         // Cancel any previous run.
         if (run_thread_.joinable()) {
@@ -255,9 +309,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
         run_thread_ = std::jthread([engine = engine_, session, manifest = std::move(manifest),
                                     perturbation_instances =
                                         std::move(perturbation_instances)](const std::stop_token& token) mutable {
-            if (token.stop_requested()) {
-                return;
-            }
+            if (token.stop_requested()) return;
             try {
                 using namespace std::chrono;
                 using namespace std::chrono_literals;
@@ -269,33 +321,25 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                 observability::ObservabilityEngine obs(engine);
                 shared::TargetState lastKnownState;
 
-                // Fetch IP once at setup.
                 auto ip = obs.getContainerIp(manifest.target.id);
-                if (ip) {
-                    lastKnownState.container_ip = ip;
-                }
+                if (ip) lastKnownState.container_ip = ip;
 
-                // Phase manager — runs on the calling thread.
                 {
                     std::lock_guard lock(session->mtx);
                     session->phase = "normal";
                 }
 
-                // cgroup-based metrics (bypasses Docker API).
                 containers::internal::CgroupMetricsGatherer cgroup;
                 const bool useCgroup =
                     containers::internal::CgroupMetricsGatherer::resolveCgroupPath(manifest.target.id).has_value();
-                if (useCgroup) {
-                    SPDLOG_INFO("Using cgroup v2 for CPU/memory metrics");
-                }
+                if (useCgroup) SPDLOG_INFO("Using cgroup v2 for CPU/memory metrics");
 
                 // ═══════════════════════════════════════════════════════
-                //  Three independent background workers — each polls its
-                //  own data source at its own rate and pushes updates to
-                //  the SSE handler via session->latest.
+                //  Background workers
                 // ═══════════════════════════════════════════════════════
 
-                // ── Worker 1: Metrics (CPU + memory + status) ────────
+                // Worker 1: Metrics + continuous validation
+                int continuousTick = 0;
                 std::jthread metricsWorker([&](const std::stop_token& stop_token) {
                     while (!stop_token.stop_requested() && session->running) {
                         auto tick = steady_clock::now();
@@ -306,12 +350,8 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                             if (useCgroup) {
                                 auto cpu = cgroup.getCpuUsagePercent(manifest.target.id);
                                 auto mem = cgroup.getMemoryUsageMb(manifest.target.id);
-                                if (cpu.has_value()) {
-                                    state.cpu_usage_percent = cpu.value();
-                                }
-                                if (mem.has_value()) {
-                                    state.memory_usage_mb = mem.value();
-                                }
+                                if (cpu.has_value()) state.cpu_usage_percent = cpu;
+                                if (mem.has_value()) state.memory_usage_mb = mem;
                             } else {
                                 try {
                                     auto stats = obs.getStats(manifest.target.id);
@@ -324,6 +364,22 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                                 }
                             }
                         }
+
+                        // Continuous validation every ~500ms
+                        if (++continuousTick % 5 == 0 && !manifest.expectations.empty()) {
+                            auto failures = checkContinuousExpectations(state, manifest.expectations);
+                            if (!failures.empty()) {
+                                std::lock_guard lock(session->mtx);
+                                for (const auto& f : failures) {
+                                    if (std::ranges::find(session->continuous_failures, f) ==
+                                        session->continuous_failures.end()) {
+                                        session->continuous_failures.push_back(f);
+                                        SPDLOG_WARN("Continuous expectation '{}' failed", f);
+                                    }
+                                }
+                            }
+                        }
+
                         {
                             std::lock_guard lock(session->mtx);
                             session->latest = std::move(state);
@@ -338,7 +394,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                     }
                 });
 
-                // ── Worker 2: Logs ───────────────────────────────────
+                // Worker 2: Logs
                 std::jthread logsWorker([&](const std::stop_token& stop_token) {
                     while (!stop_token.stop_requested() && session->running) {
                         auto tick = steady_clock::now();
@@ -353,19 +409,18 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
 
                         auto elapsed = steady_clock::now() - tick;
                         auto remaining = kLogsInterval - elapsed;
-                        if (remaining > 0ms) {
-                            std::this_thread::sleep_for(remaining);
-                        }
+                        if (remaining > 0ms) std::this_thread::sleep_for(remaining);
                     }
                 });
 
                 // ═══════════════════════════════════════════════════════
-                //  Phase manager — runs on the calling thread.
+                //  Phase manager
                 // ═══════════════════════════════════════════════════════
 
-                // Baseline: 2 seconds of "normal" phase.
+                // Baseline
                 std::this_thread::sleep_for(kBaselineDuration);
-                // Start fault injection.
+
+                // Chaos phase
                 perturbations::PerturbationEngine pert_engine;
                 if (const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0)); duration.count() > 0) {
                     auto session_stop = session->stop_source.get_token();
@@ -377,18 +432,33 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                     }
                     session->cv.notify_all();
 
-                    auto chaos_end = std::chrono::steady_clock::now() + duration + 2s;
-                    while (std::chrono::steady_clock::now() < chaos_end && !token.stop_requested()) {
+                    auto chaos_end = steady_clock::now() + duration + 2s;
+                    while (steady_clock::now() < chaos_end && !token.stop_requested()) {
                         if (session_stop.stop_requested()) {
                             pert_engine.cancel();
                             break;
                         }
-                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                        std::this_thread::sleep_for(100ms);
                     }
                 }
 
-                // Teardown and recovery.
+                // Capture state and continuous failures under lock (metrics worker
+                // may still be updating both).
+                shared::TargetState chaosState;
+                std::vector<std::string> failures;
+                {
+                    std::lock_guard lock(session->mtx);
+                    chaosState = session->latest.has_value() ? *session->latest : lastKnownState;
+                    failures = session->continuous_failures;
+                }
+
+                // Validate against chaos state (perturbations still active).
+                auto result = buildRunResults(manifest, chaosState, failures);
+
+                // Revert all perturbations.
                 pert_engine.waitForTeardown();
+
+                // Recovery phase.
                 {
                     std::lock_guard lock(session->mtx);
                     if (session->latest.has_value()) {
@@ -400,48 +470,11 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
                 }
                 session->cv.notify_all();
 
-                // Validation needs an authoritative final snapshot.
-                lastKnownState = obs.observe(manifest.target.id);
-                if (lastKnownState.container_ip) {
-                    lastKnownState.container_ip = ip;
-                }
-
-                // Use ChaosRunner for validation (reuse engine from outer scope).
-                core::ChaosRunner validationRunner(engine);
-                bool passed = validationRunner.validateExpectations(manifest, lastKnownState);
-
-                json result;
-                result["passed"] = passed;
-                result["results"] = json::array();
-                // For detailed results, still call validate directly.
-                const auto validationResults = validation::validate(lastKnownState, manifest.expectations);
-                for (const auto& vr : validationResults) {
-                    result["results"].push_back(
-                        {{"type", vr.expectationType}, {"passed", vr.passed}, {"message", vr.message}});
-                }
-
-                {
-                    std::lock_guard lock(session->mtx);
-                    if (!session->running) {
-                        return;
-                    }
-                    session->results = result;
-                    session->running = false;
-                    session->complete = true;
-                }
+                storeRunResult(session, std::move(result));
                 session->cv.notify_all();
 
-                // jthread destructors call request_stop() + join() here.
             } catch (const std::exception& ex) {
-                {
-                    std::lock_guard lock(session->mtx);
-                    if (!session->running) {
-                        return;
-                    }
-                    session->error = ex.what();
-                    session->running = false;
-                    session->complete = true;
-                }
+                storeRunError(session, ex.what());
                 session->cv.notify_all();
                 SPDLOG_ERROR("/api/run async failed: {}", ex.what());
             }
@@ -451,7 +484,7 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
         resp["status"] = "started";
         response.status = 202;
         response.set_content(resp.dump(4), "application/json");
-        SPDLOG_INFO("/api/run started async execution for '{}'", manifest.test_name);
+        SPDLOG_INFO("/api/run started async execution for '{}'", runName);
 
     } catch (const manifests::ManifestParserError& ex) {
         response.status = 400;

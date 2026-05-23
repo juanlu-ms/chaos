@@ -51,13 +51,6 @@ public:
         const manifests::ChaosManifest& manifest) const;
 
     /**
-     * @brief Validate expectations against a final container state.
-     * @return True if all expectations pass (or none are defined).
-     */
-    [[nodiscard]] bool validateExpectations(const manifests::ChaosManifest& manifest,
-                                            const shared::TargetState& finalState) const;
-
-    /**
      * @brief Validate expectations and return full results.
      * @param manifest The chaos test manifest with expectations.
      * @param finalState The final observed container state.

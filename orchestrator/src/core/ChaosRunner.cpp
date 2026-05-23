@@ -54,11 +54,6 @@ RunResult ChaosRunner::finalize(const manifests::ChaosManifest& manifest, const 
     return {passed, std::move(results)};
 }
 
-bool ChaosRunner::validateExpectations(const manifests::ChaosManifest& manifest,
-                                       const shared::TargetState& finalState) const {
-    return finalize(manifest, finalState).passed;
-}
-
 manifests::ChaosManifest ChaosRunner::parseManifest(const std::string& path) const {
     return manifests::ManifestParser::parseFromFile(path);
 }

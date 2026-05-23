@@ -1,0 +1,126 @@
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+#include <chrono>
+#include <memory>
+#include <stop_token>
+#include <thread>
+
+#include "core/RunOrchestrator.hpp"
+#include "core/SharedState.hpp"
+#include "MockContainerEngine.hpp"
+
+using namespace chaos::orchestrator;
+using namespace chaos::orchestrator::core;
+using namespace testing;
+using namespace std::chrono_literals;
+
+namespace {
+
+class MockRunObserver final : public core::IRunObserver {
+public:
+    MOCK_METHOD(void, onStateUpdate, (const shared::TargetState&), (override));
+    MOCK_METHOD(void, onLogsUpdate, (const std::vector<std::string>&), (override));
+    MOCK_METHOD(void, onPhaseChange, (std::string_view), (override));
+};
+
+}  // namespace
+
+TEST(RunOrchestratorTest, RunWithNoDurationSkipsChaosPhase) {
+    auto engine = std::make_shared<tests::MockContainerEngine>();
+    ChaosRunner runner(engine);
+    RunOrchestrator orchestrator(runner);
+
+    manifests::ChaosManifest manifest;
+    manifest.test_name = "no-duration";
+    manifest.target.id = "test-container";
+    manifest.duration_s = std::nullopt;
+
+    SharedState state;
+    MockRunObserver observer;
+
+    EXPECT_CALL(observer, onPhaseChange(StrEq("normal"))).Times(1);
+    EXPECT_CALL(observer, onPhaseChange(StrEq("chaos"))).Times(0);
+    EXPECT_CALL(observer, onPhaseChange(StrEq("recovery"))).Times(1);
+
+    auto result = orchestrator.run(manifest, state, observer, {});
+    EXPECT_TRUE(result.passed);
+}
+
+TEST(RunOrchestratorTest, RunWithDurationEntersAllPhases) {
+    auto engine = std::make_shared<tests::MockContainerEngine>();
+    ChaosRunner runner(engine);
+    RunOrchestrator orchestrator(runner);
+
+    manifests::ChaosManifest manifest;
+    manifest.test_name = "quick-run";
+    manifest.target.id = "test-container";
+    manifest.duration_s = 1;
+
+    SharedState state;
+    MockRunObserver observer;
+
+    EXPECT_CALL(observer, onPhaseChange(StrEq("normal"))).Times(1);
+    EXPECT_CALL(observer, onPhaseChange(StrEq("chaos"))).Times(1);
+    EXPECT_CALL(observer, onPhaseChange(StrEq("recovery"))).Times(1);
+
+    auto result = orchestrator.run(manifest, state, observer, {});
+    EXPECT_TRUE(result.passed);
+}
+
+TEST(RunOrchestratorTest, ExternalStopCancelsEarly) {
+    auto engine = std::make_shared<tests::MockContainerEngine>();
+    ChaosRunner runner(engine);
+    RunOrchestrator orchestrator(runner);
+
+    manifests::ChaosManifest manifest;
+    manifest.test_name = "cancel-test";
+    manifest.target.id = "test-container";
+    manifest.duration_s = 60;
+
+    SharedState state;
+    MockRunObserver observer;
+
+    EXPECT_CALL(observer, onPhaseChange(StrEq("normal"))).Times(1);
+    EXPECT_CALL(observer, onPhaseChange(StrEq("chaos"))).Times(1);
+    EXPECT_CALL(observer, onPhaseChange(StrEq("recovery"))).Times(1);
+
+    std::stop_source stop_src;
+
+    auto start = std::chrono::steady_clock::now();
+
+    std::thread cancel_thread([&] {
+        std::this_thread::sleep_for(50ms);
+        stop_src.request_stop();
+    });
+
+    auto result = orchestrator.run(manifest, state, observer, {}, stop_src.get_token());
+    cancel_thread.join();
+
+    auto elapsed = std::chrono::steady_clock::now() - start;
+
+    EXPECT_LT(elapsed, 5s);
+    EXPECT_TRUE(result.passed);
+}
+
+TEST(RunOrchestratorTest, ReadsContinuousFailuresFromSharedState) {
+    auto engine = std::make_shared<tests::MockContainerEngine>();
+    ChaosRunner runner(engine);
+    RunOrchestrator orchestrator(runner);
+
+    manifests::ChaosManifest manifest;
+    manifest.test_name = "continuous-fail";
+    manifest.target.id = "test-container";
+    manifest.duration_s = std::nullopt;
+
+    SharedState state;
+    state.addContinuousFailure("http_status");
+    state.addContinuousFailure("log_contains");
+
+    MockRunObserver observer;
+    EXPECT_CALL(observer, onPhaseChange(StrEq("normal"))).Times(1);
+    EXPECT_CALL(observer, onPhaseChange(StrEq("recovery"))).Times(1);
+
+    auto result = orchestrator.run(manifest, state, observer, {});
+
+    EXPECT_TRUE(result.passed);
+}

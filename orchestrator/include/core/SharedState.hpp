@@ -74,7 +74,7 @@ inline std::string SharedState::phase() const {
 inline void SharedState::addContinuousFailure(std::string_view type) {
     std::lock_guard lock(mtx_);
     if (std::ranges::find(continuous_failures_, type) == continuous_failures_.end()) {
-        continuous_failures_.push_back(std::string(type));
+        continuous_failures_.emplace_back(type);
     }
 }
 

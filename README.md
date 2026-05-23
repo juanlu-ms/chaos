@@ -43,10 +43,10 @@ A dark-themed SPA (`chaos serve`) with 3 auto-advancing steps:
 ### Shared Business Logic Layer
 CHAOS centralises duplicated orchestration logic via `core::ChaosRunner`:
 - **`buildPerturbations`** — creates concrete `IPerturbation` instances from manifest spec entries via `PerturbationFactory`.
-- **`validateExpectations`** — evaluates container state against manifest expectations using `ValidationEngine`. Expectations with `"continuous": true` (default for `container_running`, `log_contains`, `log_not_contains`) are validated every ~500ms during the run; failures are tracked but the run continues. Final validation runs on the state captured during chaos (before perturbations are reverted).
+- **`finalize`** — evaluates container state against manifest expectations using `ValidationEngine`. Continuous validation (expectations with `"continuous": true`) is handled by `ObservationLoop` background threads every ~500ms during the run; failures are tracked by `SharedState` but the run continues. Final validation runs on the state captured during chaos (before perturbations are reverted).
 - **`parseManifest`** — reads and parses JSON manifest files via `ManifestParser`.
 
-Both the CLI parser (`CliParser`) and Web Server (`Server`) delegate to `ChaosRunner`, eliminating the business logic duplication that previously existed between the two adapters. Tested with 8 unit tests.
+Both the CLI parser (`CliParser`) and Web Server (`Server`) delegate to `RunOrchestrator` (lifecycle: normal → chaos → recovery → validate) and `ObservationLoop` (background metrics/logs collection), which in turn use `ChaosRunner` for validation and perturbation construction. `SharedState` bridges observations to final validation. Tested with 15 unit tests and 1 E2E test.
 
 ### Signal Handling
 The `signals::SignalHandlerGuard` RAII class (extracted from `CliParser.cpp`) manages POSIX signal handlers via a self-pipe trick. SIGINT writes to the pipe; the event loop reads from `readEnd()` and calls `request_stop()`. Tested with 5 unit tests.

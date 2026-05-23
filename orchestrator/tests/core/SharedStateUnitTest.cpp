@@ -113,8 +113,15 @@ TEST(SharedStateTest, ConcurrentWritesDoNotCorrupt) {
         }
     });
 
+    std::thread writer3([&s] {
+        for (int i = 0; i < kIterations; ++i) {
+            s.updateNetworkLatency(static_cast<double>(i % 100));
+        }
+    });
+
     writer1.join();
     writer2.join();
+    writer3.join();
 
     auto state = s.latestState();
     auto failures = s.continuousFailures();
@@ -141,16 +148,22 @@ TEST(SharedStateTest, UpdateNetworkLatencyPreservesOtherFields) {
     SharedState s;
     TargetState ts;
     ts.container_id = "abc123";
+    ts.status = ContainerStatus::Running;
+    ts.container_ip = "10.0.0.5";
     ts.cpu_usage_percent = 99.0;
     ts.memory_usage_mb = 256.0;
     ts.network_rx_bps = 1000.0;
     ts.network_tx_bps = 500.0;
+    ts.recent_logs = {"line1", "line2"};
     s.updateState(ts);
 
     s.updateNetworkLatency(3.14);
 
     auto state = s.latestState();
     EXPECT_EQ(state.container_id, "abc123");
+    EXPECT_EQ(state.status, ContainerStatus::Running);
+    ASSERT_TRUE(state.container_ip.has_value());
+    EXPECT_EQ(*state.container_ip, "10.0.0.5");
     ASSERT_TRUE(state.cpu_usage_percent.has_value());
     EXPECT_DOUBLE_EQ(*state.cpu_usage_percent, 99.0);
     ASSERT_TRUE(state.memory_usage_mb.has_value());
@@ -161,4 +174,19 @@ TEST(SharedStateTest, UpdateNetworkLatencyPreservesOtherFields) {
     EXPECT_DOUBLE_EQ(*state.network_tx_bps, 500.0);
     ASSERT_TRUE(state.network_latency_ms.has_value());
     EXPECT_DOUBLE_EQ(*state.network_latency_ms, 3.14);
+    ASSERT_EQ(state.recent_logs.size(), 2u);
+}
+
+TEST(SharedStateTest, UpdateStateOverwritesNetworkLatency) {
+    SharedState s;
+    s.updateNetworkLatency(42.0);
+
+    TargetState ts;
+    ts.container_id = "new";
+    // network_latency_ms is NOT set on ts (default nullopt)
+    s.updateState(ts);
+
+    auto state = s.latestState();
+    EXPECT_EQ(state.container_id, "new");
+    EXPECT_FALSE(state.network_latency_ms.has_value());
 }

@@ -83,6 +83,7 @@ add_executable(orchestrator_unit_tests
     tests/signals/SignalHandlerGuardUnitTest.cpp
     tests/core/ChaosRunnerUnitTest.cpp
     tests/core/SharedStateUnitTest.cpp
+    tests/core/ObservationLoopUnitTest.cpp
     tests/web/JsonSerializerUnitTest.cpp
 )
 

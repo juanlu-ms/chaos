@@ -34,7 +34,6 @@ struct RunSession {
     bool complete = false;
     json results;
     std::string error;
-    std::vector<std::string> continuous_failures;
     std::string phase;
     std::stop_source stop_source;
 };

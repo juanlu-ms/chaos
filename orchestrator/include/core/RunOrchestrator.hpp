@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include <chrono>
 #include <memory>
 #include <stop_token>
 #include <vector>

@@ -12,6 +12,7 @@ export default function Step2Monitor({
   logs,
   lastState,
   conn,
+  continuousFailures,
   isRunning,
   onAbort,
   onBack,
@@ -27,6 +28,12 @@ export default function Step2Monitor({
   return (
     <>
       <ConnectionBanner kind={conn} onBack={onBack} />
+      {continuousFailures.length > 0 && (
+        <div className="banner error" role="alert">
+          <strong>Continuous expectation{continuousFailures.length > 1 ? 's' : ''} failed:</strong>{' '}
+          {continuousFailures.join(', ')}
+        </div>
+      )}
       <div className="monitor-header">
         <div className="info">
           <div className="info-row">

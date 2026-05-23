@@ -6,6 +6,7 @@ export function useStreamData() {
   const [zones, setZones] = useState({ normalEnd: 0, chaosEnd: 0 });
   const [lastState, setLastState] = useState(null);
   const [conn, setConn] = useState(null);
+  const [continuousFailures, setContinuousFailures] = useState([]);
   const phaseRef = useRef('normal');
 
   // Snapshot refs so SSE callbacks can read latest values without
@@ -28,6 +29,7 @@ export function useStreamData() {
     zonesRef.current = { normalEnd: 0, chaosEnd: 0 };
     setLastState(null); lastStateRef.current = null;
     setConn(null);
+    setContinuousFailures([]);
     phaseRef.current = 'normal';
     lastSeqRef.current = -1;
     recentTailRef.current = [];
@@ -46,6 +48,10 @@ export function useStreamData() {
 
     setLastState(s);
     lastStateRef.current = s;
+
+    if (s.continuous_failures?.length) {
+      setContinuousFailures(s.continuous_failures);
+    }
 
     if (s.recent_logs?.length) {
       // Prefer a backend-provided sequence id when available.
@@ -126,7 +132,7 @@ export function useStreamData() {
   }), []);
 
   return {
-    data, logs, zones, lastState, conn,
+    data, logs, zones, lastState, conn, continuousFailures,
     resetData, handleState, handleConnectionError, handleConnectionRestored,
     setConn, getSnapshot,
   };

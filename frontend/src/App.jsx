@@ -21,7 +21,7 @@ export default function App() {
 
   const { startStream } = useSSEStream();
   const {
-    data, logs, zones, lastState, conn,
+    data, logs, zones, lastState, conn, continuousFailures,
     resetData, handleState, handleConnectionError, handleConnectionRestored,
     getSnapshot,
   } = useStreamData();
@@ -105,6 +105,7 @@ export default function App() {
             logs={logs}
             lastState={lastState}
             conn={conn}
+            continuousFailures={continuousFailures}
             isRunning={isRunning}
             onAbort={handleAbort}
             onBack={handleBackToStep1}

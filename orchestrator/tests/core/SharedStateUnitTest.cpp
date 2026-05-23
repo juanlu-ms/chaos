@@ -121,3 +121,44 @@ TEST(SharedStateTest, ConcurrentWritesDoNotCorrupt) {
     EXPECT_EQ(failures.size(), 10u);
     EXPECT_TRUE(!state.cpu_usage_percent.has_value() || *state.cpu_usage_percent >= 0.0);
 }
+
+TEST(SharedStateTest, UpdateNetworkLatencySetsField) {
+    SharedState s;
+    s.updateNetworkLatency(5.5);
+    auto state = s.latestState();
+    ASSERT_TRUE(state.network_latency_ms.has_value());
+    EXPECT_DOUBLE_EQ(*state.network_latency_ms, 5.5);
+}
+
+TEST(SharedStateTest, UpdateNetworkLatencyNullopt) {
+    SharedState s;
+    s.updateNetworkLatency(5.5);
+    s.updateNetworkLatency(std::nullopt);
+    EXPECT_FALSE(s.latestState().network_latency_ms.has_value());
+}
+
+TEST(SharedStateTest, UpdateNetworkLatencyPreservesOtherFields) {
+    SharedState s;
+    TargetState ts;
+    ts.container_id = "abc123";
+    ts.cpu_usage_percent = 99.0;
+    ts.memory_usage_mb = 256.0;
+    ts.network_rx_bps = 1000.0;
+    ts.network_tx_bps = 500.0;
+    s.updateState(ts);
+
+    s.updateNetworkLatency(3.14);
+
+    auto state = s.latestState();
+    EXPECT_EQ(state.container_id, "abc123");
+    ASSERT_TRUE(state.cpu_usage_percent.has_value());
+    EXPECT_DOUBLE_EQ(*state.cpu_usage_percent, 99.0);
+    ASSERT_TRUE(state.memory_usage_mb.has_value());
+    EXPECT_DOUBLE_EQ(*state.memory_usage_mb, 256.0);
+    ASSERT_TRUE(state.network_rx_bps.has_value());
+    EXPECT_DOUBLE_EQ(*state.network_rx_bps, 1000.0);
+    ASSERT_TRUE(state.network_tx_bps.has_value());
+    EXPECT_DOUBLE_EQ(*state.network_tx_bps, 500.0);
+    ASSERT_TRUE(state.network_latency_ms.has_value());
+    EXPECT_DOUBLE_EQ(*state.network_latency_ms, 3.14);
+}

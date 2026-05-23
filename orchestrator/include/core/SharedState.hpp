@@ -32,6 +32,12 @@ public:
     void updateState(const shared::TargetState& state);
 
     /**
+     * @brief Patch only the network latency field on the latest state.
+     * @param latency RTT in milliseconds, or std::nullopt if unavailable.
+     */
+    void updateNetworkLatency(std::optional<double> latency);
+
+    /**
      * @brief Get the latest observed target state.
      * @return The most recent state written via updateState().
      */
@@ -86,6 +92,11 @@ private:
 inline void SharedState::updateState(const shared::TargetState& state) {
     std::lock_guard lock(mtx_);
     latest_ = state;
+}
+
+inline void SharedState::updateNetworkLatency(std::optional<double> latency) {
+    std::lock_guard lock(mtx_);
+    latest_.network_latency_ms = latency;
 }
 
 inline shared::TargetState SharedState::latestState() const {

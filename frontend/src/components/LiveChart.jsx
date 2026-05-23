@@ -1,7 +1,7 @@
 import ChartBase from './ChartBase.jsx';
 
 export function formatLatency(ms) {
-  if (ms === null || ms === undefined) return '\u2014';
+  if (ms == null) return '\u2014';
   return `${Number(ms).toFixed(1)} ms`;
 }
 

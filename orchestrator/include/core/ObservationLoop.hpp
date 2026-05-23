@@ -40,18 +40,20 @@ public:
      * @brief Configuration for observation intervals and continuous expectations.
      */
     struct Config {
+        Config() : metricsInterval(100), logsInterval(1500), continuousValidationInterval(500) {}
+
         /** @brief Interval between metrics collection ticks. Default 100ms. */
-        std::chrono::milliseconds metricsInterval{100ms};
+        std::chrono::milliseconds metricsInterval;
 
         /** @brief Interval between log collection ticks. Default 1500ms. */
-        std::chrono::milliseconds logsInterval{1500ms};
+        std::chrono::milliseconds logsInterval;
 
         /**
          * @brief Interval for continuous-expectation validation.
          *        Default 500ms matches the current hardcoded behaviour
          *        (every ~5th tick at 100ms metrics interval).
          */
-        std::chrono::milliseconds continuousValidationInterval{500ms};
+        std::chrono::milliseconds continuousValidationInterval;
 
         /**
          * @brief Expectations whose `continuous` flag is true are
@@ -104,8 +106,7 @@ private:
     Config config_;
 
     // Cgroup-based metrics gathering (optional, resolved at start time).
-    std::optional<containers::internal::CgroupMetricsGatherer> cgroup_;
-    bool useCgroup_{false};
+    std::unique_ptr<containers::internal::CgroupMetricsGatherer> cgroup_;
 
     // Container IP string, fetched once at start and stamped on every state.
     std::optional<std::string> containerIp_;

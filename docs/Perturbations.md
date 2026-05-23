@@ -9,7 +9,7 @@ The perturbation runtime executes actions concurrently and coordinates them thro
 - The PerturbationEngine acts as the thread scheduler for all perturbations.
 - The perturbation factory is decoupled from the engine so creation and execution are separate concerns.
 - Individual perturbations run concurrently via `std::jthread` with `std::stop_token` for built-in cancellation and RAII join.
-- The engine uses active polling to track progress and publishes updates through the StateBroadcaster.
+- The engine uses active polling to track progress and publishes updates through `IRunObserver`.
 - Cancellation and interrupts use `condition_variable::wait_for` to allow quick exits, and a SIGINT triggers an early revert to unwind running perturbations.
 
 ## 💥 Perturbations

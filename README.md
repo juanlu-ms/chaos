@@ -19,8 +19,8 @@ CHAOS supports injecting various faults into target containers:
 - **Lifecycle**: `kill`
 
 ### Observability & Validation
-The `ObservabilityEngine` provides real-time container state inspection via `observe()`, which returns a `TargetState` snapshot including status, logs, and resource metrics.
-The `ValidationEngine` evaluates JSON manifests automatically against these expectations:
+The `ObservationLoop` actively polls the Docker container via `ObservabilityEngine` to fetch real-time metrics (CPU, memory, network I/O) and logs at configurable intervals, pushing results to `SharedState` and notifying `IRunObserver`.
+The `validation::validate` namespace-level free function evaluates JSON manifests automatically against these expectations:
 - `container_running` / `container_not_running`
 - `log_contains` / `log_not_contains`
 - `http_status` / `http_latency`
@@ -29,7 +29,7 @@ The `ValidationEngine` evaluates JSON manifests automatically against these expe
 Perturbations execute asynchronously using `std::jthread` with `std::stop_token` for concurrent fault injection. The `PerturbationEngine` manages their lifecycle, scheduling apply/revert cycles and providing thread-safe cancellation with built-in RAII join on destruction.
 
 ### Real-Time State Streaming
-During perturbation runs, the system polls target state and broadcasts updates via `StateBroadcaster`. The Web UI receives live updates via **SSE** (`GET /events`). `StateBroadcaster` supports exception-safe handle-based subscribe/unsubscribe.
+During perturbation runs, the system polls target state and broadcasts updates via `IRunObserver` (Web: `WebRunObserver` → `RunSession` → SSE; CLI: `CliRunObserver` → `StateBroadcaster`). The Web UI receives live updates via **SSE** (`GET /events`).
 
 ### Graceful Interruption
 SIGINT (Ctrl+C) triggers immediate cancellation of running perturbations, with automatic rollback/reversion of all applied faults before the tool exits.
@@ -43,7 +43,7 @@ A dark-themed SPA (`chaos serve`) with 3 auto-advancing steps:
 ### Shared Business Logic Layer
 CHAOS centralises duplicated orchestration logic via `core::ChaosRunner`:
 - **`buildPerturbations`** — creates concrete `IPerturbation` instances from manifest spec entries via `PerturbationFactory`.
-- **`finalize`** — evaluates container state against manifest expectations using `ValidationEngine`. Continuous validation (expectations with `"continuous": true`) is handled by `ObservationLoop` background threads every ~500ms during the run; failures are tracked by `SharedState` but the run continues. Final validation runs on the state captured during chaos (before perturbations are reverted).
+    - **`finalize`** — evaluates container state against manifest expectations using `validation::validate()`. Receives continuous-failure data collected by `ObservationLoop` background threads every ~500ms during the run (failures tracked in `SharedState` but the run continues). Final validation runs on the state captured during chaos (before perturbations are reverted).
 - **`parseManifest`** — reads and parses JSON manifest files via `ManifestParser`.
 
 Both the CLI parser (`CliParser`) and Web Server (`Server`) delegate to `RunOrchestrator` (lifecycle: normal → chaos → recovery → validate) and `ObservationLoop` (background metrics/logs collection), which in turn use `ChaosRunner` for validation and perturbation construction. `SharedState` bridges observations to final validation. Tested with 15 unit tests and 1 E2E test.

@@ -106,7 +106,7 @@ TEST(RunOrchestratorTest, ExternalStopCancelsEarly) {
 
     auto start = std::chrono::steady_clock::now();
 
-    std::thread cancel_thread([&] {
+    std::thread cancel_thread([&stop_src] {
         std::this_thread::sleep_for(50ms);
         stop_src.request_stop();
     });
@@ -121,7 +121,8 @@ TEST(RunOrchestratorTest, ExternalStopCancelsEarly) {
 }
 
 /**
- * @test Continuous failures from SharedState are consumed at finalization.
+ * @test Continuous failures from SharedState cause finalize() to return failed
+ *        when matching expectations exist in the manifest.
  */
 TEST(RunOrchestratorTest, ReadsContinuousFailuresFromSharedState) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
@@ -132,10 +133,10 @@ TEST(RunOrchestratorTest, ReadsContinuousFailuresFromSharedState) {
     manifest.test_name = "continuous-fail";
     manifest.target.id = "test-container";
     manifest.duration_s = std::nullopt;
+    manifest.expectations.push_back({.type = "http_status", .parameters = {}});
 
     SharedState state;
     state.addContinuousFailure("http_status");
-    state.addContinuousFailure("log_contains");
 
     MockRunObserver observer;
     EXPECT_CALL(observer, onPhaseChange(StrEq("normal"))).Times(1);
@@ -143,5 +144,5 @@ TEST(RunOrchestratorTest, ReadsContinuousFailuresFromSharedState) {
 
     auto result = orchestrator.run(manifest, state, observer, {});
 
-    EXPECT_TRUE(result.passed);
+    EXPECT_FALSE(result.passed);
 }

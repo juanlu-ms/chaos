@@ -33,6 +33,13 @@ void ObservationLoop::start(std::stop_token external_stop) {
     observability::ObservabilityEngine initObs(engine_);
     containerIp_ = initObs.getContainerIp(containerId_);
 
+    auto initial = initObs.observe(containerId_);
+    if (containerIp_) {
+        initial.container_ip = *containerIp_;
+    }
+    state_.updateState(initial);
+    observer_.onStateUpdate(initial);
+
     auto internal_stop = internalStopSource_.get_token();
 
     metricsThread_ =
@@ -50,17 +57,19 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
         auto tick = std::chrono::steady_clock::now();
 
         state = obs.observe(containerId_);
-        if (containerIp_) state.container_ip = *containerIp_;
+        if (containerIp_) {
+            state.container_ip = *containerIp_;
+        }
         state_.updateState(state);
         observer_.onStateUpdate(state);
 
-        auto timeSinceLastCheck = tick - lastContinuousCheck;
-        if (timeSinceLastCheck >= config_.continuousValidationInterval && !config_.continuousExpectations.empty()) {
+        if (auto timeSinceLastCheck = tick - lastContinuousCheck;
+            timeSinceLastCheck >= config_.continuousValidationInterval && !config_.continuousExpectations.empty()) {
             lastContinuousCheck = tick;
 
             std::vector<manifests::Expectation> continuous;
-            std::copy_if(config_.continuousExpectations.begin(), config_.continuousExpectations.end(),
-                         std::back_inserter(continuous), [](const auto& e) { return e.continuous; });
+            std::ranges::copy_if(config_.continuousExpectations, std::back_inserter(continuous),
+                                 [](const auto& e) { return e.continuous; });
 
             if (!continuous.empty()) {
                 auto results = validation::validate(state, continuous);

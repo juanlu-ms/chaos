@@ -21,8 +21,18 @@ struct RunResult;
  * delivery mechanism.
  */
 struct IRunObserver {
+    /**
+     * @brief Called when the target state is updated.
+     * @param state The newly observed state of the target.
+     */
     virtual void onStateUpdate(const shared::TargetState& state) = 0;
+
+    /**
+     * @brief Called when the current execution phase changes (e.g. normal, chaos, recovery).
+     * @param phase The name of the new phase.
+     */
     virtual void onPhaseChange(std::string_view phase) = 0;
+
     virtual ~IRunObserver() = default;
 };
 

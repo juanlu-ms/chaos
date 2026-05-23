@@ -74,3 +74,20 @@ TEST(SignalHandlerGuardTest, StopTokenIsRequestedAfterSignal) {
 
     EXPECT_TRUE(guard.token().stop_requested());
 }
+
+/**
+ * @test Verifies constructing a second guard while the first is alive
+ *       does not corrupt the first guard's state.
+ */
+TEST(SignalHandlerGuardTest, MultipleInstancesDoNotCorruptEachOther) {
+    SignalHandlerGuard guard1;
+    ASSERT_TRUE(guard1.valid());
+
+    {
+        SignalHandlerGuard guard2;
+        ASSERT_TRUE(guard2.valid());
+    }  // guard2 destroyed — guard1 must remain valid
+
+    EXPECT_TRUE(guard1.valid());
+    EXPECT_GE(guard1.readEnd(), 0);
+}

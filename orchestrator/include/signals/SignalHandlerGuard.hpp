@@ -47,7 +47,6 @@ public:
     [[nodiscard]] bool valid() const;
 
 private:
-    struct sigaction previous_ {};
     bool previous_valid_{false};
     int pipe_read_{-1};
     int pipe_write_{-1};

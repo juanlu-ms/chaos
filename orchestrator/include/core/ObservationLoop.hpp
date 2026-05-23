@@ -1,3 +1,8 @@
+/**
+ * @file ObservationLoop.hpp
+ * @brief Background observation threads for metrics and logs collection.
+ */
+
 #pragma once
 
 #include <chrono>
@@ -31,15 +36,23 @@ namespace chaos::orchestrator::core {
  */
 class ObservationLoop {
 public:
+    /**
+     * @brief Configuration for observation intervals and continuous expectations.
+     */
     struct Config {
+        /** @brief Interval between metrics collection ticks. Default 100ms. */
         std::chrono::milliseconds metricsInterval{100ms};
+
+        /** @brief Interval between log collection ticks. Default 1500ms. */
         std::chrono::milliseconds logsInterval{1500ms};
+
         /**
          * @brief Interval for continuous-expectation validation.
          *        Default 500ms matches the current hardcoded behaviour
          *        (every ~5th tick at 100ms metrics interval).
          */
         std::chrono::milliseconds continuousValidationInterval{500ms};
+
         /**
          * @brief Expectations whose `continuous` flag is true are
          *        validated at each continuousValidationInterval tick
@@ -49,11 +62,16 @@ public:
         std::vector<manifests::Expectation> continuousExpectations;
     };
 
-    ObservationLoop(std::shared_ptr<containers::IContainerEngine> engine,
-                    std::string containerId,
-                    SharedState& state,
-                    IRunObserver& observer,
-                    Config config = {});
+    /**
+     * @brief Construct an ObservationLoop.
+     * @param engine Container engine for fetching metrics and logs.
+     * @param containerId Target container identifier.
+     * @param state SharedState to populate with observed data.
+     * @param observer Observer notified on each update.
+     * @param config Interval and expectation configuration.
+     */
+    ObservationLoop(std::shared_ptr<containers::IContainerEngine> engine, std::string containerId, SharedState& state,
+                    IRunObserver& observer, Config config = {});
 
     ~ObservationLoop();
 
@@ -70,10 +88,14 @@ public:
     void start(std::stop_token external_stop = {});
 
 private:
-    void metricsThreadFn(std::stop_token internal_stop,
-                         std::stop_token external_stop);
-    void logsThreadFn(std::stop_token internal_stop,
-                      std::stop_token external_stop);
+    /**
+     * @brief Background loop for metrics collection and continuous validation.
+     */
+    void metricsThreadFn(std::stop_token internal_stop, std::stop_token external_stop);
+    /**
+     * @brief Background loop for log collection.
+     */
+    void logsThreadFn(std::stop_token internal_stop, std::stop_token external_stop);
 
     std::shared_ptr<containers::IContainerEngine> engine_;
     std::string containerId_;
@@ -81,9 +103,11 @@ private:
     IRunObserver& observer_;
     Config config_;
 
+    // Cgroup-based metrics gathering (optional, resolved at start time).
     std::optional<containers::internal::CgroupMetricsGatherer> cgroup_;
     bool useCgroup_{false};
 
+    // Container IP string, fetched once at start and stamped on every state.
     std::optional<std::string> containerIp_;
 
     std::stop_source internalStopSource_;

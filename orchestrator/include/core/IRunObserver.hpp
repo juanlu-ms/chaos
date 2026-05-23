@@ -40,7 +40,6 @@ struct IRunObserver {
      */
     virtual void onLogsUpdate(const std::vector<std::string>& /*logs*/) {}
 
-
     virtual ~IRunObserver() = default;
 };
 

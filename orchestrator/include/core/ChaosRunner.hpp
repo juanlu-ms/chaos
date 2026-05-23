@@ -64,8 +64,7 @@ public:
      * @param continuousFailures Optional list of expectation types that failed mid-run.
      * @return RunResult with pass/fail and per-expectation details.
      */
-    [[nodiscard]] RunResult finalize(const manifests::ChaosManifest& manifest,
-                                     const shared::TargetState& finalState,
+    [[nodiscard]] RunResult finalize(const manifests::ChaosManifest& manifest, const shared::TargetState& finalState,
                                      const std::vector<std::string>& continuousFailures = {}) const;
 
     /**

@@ -33,13 +33,9 @@ namespace {
 
 class CliRunObserver final : public core::IRunObserver {
 public:
-    void onStateUpdate(const shared::TargetState& state) override {
-        broadcaster_.broadcast(state);
-    }
+    void onStateUpdate(const shared::TargetState& state) override { broadcaster_.broadcast(state); }
 
-    void onPhaseChange(std::string_view phase) override {
-        SPDLOG_INFO("Entering phase: {}", phase);
-    }
+    void onPhaseChange(std::string_view phase) override { SPDLOG_INFO("Entering phase: {}", phase); }
 
 private:
     shared::StateBroadcaster broadcaster_;
@@ -227,7 +223,8 @@ int CliParser::handleRun(const std::string& manifestPath) const {
         const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
 
         CliRunObserver observer;
-        auto finalState = runPerturbationsLoop(std::move(perturbation_instances), manifest.target.id, duration, observer);
+        auto finalState =
+            runPerturbationsLoop(std::move(perturbation_instances), manifest.target.id, duration, observer);
 
         auto runResult = runner_.finalize(manifest, finalState);
         for (const auto& result : runResult.results) {

@@ -1,3 +1,9 @@
+/**
+ * @file SharedState.hpp
+ * @brief Thread-safe holder for the latest observed state, logs, phase, and
+ *        continuous failures.
+ */
+
 #pragma once
 
 #include <algorithm>
@@ -19,16 +25,52 @@ namespace chaos::orchestrator::core {
  */
 class SharedState {
 public:
+    /**
+     * @brief Update the latest observed target state.
+     * @param state The newly observed state of the target.
+     */
     void updateState(const shared::TargetState& state);
+
+    /**
+     * @brief Get the latest observed target state.
+     * @return The most recent state written via updateState().
+     */
     [[nodiscard]] shared::TargetState latestState() const;
 
+    /**
+     * @brief Update the latest log lines.
+     * @param logs The latest log lines from the target container.
+     */
     void updateLogs(const std::vector<std::string>& logs);
+
+    /**
+     * @brief Get the latest log lines.
+     * @return The most recent logs written via updateLogs().
+     */
     [[nodiscard]] std::vector<std::string> latestLogs() const;
 
+    /**
+     * @brief Set the current execution phase.
+     * @param phase The phase name (e.g. "normal", "chaos", "recovery").
+     */
     void setPhase(std::string_view phase);
+
+    /**
+     * @brief Get the current execution phase.
+     * @return The current phase string.
+     */
     [[nodiscard]] std::string phase() const;
 
+    /**
+     * @brief Record a continuous expectation failure (deduplicated).
+     * @param type The expectation type that failed.
+     */
     void addContinuousFailure(std::string_view type);
+
+    /**
+     * @brief Get all recorded continuous expectation failures.
+     * @return List of failed expectation types.
+     */
     [[nodiscard]] std::vector<std::string> continuousFailures() const;
 
 private:

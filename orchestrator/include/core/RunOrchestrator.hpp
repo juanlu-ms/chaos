@@ -1,3 +1,8 @@
+/**
+ * @file RunOrchestrator.hpp
+ * @brief Drives the chaos run lifecycle: normal → chaos → recovery → validate.
+ */
+
 #pragma once
 
 #include <chrono>
@@ -26,6 +31,10 @@ namespace chaos::orchestrator::core {
  */
 class RunOrchestrator {
 public:
+    /**
+     * @brief Construct a RunOrchestrator.
+     * @param runner Reference to the ChaosRunner used for validation.
+     */
     explicit RunOrchestrator(ChaosRunner& runner);
 
     /**
@@ -37,9 +46,7 @@ public:
      * @param external_stop Token for cancellation (SIGINT, user abort, etc.).
      * @return RunResult with pass/fail and per-expectation details.
      */
-    [[nodiscard]] RunResult run(const manifests::ChaosManifest& manifest,
-                                SharedState& state,
-                                IRunObserver& observer,
+    [[nodiscard]] RunResult run(const manifests::ChaosManifest& manifest, SharedState& state, IRunObserver& observer,
                                 std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations,
                                 std::stop_token external_stop = {});
 

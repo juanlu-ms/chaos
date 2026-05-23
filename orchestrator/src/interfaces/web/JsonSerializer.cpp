@@ -32,6 +32,9 @@ json stateToJson(const shared::TargetState& state, const std::string& phase,
     if (state.network_tx_bps.has_value()) {
         result["network_tx_bps"] = state.network_tx_bps.value();
     }
+    if (state.network_latency_ms.has_value()) {
+        result["network_latency_ms"] = state.network_latency_ms.value();
+    }
     if (!phase.empty()) {
         result["phase"] = phase;
     }

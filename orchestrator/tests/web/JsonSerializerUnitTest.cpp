@@ -81,3 +81,22 @@ TEST(JsonSerializerTest, ParseLogLinesSkipsEmptyLines) {
     chaos::orchestrator::observability::parseLogLines("line1\n\nline2", out);
     EXPECT_EQ(out.size(), 2u);
 }
+
+TEST(JsonSerializerTest, StateToJsonIncludesNetworkLatencyMs) {
+    chaos::orchestrator::shared::TargetState state;
+    state.container_id = "abc";
+    state.status = chaos::orchestrator::shared::ContainerStatus::Running;
+    state.network_latency_ms = 12.75;
+
+    auto j = stateToJson(state);
+    EXPECT_DOUBLE_EQ(j["network_latency_ms"].get<double>(), 12.75);
+}
+
+TEST(JsonSerializerTest, StateToJsonOmitsNetworkLatencyMsWhenAbsent) {
+    chaos::orchestrator::shared::TargetState state;
+    state.container_id = "abc";
+    state.status = chaos::orchestrator::shared::ContainerStatus::Running;
+
+    auto j = stateToJson(state);
+    EXPECT_FALSE(j.contains("network_latency_ms"));
+}

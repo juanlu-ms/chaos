@@ -3,6 +3,7 @@
  * @brief Unit tests for SharedState thread-safe data bucket.
  */
 
+#include <fmt/format.h>
 #include <gtest/gtest.h>
 
 #include <thread>
@@ -52,6 +53,7 @@ TEST(SharedStateTest, UpdateAndReadLogs) {
     auto read = s.latestLogs();
     ASSERT_EQ(read.size(), 2u);
     EXPECT_EQ(read[0], "line1");
+    EXPECT_EQ(read[1], "line2");
 }
 
 /**
@@ -97,7 +99,7 @@ TEST(SharedStateTest, ConcurrentWritesDoNotCorrupt) {
     SharedState s;
     constexpr int kIterations = 1000;
 
-    std::thread writer1([&] {
+    std::thread writer1([&s] {
         for (int i = 0; i < kIterations; ++i) {
             TargetState ts;
             ts.cpu_usage_percent = static_cast<double>(i);
@@ -105,9 +107,9 @@ TEST(SharedStateTest, ConcurrentWritesDoNotCorrupt) {
         }
     });
 
-    std::thread writer2([&] {
+    std::thread writer2([&s] {
         for (int i = 0; i < kIterations; ++i) {
-            s.addContinuousFailure("type_" + std::to_string(i % 10));
+            s.addContinuousFailure(fmt::format("type_{}", i % 10));
         }
     });
 
@@ -116,6 +118,6 @@ TEST(SharedStateTest, ConcurrentWritesDoNotCorrupt) {
 
     auto state = s.latestState();
     auto failures = s.continuousFailures();
-    EXPECT_GE(failures.size(), 0u);
+    EXPECT_EQ(failures.size(), 10u);
     EXPECT_TRUE(!state.cpu_usage_percent.has_value() || *state.cpu_usage_percent >= 0.0);
 }

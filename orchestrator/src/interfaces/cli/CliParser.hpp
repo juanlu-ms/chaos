@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include <chrono>
 #include <memory>
 #include <span>
 #include <string>
@@ -13,7 +12,6 @@
 
 #include "containers/IContainerEngine.hpp"
 #include "core/ChaosRunner.hpp"
-#include "core/IRunObserver.hpp"
 
 namespace chaos::orchestrator::interfaces::cli {
 
@@ -50,10 +48,6 @@ private:
     int handleServe(int port) const;
     int handleRun(const std::string& manifestPath) const;
     int dispatchCommand(const std::vector<std::string>& args) const;
-
-    [[nodiscard]] shared::TargetState runPerturbationsLoop(
-        std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations, const std::string& targetId,
-        std::chrono::seconds duration, core::IRunObserver& observer) const;
 };
 
 }  // namespace chaos::orchestrator::interfaces::cli

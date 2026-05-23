@@ -1,7 +1,6 @@
 #include "interfaces/cli/CliParser.hpp"
 
 #include <spdlog/spdlog.h>
-#include <unistd.h>
 
 #include <charconv>
 #include <chrono>
@@ -16,8 +15,6 @@
 
 #include "interfaces/web/Server.hpp"
 #include "manifests/ManifestParser.hpp"
-#include "observability/ObservabilityEngine.hpp"
-#include "perturbations/PerturbationEngine.hpp"
 #include "shared/StateBroadcaster.hpp"
 #include "signals/SignalHandlerGuard.hpp"
 
@@ -220,13 +217,24 @@ int CliParser::handleRun(const std::string& manifestPath) const {
         SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.id);
 
         auto perturbation_instances = runner_.buildPerturbations(manifest);
-        const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
 
+        core::SharedState state;
         CliRunObserver observer;
-        auto finalState =
-            runPerturbationsLoop(std::move(perturbation_instances), manifest.target.id, duration, observer);
 
-        auto runResult = runner_.finalize(manifest, finalState);
+        core::ObservationLoop::Config loopConfig;
+        loopConfig.metricsInterval = std::chrono::milliseconds(200);
+        loopConfig.logsInterval = std::chrono::milliseconds(2000);
+        loopConfig.continuousExpectations = manifest.expectations;
+
+        signals::SignalHandlerGuard signal_guard;
+
+        core::ObservationLoop obsLoop(engine_, manifest.target.id, state, observer, loopConfig);
+        obsLoop.start(signal_guard.token());
+
+        core::RunOrchestrator orchestrator(const_cast<core::ChaosRunner&>(runner_));
+        auto runResult =
+            orchestrator.run(manifest, state, observer, std::move(perturbation_instances), signal_guard.token());
+
         for (const auto& result : runResult.results) {
             if (result.passed) {
                 SPDLOG_INFO("  ✓ {}: {}", result.expectationType, result.message);
@@ -251,50 +259,6 @@ int CliParser::handleRun(const std::string& manifestPath) const {
         return 1;
     }
     return 0;
-}
-
-shared::TargetState CliParser::runPerturbationsLoop(
-    std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations, const std::string& targetId,
-    std::chrono::seconds duration, core::IRunObserver& observer) const {
-    perturbations::PerturbationEngine pert_engine;
-    observability::ObservabilityEngine obs(engine_);
-    shared::TargetState lastKnownState{};
-
-    signals::SignalHandlerGuard signal_guard;
-
-    observer.onPhaseChange("normal");
-    lastKnownState = obs.observe(targetId);
-    observer.onStateUpdate(lastKnownState);
-
-    if (duration.count() > 0) {
-        pert_engine.scheduleAllAsync(std::move(perturbations), duration);
-        observer.onPhaseChange("chaos");
-
-        const auto end_time = std::chrono::steady_clock::now() + duration;
-        constexpr auto kPollInterval = std::chrono::milliseconds(500);
-
-        while (std::chrono::steady_clock::now() < end_time) {
-            int dummy = 0;
-            ssize_t n = ::read(signal_guard.readEnd(), &dummy, sizeof(dummy));
-            if (n > 0) {
-                break;
-            }
-
-            lastKnownState = obs.observe(targetId);
-            observer.onStateUpdate(lastKnownState);
-            std::this_thread::sleep_for(kPollInterval);
-        }
-
-        if (signal_guard.token().stop_requested()) {
-            SPDLOG_WARN("Interrupt received; canceling perturbations.");
-            pert_engine.cancel();
-        }
-
-        pert_engine.waitForTeardown();
-    }
-
-    observer.onPhaseChange("recovery");
-    return lastKnownState;
 }
 
 }  // namespace chaos::orchestrator::interfaces::cli

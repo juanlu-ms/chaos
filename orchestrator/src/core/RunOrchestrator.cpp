@@ -48,6 +48,10 @@ RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedS
     observer.onPhaseChange("recovery");
     state.setPhase("recovery");
 
+    if (duration.count() > 0) {
+        std::this_thread::sleep_for(2s);
+    }
+
     // ── Validation ────────────────────────────────────────────────
     auto finalState = state.latestState();
     auto failures = state.continuousFailures();

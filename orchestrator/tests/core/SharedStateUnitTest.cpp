@@ -129,6 +129,9 @@ TEST(SharedStateTest, ConcurrentWritesDoNotCorrupt) {
     EXPECT_TRUE(!state.cpu_usage_percent.has_value() || *state.cpu_usage_percent >= 0.0);
 }
 
+/**
+ * @test Verifies updateNetworkLatency sets the field on latestState.
+ */
 TEST(SharedStateTest, UpdateNetworkLatencySetsField) {
     SharedState s;
     s.updateNetworkLatency(5.5);
@@ -137,6 +140,9 @@ TEST(SharedStateTest, UpdateNetworkLatencySetsField) {
     EXPECT_DOUBLE_EQ(*state.network_latency_ms, 5.5);
 }
 
+/**
+ * @test Verifies updateNetworkLatency accepts nullopt to clear the field.
+ */
 TEST(SharedStateTest, UpdateNetworkLatencyNullopt) {
     SharedState s;
     s.updateNetworkLatency(5.5);
@@ -144,6 +150,9 @@ TEST(SharedStateTest, UpdateNetworkLatencyNullopt) {
     EXPECT_FALSE(s.latestState().network_latency_ms.has_value());
 }
 
+/**
+ * @test Verifies updateNetworkLatency does not overwrite other fields.
+ */
 TEST(SharedStateTest, UpdateNetworkLatencyPreservesOtherFields) {
     SharedState s;
     TargetState ts;
@@ -177,6 +186,9 @@ TEST(SharedStateTest, UpdateNetworkLatencyPreservesOtherFields) {
     ASSERT_EQ(state.recent_logs.size(), 2u);
 }
 
+/**
+ * @test Verifies that updateState overwrites any latency set by updateNetworkLatency.
+ */
 TEST(SharedStateTest, UpdateStateOverwritesNetworkLatency) {
     SharedState s;
     s.updateNetworkLatency(42.0);

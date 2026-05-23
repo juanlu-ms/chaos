@@ -82,6 +82,9 @@ TEST(JsonSerializerTest, ParseLogLinesSkipsEmptyLines) {
     EXPECT_EQ(out.size(), 2u);
 }
 
+/**
+ * @test Verifies stateToJson includes network_latency_ms when present.
+ */
 TEST(JsonSerializerTest, StateToJsonIncludesNetworkLatencyMs) {
     chaos::orchestrator::shared::TargetState state;
     state.container_id = "abc";
@@ -92,6 +95,9 @@ TEST(JsonSerializerTest, StateToJsonIncludesNetworkLatencyMs) {
     EXPECT_DOUBLE_EQ(j["network_latency_ms"].get<double>(), 12.75);
 }
 
+/**
+ * @test Verifies stateToJson omits network_latency_ms when not set.
+ */
 TEST(JsonSerializerTest, StateToJsonOmitsNetworkLatencyMsWhenAbsent) {
     chaos::orchestrator::shared::TargetState state;
     state.container_id = "abc";

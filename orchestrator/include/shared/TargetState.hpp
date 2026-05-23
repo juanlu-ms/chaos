@@ -27,6 +27,7 @@ struct TargetState {
     std::vector<std::string> recent_logs;
     std::optional<double> network_rx_bps;
     std::optional<double> network_tx_bps;
+    std::optional<double> network_latency_ms;
 };
 
 }  // namespace chaos::orchestrator::shared

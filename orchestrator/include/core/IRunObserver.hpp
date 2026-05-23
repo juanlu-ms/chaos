@@ -6,6 +6,7 @@
 #pragma once
 
 #include <string_view>
+#include <vector>
 
 #include "shared/TargetState.hpp"
 
@@ -32,6 +33,13 @@ struct IRunObserver {
      * @param phase The name of the new phase.
      */
     virtual void onPhaseChange(std::string_view phase) = 0;
+
+    /**
+     * @brief Called when new log lines are available.
+     * @param logs The latest log lines from the target container.
+     */
+    virtual void onLogsUpdate(const std::vector<std::string>& /*logs*/) {}
+
 
     virtual ~IRunObserver() = default;
 };

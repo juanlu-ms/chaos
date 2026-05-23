@@ -11,28 +11,32 @@
 
 namespace chaos::orchestrator::interfaces::web {
 
-json stateToJson(const shared::TargetState& state, const std::string& phase) {
+json stateToJson(const shared::TargetState& state, const std::string& phase,
+                 const std::vector<std::string>& continuous_failures) {
     json result;
     result["container_id"] = state.container_id;
     result["status"] = shared::toString(state.status);
-    if (state.cpu_usage_percent) {
-        result["cpu_usage_percent"] = *state.cpu_usage_percent;
+    if (state.cpu_usage_percent.has_value()) {
+        result["cpu_usage_percent"] = state.cpu_usage_percent.value();
     }
-    if (state.memory_usage_mb) {
-        result["memory_usage_mb"] = *state.memory_usage_mb;
+    if (state.memory_usage_mb.has_value()) {
+        result["memory_usage_mb"] = state.memory_usage_mb.value();
     }
-    if (state.container_ip) {
-        result["container_ip"] = *state.container_ip;
+    if (state.container_ip.has_value()) {
+        result["container_ip"] = state.container_ip.value();
     }
     result["recent_logs"] = state.recent_logs;
-    if (state.network_rx_bps) {
-        result["network_rx_bps"] = *state.network_rx_bps;
+    if (state.network_rx_bps.has_value()) {
+        result["network_rx_bps"] = state.network_rx_bps.value();
     }
-    if (state.network_tx_bps) {
-        result["network_tx_bps"] = *state.network_tx_bps;
+    if (state.network_tx_bps.has_value()) {
+        result["network_tx_bps"] = state.network_tx_bps.value();
     }
     if (!phase.empty()) {
         result["phase"] = phase;
+    }
+    if (!continuous_failures.empty()) {
+        result["continuous_failures"] = continuous_failures;
     }
     return result;
 }

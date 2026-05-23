@@ -20,8 +20,10 @@ using json = nlohmann::json;
  * @brief Serialize a TargetState to JSON for SSE streaming.
  * @param state The observed container state.
  * @param phase Optional phase label (e.g. "normal", "chaos", "recovery").
+ * @param continuous_failures Optional list of continuous expectation failures.
  */
-json stateToJson(const shared::TargetState& state, const std::string& phase = "");
+json stateToJson(const shared::TargetState& state, const std::string& phase = "",
+                 const std::vector<std::string>& continuous_failures = {});
 
 /**
  * @brief Serialize system limits to JSON for the /api/limits endpoint.

@@ -396,7 +396,7 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& response) 
                     session->latest->recent_logs = std::move(session->pending_logs);
                     session->pending_logs.clear();
                 }
-                auto stateJson = stateToJson(*session->latest, session->phase);
+                auto stateJson = stateToJson(*session->latest, session->phase, session->state.continuousFailures());
                 if (std::string data = "event: state\ndata: " + stateJson.dump() + "\n\n";
                     !sink.write(data.data(), data.size())) {
                     return false;

@@ -99,18 +99,29 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
                         uint64_t tx{0};
                         while (std::getline(file, line)) {
                             auto colon = line.find(':');
-                            if (colon == std::string::npos) continue;
+                            if (colon == std::string::npos) {
+                                continue;
+                            }
                             std::string iface = line.substr(0, colon);
-                            auto start = iface.find_first_not_of(" \t");
-                            if (start != std::string::npos) iface = iface.substr(start);
-                            if (iface != "eth0") continue;
+                            if (auto start = iface.find_first_not_of(" \t"); start != std::string::npos) {
+                                iface = iface.substr(start);
+                            }
+                            if (iface != "eth0") {
+                                continue;
+                            }
 
                             std::istringstream iss(line.substr(colon + 1));
-                            uint64_t rbytes{0}, rpackets{0}, rerrs{0}, rdrop{0}, rfifo{0}, rframe{0}, rcompressed{0},
-                                rmulticast{0};
+                            uint64_t rbytes{0};
+                            uint64_t rpackets{0};
+                            uint64_t rerrs{0};
+                            uint64_t rdrop{0};
+                            uint64_t rfifo{0};
+                            uint64_t rframe{0};
+                            uint64_t rcompressed{0};
+                            uint64_t rmulticast{0};
                             uint64_t tbytes{0};
-                            iss >> rbytes >> rpackets >> rerrs >> rdrop >> rfifo >> rframe >> rcompressed >> rmulticast >>
-                                tbytes;
+                            iss >> rbytes >> rpackets >> rerrs >> rdrop >> rfifo >> rframe >> rcompressed >>
+                                rmulticast >> tbytes;
                             rx = rbytes;
                             tx = tbytes;
                             break;
@@ -200,8 +211,7 @@ void ObservationLoop::latencyThreadFn(std::stop_token internal_stop, std::stop_t
         std::optional<double> latency;
 
         if (containerIp_.has_value() && !containerIp_->empty()) {
-            std::string cmd =
-                fmt::format("LC_ALL=C ping -c 1 -W 2 {} 2>&1", *containerIp_);
+            std::string cmd = fmt::format("LC_ALL=C ping -c 1 -W 2 {} 2>&1", *containerIp_);
 
             FILE* pipe = popen(cmd.c_str(), "r");
             if (pipe) {

@@ -95,6 +95,10 @@ private:
      * @brief Background loop for log collection.
      */
     void logsThreadFn(std::stop_token internal_stop, std::stop_token external_stop);
+    /**
+     * @brief Background loop for network latency measurement (ICMP ping).
+     */
+    void latencyThreadFn(std::stop_token internal_stop, std::stop_token external_stop);
 
     std::shared_ptr<containers::IContainerEngine> engine_;
     std::string containerId_;
@@ -116,6 +120,7 @@ private:
     std::stop_source internalStopSource_;
     std::jthread metricsThread_;
     std::jthread logsThread_;
+    std::jthread latencyThread_;
 };
 
 }  // namespace chaos::orchestrator::core

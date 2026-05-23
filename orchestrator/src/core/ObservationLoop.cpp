@@ -6,7 +6,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <cstdio>
 #include <fstream>
+#include <regex>
 #include <sstream>
 #include <thread>
 
@@ -57,6 +59,9 @@ void ObservationLoop::start(std::stop_token external_stop) {
         std::jthread([this, internal_stop, external_stop] { metricsThreadFn(internal_stop, external_stop); });
 
     logsThread_ = std::jthread([this, internal_stop, external_stop] { logsThreadFn(internal_stop, external_stop); });
+
+    latencyThread_ =
+        std::jthread([this, internal_stop, external_stop] { latencyThreadFn(internal_stop, external_stop); });
 }
 
 void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_token external_stop) {
@@ -138,6 +143,8 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
             }
         }
 
+        state.network_latency_ms = state_.latestState().network_latency_ms;
+
         state_.updateState(state);
         observer_.onStateUpdate(state);
 
@@ -184,6 +191,46 @@ void ObservationLoop::logsThreadFn(std::stop_token internal_stop, std::stop_toke
         auto remaining = config_.logsInterval - elapsed;
         if (remaining > 0ms) {
             std::this_thread::sleep_for(remaining);
+        }
+    }
+}
+
+void ObservationLoop::latencyThreadFn(std::stop_token internal_stop, std::stop_token external_stop) {
+    while (!internal_stop.stop_requested() && !external_stop.stop_requested()) {
+        std::optional<double> latency;
+
+        if (containerIp_.has_value() && !containerIp_->empty()) {
+            std::string cmd =
+                fmt::format("LC_ALL=C ping -c 1 -W 2 {} 2>&1", *containerIp_);
+
+            FILE* pipe = popen(cmd.c_str(), "r");
+            if (pipe) {
+                std::string output;
+                char buffer[256];
+                while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+                    output += buffer;
+                }
+                int rc = pclose(pipe);
+
+                if (rc == 0) {
+                    std::regex re(R"(time=([0-9.]+)\s*ms)");
+                    std::smatch match;
+                    if (std::regex_search(output, match, re)) {
+                        try {
+                            latency = std::stod(match[1].str());
+                        } catch (...) {
+                        }
+                    }
+                }
+            }
+        }
+
+        state_.updateNetworkLatency(latency);
+
+        // Sleep 1 second between pings. Check stop tokens periodically
+        // during sleep so we don't block shutdown for a full second.
+        for (int i = 0; i < 10 && !internal_stop.stop_requested() && !external_stop.stop_requested(); ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     }
 }

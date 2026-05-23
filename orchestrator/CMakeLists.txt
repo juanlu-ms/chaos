@@ -38,6 +38,8 @@ set(ORCHESTRATOR_SOURCES
     src/validation/internal/HttpValidation.cpp
     src/signals/SignalHandlerGuard.cpp
     src/core/ChaosRunner.cpp
+    src/core/ObservationLoop.cpp
+    src/core/RunOrchestrator.cpp
     src/interfaces/web/JsonSerializer.cpp
 )
 

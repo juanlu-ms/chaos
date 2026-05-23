@@ -84,6 +84,8 @@ TEST(RunOrchestratorTest, RunWithDurationEntersAllPhases) {
 
 /**
  * @test External stop cancels long-running chaos phase early.
+ *       The stop is requested during the normal-phase sleep, so chaos is
+ *       skipped entirely.
  */
 TEST(RunOrchestratorTest, ExternalStopCancelsEarly) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
@@ -99,7 +101,7 @@ TEST(RunOrchestratorTest, ExternalStopCancelsEarly) {
     MockRunObserver observer;
 
     EXPECT_CALL(observer, onPhaseChange(StrEq("normal"))).Times(1);
-    EXPECT_CALL(observer, onPhaseChange(StrEq("chaos"))).Times(1);
+    EXPECT_CALL(observer, onPhaseChange(StrEq("chaos"))).Times(0);
     EXPECT_CALL(observer, onPhaseChange(StrEq("recovery"))).Times(1);
 
     std::stop_source stop_src;

@@ -1,4 +1,10 @@
+/**
+ * @file ObservationLoopUnitTest.cpp
+ * @brief Unit tests for ObservationLoop thread lifecycle.
+ */
+
 #include <gtest/gtest.h>
+
 #include <chrono>
 #include <memory>
 #include <stop_token>
@@ -14,6 +20,9 @@ using namespace std::chrono_literals;
 
 namespace {
 
+/**
+ * @brief Observer stub that ignores all callbacks.
+ */
 class NullRunObserver final : public core::IRunObserver {
 public:
     void onStateUpdate(const shared::TargetState&) override {}
@@ -22,6 +31,9 @@ public:
 
 }  // namespace
 
+/**
+ * @test Verifies destructor safely stops and joins threads without external token.
+ */
 TEST(ObservationLoopTest, StartAndDestroyWithoutExternalStop) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
     SharedState state;
@@ -35,6 +47,9 @@ TEST(ObservationLoopTest, StartAndDestroyWithoutExternalStop) {
     SUCCEED();
 }
 
+/**
+ * @test Verifies external stop token causes threads to exit cleanly.
+ */
 TEST(ObservationLoopTest, StartAndStopWithExternalToken) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
     SharedState state;
@@ -51,6 +66,9 @@ TEST(ObservationLoopTest, StartAndStopWithExternalToken) {
     SUCCEED();
 }
 
+/**
+ * @test Documents that double-start is a fatal logic error.
+ */
 TEST(ObservationLoopTest, DoubleStartIsFatal) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
     SharedState state;
@@ -61,6 +79,9 @@ TEST(ObservationLoopTest, DoubleStartIsFatal) {
     SUCCEED();
 }
 
+/**
+ * @test Verifies custom Config intervals are accepted without deadlock.
+ */
 TEST(ObservationLoopTest, ConfigIsRespected) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
     SharedState state;

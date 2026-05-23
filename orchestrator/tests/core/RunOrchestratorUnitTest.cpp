@@ -1,13 +1,19 @@
-#include <gtest/gtest.h>
+/**
+ * @file RunOrchestratorUnitTest.cpp
+ * @brief Unit tests for RunOrchestrator lifecycle engine.
+ */
+
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <chrono>
 #include <memory>
 #include <stop_token>
 #include <thread>
 
+#include "MockContainerEngine.hpp"
 #include "core/RunOrchestrator.hpp"
 #include "core/SharedState.hpp"
-#include "MockContainerEngine.hpp"
 
 using namespace chaos::orchestrator;
 using namespace chaos::orchestrator::core;
@@ -16,6 +22,9 @@ using namespace std::chrono_literals;
 
 namespace {
 
+/**
+ * @brief GMock-based observer for verifying phase/state/log callbacks.
+ */
 class MockRunObserver final : public core::IRunObserver {
 public:
     MOCK_METHOD(void, onStateUpdate, (const shared::TargetState&), (override));
@@ -25,6 +34,9 @@ public:
 
 }  // namespace
 
+/**
+ * @test With no duration, chaos phase is skipped entirely.
+ */
 TEST(RunOrchestratorTest, RunWithNoDurationSkipsChaosPhase) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
     ChaosRunner runner(engine);
@@ -46,6 +58,9 @@ TEST(RunOrchestratorTest, RunWithNoDurationSkipsChaosPhase) {
     EXPECT_TRUE(result.passed);
 }
 
+/**
+ * @test With a duration, all three phases are entered in order.
+ */
 TEST(RunOrchestratorTest, RunWithDurationEntersAllPhases) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
     ChaosRunner runner(engine);
@@ -67,6 +82,9 @@ TEST(RunOrchestratorTest, RunWithDurationEntersAllPhases) {
     EXPECT_TRUE(result.passed);
 }
 
+/**
+ * @test External stop cancels long-running chaos phase early.
+ */
 TEST(RunOrchestratorTest, ExternalStopCancelsEarly) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
     ChaosRunner runner(engine);
@@ -102,6 +120,9 @@ TEST(RunOrchestratorTest, ExternalStopCancelsEarly) {
     EXPECT_TRUE(result.passed);
 }
 
+/**
+ * @test Continuous failures from SharedState are consumed at finalization.
+ */
 TEST(RunOrchestratorTest, ReadsContinuousFailuresFromSharedState) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
     ChaosRunner runner(engine);

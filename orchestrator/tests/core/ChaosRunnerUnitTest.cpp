@@ -75,7 +75,7 @@ TEST(ChaosRunnerUnitTest, ValidateExpectationsReturnsTrueWhenEmpty) {
     manifest.expectations = {};
     shared::TargetState state;
 
-    EXPECT_TRUE(runner.validateExpectations(manifest, state));
+    EXPECT_TRUE(runner.finalize(manifest, state).passed);
 }
 
 TEST(ChaosRunnerUnitTest, FinalizeReturnsDetailedResults) {
@@ -124,7 +124,7 @@ TEST(ChaosRunnerUnitTest, ValidateExpectationsPassesWhenAllMet) {
     shared::TargetState state;
     state.status = shared::ContainerStatus::Running;
 
-    EXPECT_TRUE(runner.validateExpectations(manifest, state));
+    EXPECT_TRUE(runner.finalize(manifest, state).passed);
 }
 
 TEST(ChaosRunnerUnitTest, ValidateExpectationsFailsWhenNotMet) {
@@ -136,7 +136,7 @@ TEST(ChaosRunnerUnitTest, ValidateExpectationsFailsWhenNotMet) {
     shared::TargetState state;
     state.status = shared::ContainerStatus::Exited;
 
-    EXPECT_FALSE(runner.validateExpectations(manifest, state));
+    EXPECT_FALSE(runner.finalize(manifest, state).passed);
 }
 
 TEST(ChaosRunnerUnitTest, ValidateExpectationsMixedResultsFails) {
@@ -149,7 +149,7 @@ TEST(ChaosRunnerUnitTest, ValidateExpectationsMixedResultsFails) {
     shared::TargetState state;
     state.status = shared::ContainerStatus::Running;
 
-    EXPECT_FALSE(runner.validateExpectations(manifest, state));
+    EXPECT_FALSE(runner.finalize(manifest, state).passed);
 }
 
 TEST(ChaosRunnerUnitTest, ParseManifestThrowsOnBadPath) {

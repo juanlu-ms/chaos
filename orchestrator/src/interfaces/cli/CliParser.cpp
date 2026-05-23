@@ -234,7 +234,7 @@ int CliParser::handleRun(const std::string& manifestPath) const {
         core::ObservationLoop obsLoop(engine_, manifest.target.id, state, observer, loopConfig);
         obsLoop.start(signal_guard.token());
 
-        core::RunOrchestrator orchestrator(const_cast<core::ChaosRunner&>(runner_));
+        core::RunOrchestrator orchestrator(runner_);
         auto runResult =
             orchestrator.run(manifest, state, observer, std::move(perturbation_instances), signal_guard.token());
 

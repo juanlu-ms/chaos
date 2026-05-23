@@ -39,7 +39,7 @@ public:
 
 private:
     std::shared_ptr<containers::IContainerEngine> engine_;
-    mutable core::ChaosRunner runner_;
+    core::ChaosRunner runner_;
 
     void printUsage() const;
     int handleList() const;

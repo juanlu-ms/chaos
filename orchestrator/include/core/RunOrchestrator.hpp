@@ -34,7 +34,7 @@ public:
      * @brief Construct a RunOrchestrator.
      * @param runner Reference to the ChaosRunner used for validation.
      */
-    explicit RunOrchestrator(ChaosRunner& runner);
+    explicit RunOrchestrator(const ChaosRunner& runner);
 
     /**
      * @brief Execute a complete run lifecycle.
@@ -50,7 +50,7 @@ public:
                                 std::stop_token external_stop = {});
 
 private:
-    ChaosRunner& runner_;
+    const ChaosRunner& runner_;
 };
 
 }  // namespace chaos::orchestrator::core

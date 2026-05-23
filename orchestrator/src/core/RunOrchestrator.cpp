@@ -11,7 +11,7 @@ namespace chaos::orchestrator::core {
 
 using namespace std::chrono_literals;
 
-RunOrchestrator::RunOrchestrator(ChaosRunner& runner) : runner_(runner) {}
+RunOrchestrator::RunOrchestrator(const ChaosRunner& runner) : runner_(runner) {}
 
 RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedState& state, IRunObserver& observer,
                                std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations,

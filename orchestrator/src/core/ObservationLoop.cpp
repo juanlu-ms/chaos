@@ -218,7 +218,8 @@ void ObservationLoop::latencyThreadFn(std::stop_token internal_stop, std::stop_t
                     if (std::regex_search(output, match, re)) {
                         try {
                             latency = std::stod(match[1].str());
-                        } catch (...) {
+                        } catch (const std::exception& e) {
+                            SPDLOG_DEBUG("Latency thread: failed to parse ping RTT: {}", e.what());
                         }
                     }
                 }

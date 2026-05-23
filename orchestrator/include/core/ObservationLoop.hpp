@@ -111,6 +111,7 @@ private:
     bool useCgroup_{false};
 
     // Container IP string, fetched once at start and stamped on every state.
+    // Set once before threads launch, then read-only — no synchronization needed.
     std::optional<std::string> containerIp_;
 
     // Host PID of the container's init process, fetched once at start.

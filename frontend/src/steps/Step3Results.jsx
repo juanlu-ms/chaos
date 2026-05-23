@@ -1,5 +1,5 @@
 import ResultsChart from '../components/ResultsChart.jsx';
-import { formatBytesPerSec } from '../components/LiveChart.jsx';
+import { formatBytesPerSec, formatLatency } from '../components/LiveChart.jsx';
 import LogViewer from '../components/LogViewer.jsx';
 import { shortId } from '../utils/shortId.js';
 
@@ -31,6 +31,7 @@ export default function Step3Results({
           <ResultsChart title="CPU Timeline" data={data} dataKey="cpu" zones={zones} themeKey={theme} unit="%" />
           <ResultsChart title="Memory Timeline" data={data} dataKey="mem" zones={zones} themeKey={theme} unit="MB" />
           <ResultsChart title="Network Timeline" data={data} dataKey="net" zones={zones} themeKey={theme} formatter={formatBytesPerSec} />
+          <ResultsChart title="Network Latency Timeline" data={data} dataKey="lat" zones={zones} themeKey={theme} formatter={formatLatency} />
         </div>
         <div className="col">
           <div className="panel">

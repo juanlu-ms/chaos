@@ -39,9 +39,10 @@ export function useStreamData() {
     setConn((c) => (c ? null : c));
     const t = (Date.now() - start) / 1000;
     const net = (s.network_rx_bps || 0) + (s.network_tx_bps || 0);
+    const lat = s.network_latency_ms ?? null;
 
     setData((prev) => {
-      const next = [...prev, { t, cpu: s.cpu_usage_percent ?? 0, mem: s.memory_usage_mb ?? 0, net, phase: s.phase || 'normal' }];
+      const next = [...prev, { t, cpu: s.cpu_usage_percent ?? 0, mem: s.memory_usage_mb ?? 0, net, lat, phase: s.phase || 'normal' }];
       dataRef.current = next;
       return next;
     });

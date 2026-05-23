@@ -1,4 +1,4 @@
-import LiveChart, { formatBytesPerSec } from '../components/LiveChart.jsx';
+import LiveChart, { formatBytesPerSec, formatLatency } from '../components/LiveChart.jsx';
 import LogViewer from '../components/LogViewer.jsx';
 import ContainerInfo from '../components/ContainerInfo.jsx';
 import ConnectionBanner from '../components/ConnectionBanner.jsx';
@@ -63,6 +63,7 @@ export default function Step2Monitor({
           <LiveChart title="CPU Usage" data={data} dataKey="cpu" unit="%" themeKey={theme} />
           <LiveChart title="Memory" data={data} dataKey="mem" unit="MB" themeKey={theme} />
           <LiveChart title="Network I/O" data={data} dataKey="net" themeKey={theme} formatter={formatBytesPerSec} />
+          <LiveChart title="Network Latency" data={data} dataKey="lat" themeKey={theme} formatter={formatLatency} />
         </div>
         <div className="col">
           <ContainerInfo state={lastState} target={target} />

@@ -13,12 +13,10 @@
 #include <thread>
 #include <vector>
 
-#include "containers/internal/CgroupMetricsGatherer.hpp"
 #include "core/IRunObserver.hpp"
+#include "core/ObservationLoop.hpp"
+#include "core/RunOrchestrator.hpp"
 #include "manifests/ManifestParser.hpp"
-#include "observability/ObservabilityEngine.hpp"
-#include "perturbations/PerturbationEngine.hpp"
-#include "validation/ValidationEngine.hpp"
 #include "web/JsonSerializer.hpp"
 
 using json = nlohmann::json;
@@ -44,6 +42,12 @@ public:
         session_->phase = std::string(phase);
         session_->cv.notify_all();
     }
+
+    void onLogsUpdate(const std::vector<std::string>& logs) override {
+        std::lock_guard lock(session_->mtx);
+        session_->pending_logs = logs;
+        session_->cv.notify_all();
+    }
 };
 
 std::optional<std::filesystem::path> findWebRoot() {
@@ -62,22 +66,6 @@ std::optional<std::filesystem::path> findWebRoot() {
     }
 
     return std::nullopt;
-}
-std::vector<std::string> checkContinuousExpectations(const shared::TargetState& state,
-                                                     const std::vector<manifests::Expectation>& expectations) {
-    std::vector<manifests::Expectation> continuous;
-    std::copy_if(expectations.begin(), expectations.end(), std::back_inserter(continuous),
-                 [](const auto& e) { return e.continuous; });
-    if (continuous.empty()) return {};
-
-    auto results = validation::validate(state, continuous);
-    std::vector<std::string> failed;
-    for (const auto& r : results) {
-        if (!r.passed) {
-            failed.push_back(r.expectationType);
-        }
-    }
-    return failed;
 }
 
 json runResultToJson(const core::RunResult& runResult) {
@@ -100,7 +88,9 @@ void storeRunResult(const std::shared_ptr<core::RunSession>& session, json resul
 
 void storeRunError(const std::shared_ptr<core::RunSession>& session, const std::string& error) {
     std::lock_guard lock(session->mtx);
-    if (!session->running) return;
+    if (!session->running) {
+        return;
+    }
     session->error = error;
     session->running = false;
     session->complete = true;
@@ -316,168 +306,36 @@ void Server::handleRun(const httplib::Request& request, httplib::Response& respo
             run_thread_.join();
         }
 
-        run_thread_ = std::jthread([this, engine = engine_, session, manifest = std::move(manifest),
-                                    perturbation_instances =
-                                        std::move(perturbation_instances)](const std::stop_token& token) mutable {
-            if (token.stop_requested()) {
-                return;
-            }
-            try {
-                using namespace std::chrono;
-                using namespace std::chrono_literals;
-
-                constexpr auto kMetricsInterval = 100ms;
-                constexpr auto kLogsInterval = 1500ms;
-                constexpr auto kBaselineDuration = 2s;
-
-                observability::ObservabilityEngine obs(engine);
-                shared::TargetState lastKnownState;
-                WebRunObserver observer(session);
-
-                auto ip = obs.getContainerIp(manifest.target.id);
-                if (ip) lastKnownState.container_ip = ip;
-
-                observer.onPhaseChange("normal");
-
-                containers::internal::CgroupMetricsGatherer cgroup;
-                const bool useCgroup =
-                    containers::internal::CgroupMetricsGatherer::resolveCgroupPath(manifest.target.id).has_value();
-                if (useCgroup) SPDLOG_INFO("Using cgroup v2 for CPU/memory metrics");
-
-                // ═══════════════════════════════════════════════════════
-                //  Background workers
-                // ═══════════════════════════════════════════════════════
-
-                // Worker 1: Metrics + continuous validation
-                int continuousTick = 0;
-                std::jthread metricsWorker([&](const std::stop_token& stop_token) {
-                    while (!stop_token.stop_requested() && session->running) {
-                        auto tick = steady_clock::now();
-                        auto state = lastKnownState;
-
-                        state.status = obs.getStatus(manifest.target.id);
-                        if (state.status == shared::ContainerStatus::Running) {
-                            if (useCgroup) {
-                                auto cpu = cgroup.getCpuUsagePercent(manifest.target.id);
-                                auto mem = cgroup.getMemoryUsageMb(manifest.target.id);
-                                if (cpu.has_value()) state.cpu_usage_percent = cpu;
-                                if (mem.has_value()) state.memory_usage_mb = mem;
-                            } else {
-                                try {
-                                    auto stats = obs.getStats(manifest.target.id);
-                                    state.cpu_usage_percent = stats.cpu_percent;
-                                    state.memory_usage_mb = stats.memory_mb;
-                                    state.network_rx_bps = stats.network_rx_bps;
-                                    state.network_tx_bps = stats.network_tx_bps;
-                                } catch (const containers::ContainerEngineError& e) {
-                                    SPDLOG_ERROR("Metrics worker: failed to fetch stats: {}", e.what());
-                                }
-                            }
-                        }
-
-                        // Continuous validation every ~500ms
-                        if (++continuousTick % 5 == 0 && !manifest.expectations.empty()) {
-                            auto failures = checkContinuousExpectations(state, manifest.expectations);
-                            if (!failures.empty()) {
-                                std::lock_guard lock(session->mtx);
-                                for (const auto& f : failures) {
-                                    if (std::ranges::find(session->continuous_failures, f) ==
-                                        session->continuous_failures.end()) {
-                                        session->continuous_failures.push_back(f);
-                                        SPDLOG_WARN("Continuous expectation '{}' failed", f);
-                                    }
-                                }
-                            }
-                        }
-
-                        observer.onStateUpdate(state);
-
-                        auto elapsed = steady_clock::now() - tick;
-                        auto remaining = kMetricsInterval - elapsed;
-                        if (remaining > 0ms) {
-                            std::this_thread::sleep_for(remaining);
-                        }
-                    }
-                });
-
-                // Worker 2: Logs
-                std::jthread logsWorker([&](const std::stop_token& stop_token) {
-                    while (!stop_token.stop_requested() && session->running) {
-                        auto tick = steady_clock::now();
-                        auto rawLogs = obs.getLogs(manifest.target.id);
-                        std::vector<std::string> logLines;
-                        observability::parseLogLines(rawLogs, logLines);
-                        {
-                            std::lock_guard lock(session->mtx);
-                            session->pending_logs = std::move(logLines);
-                        }
-                        session->cv.notify_all();
-
-                        auto elapsed = steady_clock::now() - tick;
-                        auto remaining = kLogsInterval - elapsed;
-                        if (remaining > 0ms) std::this_thread::sleep_for(remaining);
-                    }
-                });
-
-                // ═══════════════════════════════════════════════════════
-                //  Phase manager
-                // ═══════════════════════════════════════════════════════
-
-                // Baseline
-                std::this_thread::sleep_for(kBaselineDuration);
-
-                // Chaos phase
-                perturbations::PerturbationEngine pert_engine;
-                if (const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0)); duration.count() > 0) {
-                    auto session_stop = session->stop_source.get_token();
-                    pert_engine.scheduleAllAsync(std::move(perturbation_instances), duration, session_stop);
-                    SPDLOG_INFO("Injecting faults for {}s.", duration.count());
-                    observer.onPhaseChange("chaos");
-
-                    auto chaos_end = steady_clock::now() + duration + 2s;
-                    while (steady_clock::now() < chaos_end && !token.stop_requested()) {
-                        if (session_stop.stop_requested()) {
-                            pert_engine.cancel();
-                            break;
-                        }
-                        std::this_thread::sleep_for(100ms);
-                    }
+        run_thread_ = std::jthread(
+            [this, engine = engine_, session, manifest = std::move(manifest),
+             perturbation_instances = std::move(perturbation_instances)](const std::stop_token& token) mutable {
+                if (token.stop_requested()) {
+                    return;
                 }
+                try {
+                    WebRunObserver observer(session);
 
-                // Capture state and continuous failures under lock (metrics worker
-                // may still be updating both).
-                shared::TargetState chaosState;
-                std::vector<std::string> failures;
-                {
-                    std::lock_guard lock(session->mtx);
-                    chaosState = session->latest.has_value() ? *session->latest : lastKnownState;
-                    failures = session->continuous_failures;
+                    core::ObservationLoop::Config loopConfig;
+                    loopConfig.metricsInterval = std::chrono::milliseconds(100);
+                    loopConfig.logsInterval = std::chrono::milliseconds(1500);
+                    loopConfig.continuousExpectations = manifest.expectations;
+
+                    core::ObservationLoop obsLoop(engine, manifest.target.id, session->state, observer, loopConfig);
+                    obsLoop.start(token);
+
+                    core::RunOrchestrator orchestrator(runner_);
+                    auto runResult =
+                        orchestrator.run(manifest, session->state, observer, std::move(perturbation_instances), token);
+
+                    auto result = runResultToJson(runResult);
+                    storeRunResult(session, std::move(result));
+                    session->cv.notify_all();
+                } catch (const std::exception& ex) {
+                    storeRunError(session, ex.what());
+                    session->cv.notify_all();
+                    SPDLOG_ERROR("/api/run async failed: {}", ex.what());
                 }
-
-                // Validate against chaos state (perturbations still active).
-                auto runResult = runner_.finalize(manifest, chaosState, failures);
-                auto result = runResultToJson(runResult);
-
-                // Revert all perturbations.
-                pert_engine.waitForTeardown();
-
-                // Recovery phase.
-                {
-                    shared::TargetState recoveryState = session->latest.value_or(lastKnownState);
-                    recoveryState.container_ip = lastKnownState.container_ip;
-                    observer.onStateUpdate(recoveryState);
-                }
-                observer.onPhaseChange("recovery");
-
-                storeRunResult(session, std::move(result));
-                session->cv.notify_all();
-
-            } catch (const std::exception& ex) {
-                storeRunError(session, ex.what());
-                session->cv.notify_all();
-                SPDLOG_ERROR("/api/run async failed: {}", ex.what());
-            }
-        });
+            });
 
         json resp;
         resp["status"] = "started";
@@ -587,6 +445,7 @@ void Server::handleAbort(const httplib::Request&, httplib::Response& response) {
         session->running = false;
     }
     session->stop_source.request_stop();
+    run_thread_.request_stop();
     session->cv.notify_all();
     json result = {{"status", "aborted"}};
     response.set_content(result.dump(4), "application/json");

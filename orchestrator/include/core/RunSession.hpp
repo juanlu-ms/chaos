@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "core/SharedState.hpp"
 #include "shared/TargetState.hpp"
 
 namespace chaos::orchestrator::core {
@@ -23,6 +24,8 @@ using json = nlohmann::json;
  * @brief Shared mutable state for a single chaos run, observable via SSE.
  */
 struct RunSession {
+    core::SharedState state;  // populated by ObservationLoop, read at finalize
+
     std::mutex mtx;
     std::condition_variable cv;
     std::optional<shared::TargetState> latest;

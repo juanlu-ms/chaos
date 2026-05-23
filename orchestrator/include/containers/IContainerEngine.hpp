@@ -208,6 +208,14 @@ public:
     [[nodiscard]] virtual int getContainerNetnsFd(const std::string_view containerId) const = 0;
 
     /**
+     * @brief Get the host PID of the container's init process.
+     * @param containerId Docker container ID.
+     * @return Host PID of the container's main process.
+     * @throws ContainerEngineError If the container cannot be inspected.
+     */
+    [[nodiscard]] virtual int getContainerPid(const std::string_view containerId) const = 0;
+
+    /**
      * @brief Retrieve system-level information from the container engine.
      * @return SystemInfo containing total memory and other host-level details.
      * @throws ContainerEngineApiError On non-200 HTTP response.

@@ -487,6 +487,33 @@ int DockerClient::getContainerNetnsFd(const std::string_view containerId) const 
     return fd;
 }
 
+int DockerClient::getContainerPid(const std::string_view containerId) const {
+    if (containerId.empty()) {
+        throw std::invalid_argument("Container ID cannot be empty");
+    }
+
+    const auto inspectResponse = request_(HttpMethod::GET, fmt::format("/containers/{}/json", containerId), "");
+    if (inspectResponse.status != 200) {
+        throw containers::ContainerEngineApiError(
+            fmt::format("Failed to inspect container '{}': HTTP {}", containerId, inspectResponse.status));
+    }
+
+    auto inspectJson = parseResponse(inspectResponse);
+    if (!inspectJson.contains("State") || !inspectJson["State"].is_object() || !inspectJson["State"].contains("Pid") ||
+        !inspectJson["State"]["Pid"].is_number_integer()) {
+        throw containers::ContainerEngineParseError(
+            fmt::format("Failed to get State.Pid for container '{}'", containerId));
+    }
+
+    const auto pid = inspectJson["State"]["Pid"].get<int>();
+    if (pid <= 0) {
+        throw containers::ContainerEngineError(fmt::format("Container '{}' is not running (PID={})", containerId, pid));
+    }
+
+    SPDLOG_DEBUG("DockerClient: container {} has host PID {}", containerId, pid);
+    return pid;
+}
+
 void DockerClient::updateMemoryLimit(const std::string_view containerId, int64_t memory_bytes) const {
     if (containerId.empty()) {
         throw std::invalid_argument("Container ID must not be empty");

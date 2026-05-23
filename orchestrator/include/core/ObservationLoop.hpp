@@ -109,6 +109,10 @@ private:
     // Container IP string, fetched once at start and stamped on every state.
     std::optional<std::string> containerIp_;
 
+    // Host PID of the container's init process, fetched once at start.
+    // Used to read /proc/<pid>/net/dev for fast network stats.
+    int containerPid_{0};
+
     std::stop_source internalStopSource_;
     std::jthread metricsThread_;
     std::jthread logsThread_;

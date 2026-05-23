@@ -163,6 +163,14 @@ public:
     [[nodiscard]] int getContainerNetnsFd(const std::string_view containerId) const override;
 
     /**
+     * @brief Get the host PID of the container's init process via Docker inspect.
+     * @param containerId Docker container ID.
+     * @return Host PID of the container's main process.
+     * @throws ContainerEngineError If the container cannot be inspected.
+     */
+    [[nodiscard]] int getContainerPid(const std::string_view containerId) const override;
+
+    /**
      * @brief Update the memory limit of a container via Docker Engine API.
      * @param containerId Docker container ID.
      * @param memory_bytes Max memory in bytes (0 to ignore).

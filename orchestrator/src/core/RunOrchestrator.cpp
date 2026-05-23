@@ -35,7 +35,7 @@ RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedS
         observer.onPhaseChange("chaos");
         state.setPhase("chaos");
 
-        auto chaosEnd = std::chrono::steady_clock::now() + duration + 2s;
+        auto chaosEnd = std::chrono::steady_clock::now() + duration;
         while (std::chrono::steady_clock::now() < chaosEnd && !external_stop.stop_requested()) {
             std::this_thread::sleep_for(100ms);
         }

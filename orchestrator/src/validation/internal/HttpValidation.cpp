@@ -42,8 +42,11 @@ ValidationResult performHttpValidation(const shared::TargetState& targetState,
     ValidationResult result{.passed = false, .expectationType = expectation.type, .message = {}};
 
     try {
-        const std::string ip =
-            targetState.container_ip.value_or("Container IP is required for HTTP validation but was not available");
+        if (!targetState.container_ip.has_value()) {
+            result.message = "Container IP is required for HTTP validation but was not available";
+            return result;
+        }
+        const std::string ip = targetState.container_ip.value();
         const std::string port = getStringParamOrDefault(expectation, "port", "8000");
         const std::string path = getStringParamOrDefault(expectation, "path", "/ping");
 

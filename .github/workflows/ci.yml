@@ -9,17 +9,7 @@ jobs:
   formatting:
     name: Check Code Formatting
     runs-on: ubuntu-24.04
-    env:
-      VCPKG_BINARY_SOURCES: 'clear;x-gha,readwrite'
-
     steps:
-      - name: Export GitHub Actions cache variables
-        uses: actions/github-script@v9
-        with:
-          script: |
-            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
-
       - uses: actions/checkout@v6
 
       - name: Install Clang-Format 18 & Ninja
@@ -29,13 +19,13 @@ jobs:
           sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100
 
       - name: Setup CMake
-        uses: lukka/get-cmake@latest
+        uses: lukka/get-cmake@v3.31.6
 
-      - name: Setup vcpkg and Cache
+      - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: '66c0373dc7fca549e5803087b9487edfe3aca0a1'
-        
+
       - name: Check formatting
         run: cmake --workflow --preset check-format
 
@@ -105,13 +95,11 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ${{ runner.os }}-clang-18-${{ matrix.name }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-clang-18-${{ matrix.name }}-
-          max-size: 1G
+          key: ${{ runner.os }}-clang-18-${{ matrix.name }}
+          max-size: 2G
 
       - name: Setup CMake
-        uses: lukka/get-cmake@latest
+        uses: lukka/get-cmake@v3.31.6
 
       - name: Setup vcpkg and Cache
         uses: lukka/run-vcpkg@v11
@@ -141,12 +129,13 @@ jobs:
         run: cmake --preset ${{ matrix.config_preset }} ${{ matrix.cmake_args }}
 
       - name: Build C++ Backend
-        run: cmake --build --preset ${{ matrix.build_preset }}
+        run: cmake --build --preset ${{ matrix.build_preset }} -- -j$(nproc)
 
       - name: ccache stats
         run: ccache -s
 
       - name: Enable nsenter for e2e network tests
+        if: matrix.name == 'Release Build'
         run: sudo sysctl -w kernel.yama.ptrace_scope=0
 
       - name: Run Tests & Quality Checks
@@ -160,4 +149,4 @@ jobs:
         with:
           name: lcov-report
           path: build/ci-coverage/coverage.lcov
-          if-no-files-found: ignore
+          if-no-files-found: error

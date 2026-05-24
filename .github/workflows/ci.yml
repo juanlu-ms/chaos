@@ -143,6 +143,9 @@ jobs:
       - name: Build C++ Backend
         run: cmake --build --preset ${{ matrix.build_preset }}
 
+      - name: ccache stats
+        run: ccache -s
+
       - name: Enable nsenter for e2e network tests
         run: sudo sysctl -w kernel.yama.ptrace_scope=0
 

@@ -7,7 +7,6 @@
 #include <gtest/gtest.h>
 
 #include <memory>
-#include <stdexcept>
 
 #include "MockContainerEngine.hpp"
 #include "perturbations/internal/MemoryCapPerturbation.hpp"

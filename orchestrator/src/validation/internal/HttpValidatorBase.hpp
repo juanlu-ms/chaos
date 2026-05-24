@@ -6,8 +6,6 @@
 #pragma once
 
 #include <functional>
-#include <string>
-#include <string_view>
 
 #include "manifests/Manifest.hpp"
 #include "shared/TargetState.hpp"

@@ -1,5 +1,7 @@
-/// @file CliParserUnitTest.cpp
-/// @brief Unit tests for CLI parser command handling.
+/**
+ * @file CliParserUnitTest.cpp
+ * @brief Unit tests for CLI parser command handling.
+ */
 
 #include <gtest/gtest.h>
 

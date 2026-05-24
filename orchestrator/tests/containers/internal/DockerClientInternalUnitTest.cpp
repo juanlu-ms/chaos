@@ -1,6 +1,6 @@
 /**
  * @file DockerClientInternalUnitTest.cpp
- * @brief Unit tests for extracted DockerClient internal helpers.
+ * @brief Unit tests for DockerClient internal helpers.
  */
 
 #include <gtest/gtest.h>

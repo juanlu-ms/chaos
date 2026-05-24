@@ -1,10 +1,11 @@
-/// @file StateBroadcasterUnitTest.cpp
-/// @brief Unit tests for StateBroadcaster subscribe/unsubscribe and exception safety.
+/**
+ * @file StateBroadcasterUnitTest.cpp
+ * @brief Unit tests for StateBroadcaster subscribe/unsubscribe and exception safety.
+ */
 
 #include <gtest/gtest.h>
 
 #include <atomic>
-#include <chrono>
 #include <thread>
 
 #include "shared/StateBroadcaster.hpp"

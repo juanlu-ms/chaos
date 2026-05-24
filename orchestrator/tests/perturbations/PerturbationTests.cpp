@@ -1,3 +1,8 @@
+/**
+ * @file PerturbationTests.cpp
+ * @brief Unit tests for concrete perturbations and perturbation factory behavior.
+ */
+
 #include <gtest/gtest.h>
 
 #include <memory>
@@ -14,11 +19,6 @@
 #include "perturbations/internal/NetworkDelayPerturbation.hpp"
 #include "perturbations/internal/PacketFloodPerturbation.hpp"
 #include "perturbations/internal/TrafficCorruptionPerturbation.hpp"
-
-/**
- * @file PerturbationTests.cpp
- * @brief Unit tests for concrete perturbations and perturbation factory behavior.
- */
 
 using namespace testing;
 using namespace chaos::orchestrator;

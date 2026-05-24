@@ -1,5 +1,7 @@
-/// @file PerturbationEngineUnitTest.cpp
-/// @brief Unit tests for PerturbationEngine lifecycle behavior.
+/**
+ * @file PerturbationEngineUnitTest.cpp
+ * @brief Unit tests for PerturbationEngine lifecycle behavior.
+ */
 
 #include <gtest/gtest.h>
 

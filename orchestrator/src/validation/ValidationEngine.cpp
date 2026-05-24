@@ -1,6 +1,3 @@
-/// @file ValidationEngine.cpp
-/// @brief Evaluates manifest expectations against observed container state.
-
 #include "validation/ValidationEngine.hpp"
 
 #include <spdlog/spdlog.h>

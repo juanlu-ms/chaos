@@ -7,7 +7,6 @@
 
 #include <chrono>
 #include <cstdint>
-#include <filesystem>
 #include <optional>
 #include <stop_token>
 #include <string_view>

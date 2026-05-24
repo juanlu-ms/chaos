@@ -1,5 +1,7 @@
-/// @file ObservabilityEngineUnitTest.cpp
-/// @brief Unit tests for ObservabilityEngine.
+/**
+ * @file ObservabilityEngineUnitTest.cpp
+ * @brief Unit tests for ObservabilityEngine.
+ */
 
 #include <gtest/gtest.h>
 

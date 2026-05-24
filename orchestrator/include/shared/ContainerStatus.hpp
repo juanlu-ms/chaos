@@ -1,12 +1,19 @@
 #pragma once
 
+#include <cstdint>
 #include <string_view>
 namespace chaos::orchestrator::shared {
 
 /**
  * @brief Possible states of a container.
  */
-enum class ContainerStatus { Running, Exited, Paused, Dead, Unknown };
+enum class ContainerStatus : uint8_t {
+    Running,
+    Exited,
+    Paused,
+    Dead,
+    Unknown,
+};
 
 // From string to enum
 inline ContainerStatus parseContainerStatus(std::string_view status_str) {

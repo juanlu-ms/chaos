@@ -1,5 +1,7 @@
-/// @file ValidationEngineUnitTest.cpp
-/// @brief Unit tests for ValidationEngine.
+/**
+ * @file ValidationEngineUnitTest.cpp
+ * @brief Unit tests for ValidationEngine.
+ */
 
 #include <gtest/gtest.h>
 #include <httplib.h>

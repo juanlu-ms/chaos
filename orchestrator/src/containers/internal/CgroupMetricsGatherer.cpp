@@ -11,7 +11,7 @@
 #include <fstream>
 #include <string>
 
-#include "containers/internal/CgroupMetricsInternal.hpp"
+#include "CgroupMetricsInternal.hpp"
 
 namespace chaos::orchestrator::containers::internal::detail {
 

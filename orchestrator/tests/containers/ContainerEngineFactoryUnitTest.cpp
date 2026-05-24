@@ -1,5 +1,7 @@
-/// @file ContainerEngineFactoryUnitTest.cpp
-/// @brief Unit tests for container engine factory.
+/**
+ * @file ContainerEngineFactoryUnitTest.cpp
+ * @brief Unit tests for ContainerEngineFactory.
+ */
 
 #include <gtest/gtest.h>
 

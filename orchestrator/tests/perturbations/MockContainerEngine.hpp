@@ -1,3 +1,8 @@
+/**
+ * @file MockContainerEngine.hpp
+ * @brief Google Mock test double for the container engine port.
+ */
+
 #pragma once
 
 #include <gmock/gmock.h>
@@ -6,11 +11,6 @@
 #include <vector>
 
 #include "containers/IContainerEngine.hpp"
-
-/**
- * @file MockContainerEngine.hpp
- * @brief Google Mock test double for the container engine port.
- */
 
 namespace chaos::orchestrator::tests {
 

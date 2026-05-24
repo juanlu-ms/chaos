@@ -1,3 +1,8 @@
+/**
+ * @file DockerClientUnitTest.cpp
+ * @brief Unit tests for DockerClient behavior using a mocked transport adapter.
+ */
+
 #include <fmt/format.h>
 #include <gtest/gtest.h>
 
@@ -8,11 +13,6 @@
 #include <string_view>
 
 #include "containers/internal/DockerClient.hpp"
-
-/**
- * @file DockerClientUnitTest.cpp
- * @brief Unit tests for DockerClient behavior using a mocked transport adapter.
- */
 
 using chaos::orchestrator::containers::ContainerEngineApiError;
 using chaos::orchestrator::containers::ContainerEngineError;

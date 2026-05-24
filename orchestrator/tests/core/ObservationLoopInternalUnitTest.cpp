@@ -1,15 +1,13 @@
 /**
  * @file ObservationLoopInternalUnitTest.cpp
- * @brief Unit tests for extracted ObservationLoop helpers.
+ * @brief Unit tests for ObservationLoop helpers.
  */
 
 #include <gtest/gtest.h>
 
 #include <chrono>
 #include <cstdio>
-#include <filesystem>
 #include <fstream>
-#include <string>
 
 #include "core/ObservationLoopInternal.hpp"
 

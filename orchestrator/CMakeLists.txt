@@ -81,6 +81,8 @@ add_executable(orchestrator_unit_tests
     tests/observability/ValidationEngineUnitTest.cpp
     tests/perturbations/PerturbationEngineUnitTest.cpp
     tests/perturbations/MemoryCapPerturbationUnitTest.cpp
+    tests/perturbations/NetworkDelayPerturbationUnitTest.cpp
+    tests/perturbations/TrafficCorruptionPerturbationUnitTest.cpp
     tests/perturbations/PerturbationTests.cpp
     tests/shared/StateBroadcasterUnitTest.cpp
     tests/signals/SignalHandlerGuardUnitTest.cpp

@@ -71,6 +71,7 @@ void TrafficCorruptionPerturbation::revert() {
     }
 
     if (target_id_.empty()) {
+        hasBeenApplied_ = true;
         throw std::invalid_argument("Target ID is empty");
     }
 
@@ -88,6 +89,7 @@ void TrafficCorruptionPerturbation::revert() {
         }
         SPDLOG_INFO("Traffic Corruption reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {
+        hasBeenApplied_ = true;
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
                                 std::string("Failed to revert tc netem rule inside container: ") + e.what());
     }

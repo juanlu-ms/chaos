@@ -21,11 +21,9 @@ TEST(MemoryCapPerturbationTest, RevertDoesNotClearAppliedFlagOnFailure) {
     containers::SystemInfo sysInfo;
     sysInfo.memTotal = 4294967296;
 
-    EXPECT_CALL(*engine, getSystemInfo())
-        .WillOnce(Return(sysInfo));
+    EXPECT_CALL(*engine, getSystemInfo()).WillOnce(Return(sysInfo));
 
-    EXPECT_CALL(*engine, updateMemoryLimit("test-id", 1048576))
-        .Times(1);
+    EXPECT_CALL(*engine, updateMemoryLimit("test-id", 1048576)).Times(1);
 
     MemoryCapPerturbation p(engine, "test-id", spec);
     p.apply();
@@ -41,8 +39,7 @@ TEST(MemoryCapPerturbationTest, RevertDoesNotClearAppliedFlagOnFailure) {
     }
     EXPECT_TRUE(revertThrew);
 
-    EXPECT_CALL(*engine, updateMemoryLimit("test-id", sysInfo.memTotal))
-        .Times(1);
+    EXPECT_CALL(*engine, updateMemoryLimit("test-id", sysInfo.memTotal)).Times(1);
 
     EXPECT_NO_THROW(p.revert());
 }
@@ -57,17 +54,14 @@ TEST(MemoryCapPerturbationTest, StoresOriginalMemoryInApply) {
     containers::SystemInfo sysInfo;
     sysInfo.memTotal = 4294967296;
 
-    EXPECT_CALL(*engine, getSystemInfo())
-        .WillOnce(Return(sysInfo));
+    EXPECT_CALL(*engine, getSystemInfo()).WillOnce(Return(sysInfo));
 
-    EXPECT_CALL(*engine, updateMemoryLimit("test-id", 1048576))
-        .Times(1);
+    EXPECT_CALL(*engine, updateMemoryLimit("test-id", 1048576)).Times(1);
 
     MemoryCapPerturbation p(engine, "test-id", spec);
     p.apply();
 
-    EXPECT_CALL(*engine, updateMemoryLimit("test-id", sysInfo.memTotal))
-        .Times(1);
+    EXPECT_CALL(*engine, updateMemoryLimit("test-id", sysInfo.memTotal)).Times(1);
 
     p.revert();
 }

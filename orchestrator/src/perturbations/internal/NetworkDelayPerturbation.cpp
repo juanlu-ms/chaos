@@ -59,6 +59,7 @@ void NetworkDelayPerturbation::revert() {
     }
 
     if (target_id_.empty()) {
+        hasBeenApplied_ = true;
         throw std::invalid_argument("Target ID is empty");
     }
 
@@ -72,6 +73,7 @@ void NetworkDelayPerturbation::revert() {
         }
         SPDLOG_INFO("Network Delay Perturbation reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {
+        hasBeenApplied_ = true;
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
                                 std::string("Failed to revert tc netem delay inside container: ") + e.what());
     }

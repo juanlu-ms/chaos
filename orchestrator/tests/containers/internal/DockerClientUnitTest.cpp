@@ -650,3 +650,86 @@ TEST(DockerClientUnitTest, BuildImagePropagatesTransportErrors) {
     auto adapter = makeAdapterWithError("Docker daemon unreachable");
     EXPECT_THROW((void)adapter.buildImage("myapp:latest", "/some/Dockerfile"), std::runtime_error);
 }
+
+/**
+ * @test getStats parses CPU, memory, and network from Docker stats JSON.
+ */
+TEST(DockerClientUnitTest, GetStatsParsesCpuMemoryNetwork) {
+    auto statsJson = R"({
+        "cpu_stats": {
+            "cpu_usage": { "total_usage": 4825316964 },
+            "system_cpu_usage": 17371230000000,
+            "online_cpus": 4
+        },
+        "precpu_stats": {
+            "cpu_usage": { "total_usage": 4825310000 },
+            "system_cpu_usage": 17371220000000
+        },
+        "memory_stats": {
+            "usage": 8388608,
+            "limit": 33554432
+        },
+        "networks": {
+            "eth0": { "rx_bytes": 1000000, "tx_bytes": 2000000,
+                      "rx_packets": 100, "tx_packets": 200 }
+        }
+    })";
+
+    auto adapter = DockerClient([statsJson](HttpMethod method, std::string_view endpoint, std::string_view) {
+        EXPECT_EQ(method, HttpMethod::GET);
+        EXPECT_NE(endpoint.find("stats"), std::string_view::npos);
+        return HttpResponse{.status = 200, .body = statsJson};
+    });
+
+    auto stats = adapter.getStats("test-container");
+
+    EXPECT_TRUE(stats.cpu_percent.has_value());
+    EXPECT_TRUE(stats.memory_mb.has_value());
+    // First call: no previous network state, rates are 0
+    EXPECT_EQ(stats.network_rx_bps, 0.0);
+    EXPECT_EQ(stats.network_tx_bps, 0.0);
+}
+
+/**
+ * @test getStats returns parsed values for memory and CPU.
+ */
+TEST(DockerClientUnitTest, GetStatsReturnsMemoryInMb) {
+    auto statsJson = R"({
+        "cpu_stats": {
+            "cpu_usage": { "total_usage": 1000000 },
+            "system_cpu_usage": 1000000000,
+            "online_cpus": 2
+        },
+        "precpu_stats": {
+            "cpu_usage": { "total_usage": 0 },
+            "system_cpu_usage": 0
+        },
+        "memory_stats": {
+            "usage": 10485760,
+            "limit": 1073741824
+        },
+        "networks": {
+            "eth0": { "rx_bytes": 0, "tx_bytes": 0,
+                      "rx_packets": 0, "tx_packets": 0 }
+        }
+    })";
+
+    auto adapter = DockerClient([statsJson](HttpMethod, std::string_view, std::string_view) {
+        return HttpResponse{.status = 200, .body = statsJson};
+    });
+
+    auto stats = adapter.getStats("test-container");
+
+    EXPECT_TRUE(stats.cpu_percent.has_value());
+    EXPECT_TRUE(stats.memory_mb.has_value());
+    // 10485760 bytes = 10 MB
+    EXPECT_NEAR(*stats.memory_mb, 10.0, 0.01);
+}
+
+/**
+ * @test getStats propagates transport errors.
+ */
+TEST(DockerClientUnitTest, GetStatsPropagatesTransportErrors) {
+    auto adapter = makeAdapterWithError("Docker daemon unreachable");
+    EXPECT_THROW((void)adapter.getStats("test-container"), std::runtime_error);
+}

@@ -73,6 +73,8 @@ set_target_properties(orchestrator_app PROPERTIES OUTPUT_NAME chaos)
 
 add_executable(orchestrator_unit_tests 
     tests/containers/ContainerEngineFactoryUnitTest.cpp
+    tests/containers/internal/CgroupMetricsInternalUnitTest.cpp
+    tests/containers/internal/DockerClientInternalUnitTest.cpp
     tests/containers/internal/DockerClientUnitTest.cpp
     tests/interfaces/cli/CliParserUnitTest.cpp
     tests/manifests/ManifestParserUnitTest.cpp
@@ -84,10 +86,13 @@ add_executable(orchestrator_unit_tests
     tests/perturbations/NetworkDelayPerturbationUnitTest.cpp
     tests/perturbations/TrafficCorruptionPerturbationUnitTest.cpp
     tests/perturbations/PerturbationTests.cpp
+    tests/perturbations/internal/PacketFloodInternalUnitTest.cpp
     tests/shared/StateBroadcasterUnitTest.cpp
     tests/signals/SignalHandlerGuardUnitTest.cpp
+    tests/validation/internal/HttpValidatorBaseUnitTest.cpp
     tests/core/ChaosRunnerUnitTest.cpp
     tests/core/SharedStateUnitTest.cpp
+    tests/core/ObservationLoopInternalUnitTest.cpp
     tests/core/ObservationLoopUnitTest.cpp
     tests/core/RunOrchestratorUnitTest.cpp
     tests/web/JsonSerializerUnitTest.cpp

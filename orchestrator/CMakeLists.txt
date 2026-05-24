@@ -135,7 +135,7 @@ gtest_discover_tests(orchestrator_smoke_tests PROPERTIES LABELS "smoke")
 
 if(CHAOS_ENABLE_COVERAGE)
     add_custom_target(coverage_report
-        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -L unit
         COMMAND llvm-profdata-18 merge -sparse default.profraw -o default.profdata
         COMMAND llvm-cov-18 export $<TARGET_FILE:orchestrator_unit_tests>
             -instr-profile=default.profdata

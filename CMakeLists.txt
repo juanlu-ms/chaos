@@ -75,6 +75,9 @@ elseif(CHAOS_ENABLE_TSAN)
     message(STATUS "Enabling Clang Thread Sanitizer (TSan)")
     target_compile_options(chaos_quality_flags INTERFACE -fsanitize=thread)
     target_link_options(chaos_quality_flags INTERFACE -fsanitize=thread)
+    # cpp-httplib's async getaddrinfo (getaddrinfo_a) spawns glibc internal
+    # threads that crash under TSan's malloc interceptor. Fall back to sync DNS.
+    target_compile_options(chaos_quality_flags INTERFACE -UCPPHTTPLIB_USE_NON_BLOCKING_GETADDRINFO)
 endif()
 
 if(CHAOS_ENABLE_COVERAGE)

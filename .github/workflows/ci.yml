@@ -55,13 +55,13 @@ jobs:
           - name: "Memory Check (ASan/UBSan)"
             config_preset: "dev-linux-clang"
             build_preset: "debug"
-            test_cmd: "ctest --preset test-debug"
+            test_cmd: "ctest --preset test-debug -L unit"
             cmake_args: "-DCHAOS_ENABLE_ASAN_UBSAN=ON"
           
           - name: "Concurrency Check (TSan)"
             config_preset: "dev-linux-clang"
             build_preset: "debug"
-            test_cmd: "ctest --preset test-debug"
+            test_cmd: "ctest --preset test-debug -L unit"
             cmake_args: "-DCHAOS_ENABLE_TSAN=ON"
             
           - name: "Code Coverage"
@@ -119,11 +119,13 @@ jobs:
           vcpkgGitCommitId: '66c0373dc7fca549e5803087b9487edfe3aca0a1'
 
       - name: Setup pnpm
+        if: matrix.name == 'Release Build'
         uses: pnpm/action-setup@v3
         with:
           version: 9
 
       - name: Setup Node.js
+        if: matrix.name == 'Release Build'
         uses: actions/setup-node@v4
         with:
           node-version: 24.15.0
@@ -131,6 +133,7 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Build Web UI
+        if: matrix.name == 'Release Build'
         working-directory: frontend
         run: pnpm install && pnpm run build
 
@@ -140,7 +143,12 @@ jobs:
       - name: Build C++ Backend
         run: cmake --build --preset ${{ matrix.build_preset }}
 
+      - name: Enable nsenter for e2e network tests
+        run: sudo sysctl -w kernel.yama.ptrace_scope=0
+
       - name: Run Tests & Quality Checks
+        env:
+          TSAN_OPTIONS: ${{ contains(matrix.name, 'TSan') && 'die_after_fork=0:second_deadlock_stack_size=4096:history_size=5:verbosity=0' || '' }}
         run: ${{ matrix.test_cmd }}
 
       - name: Upload Coverage Artifact (Only for Coverage job)

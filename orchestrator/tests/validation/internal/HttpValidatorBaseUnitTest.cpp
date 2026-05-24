@@ -9,8 +9,8 @@
 
 using namespace chaos::orchestrator::validation::detail;
 using namespace chaos::orchestrator::validation;
-using chaos::orchestrator::shared::TargetState;
 using chaos::orchestrator::manifests::Expectation;
+using chaos::orchestrator::shared::TargetState;
 
 /**
  * @test performHttpValidation returns a result with the correct expectationType.
@@ -23,11 +23,10 @@ TEST(HttpValidatorBaseTest, ReturnsResultWithExpectationType) {
     expectation.parameters["expected_status"] = "200";
     expectation.parameters["timeout_ms"] = "100";
 
-    auto result = performHttpValidation(state, expectation,
-        [](int, double, ValidationResult& r) {
-            r.passed = false;
-            r.message = "never reached";
-        });
+    auto result = performHttpValidation(state, expectation, [](int, double, ValidationResult& r) {
+        r.passed = false;
+        r.message = "never reached";
+    });
 
     EXPECT_EQ(result.expectationType, "http_status");
     EXPECT_FALSE(result.passed);
@@ -44,11 +43,10 @@ TEST(HttpValidatorBaseTest, ConnectionRefusedReturnsFailed) {
     expectation.parameters["expected_status"] = "200";
     expectation.parameters["timeout_ms"] = "100";
 
-    auto result = performHttpValidation(state, expectation,
-        [](int, double, ValidationResult& r) {
-            r.passed = true;  // Shouldn't be called if connection fails
-            r.message = "unexpected";
-        });
+    auto result = performHttpValidation(state, expectation, [](int, double, ValidationResult& r) {
+        r.passed = true;  // Shouldn't be called if connection fails
+        r.message = "unexpected";
+    });
 
     EXPECT_FALSE(result.passed);
     EXPECT_FALSE(result.message.empty());

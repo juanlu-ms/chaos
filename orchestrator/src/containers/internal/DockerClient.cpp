@@ -120,8 +120,7 @@ void parseBuildResponse(const std::string_view body) {
 
 namespace chaos::orchestrator::containers::internal::detail {
 
-bool isWithinBuildContext(const std::filesystem::path& path,
-                          const std::filesystem::path& contextRoot) {
+bool isWithinBuildContext(const std::filesystem::path& path, const std::filesystem::path& contextRoot) {
     auto canonical = std::filesystem::weakly_canonical(path);
     return canonical.string().starts_with(contextRoot.string());
 }
@@ -676,18 +675,14 @@ containers::ContainerStats DockerClient::getStats(const std::string_view contain
 }
 
 std::optional<double> DockerClient::parseCpuDelta(const nlohmann::json& json) const {
-    if (json.contains("cpu_stats") && json["cpu_stats"].is_object() &&
-        json["cpu_stats"].contains("cpu_usage") && json["cpu_stats"]["cpu_usage"].is_object() &&
-        json["cpu_stats"]["cpu_usage"].contains("total_usage") &&
-        json["cpu_stats"]["cpu_usage"]["total_usage"].is_number() &&
-        json["cpu_stats"].contains("system_cpu_usage") &&
+    if (json.contains("cpu_stats") && json["cpu_stats"].is_object() && json["cpu_stats"].contains("cpu_usage") &&
+        json["cpu_stats"]["cpu_usage"].is_object() && json["cpu_stats"]["cpu_usage"].contains("total_usage") &&
+        json["cpu_stats"]["cpu_usage"]["total_usage"].is_number() && json["cpu_stats"].contains("system_cpu_usage") &&
         json["cpu_stats"]["system_cpu_usage"].is_number() && json.contains("precpu_stats") &&
         json["precpu_stats"].is_object() && json["precpu_stats"].contains("cpu_usage") &&
-        json["precpu_stats"]["cpu_usage"].is_object() &&
-        json["precpu_stats"]["cpu_usage"].contains("total_usage") &&
+        json["precpu_stats"]["cpu_usage"].is_object() && json["precpu_stats"]["cpu_usage"].contains("total_usage") &&
         json["precpu_stats"]["cpu_usage"]["total_usage"].is_number() &&
-        json["precpu_stats"].contains("system_cpu_usage") &&
-        json["precpu_stats"]["system_cpu_usage"].is_number() &&
+        json["precpu_stats"].contains("system_cpu_usage") && json["precpu_stats"]["system_cpu_usage"].is_number() &&
         json["cpu_stats"].contains("online_cpus") && json["cpu_stats"]["online_cpus"].is_number()) {
         const auto cpu_delta = static_cast<int64_t>(json["cpu_stats"]["cpu_usage"]["total_usage"]) -
                                static_cast<int64_t>(json["precpu_stats"]["cpu_usage"]["total_usage"]);
@@ -703,8 +698,8 @@ std::optional<double> DockerClient::parseCpuDelta(const nlohmann::json& json) co
 }
 
 std::optional<double> DockerClient::parseMemoryFromStats(const nlohmann::json& json) const {
-    if (json.contains("memory_stats") && json["memory_stats"].is_object() &&
-        json["memory_stats"].contains("usage") && json["memory_stats"]["usage"].is_number()) {
+    if (json.contains("memory_stats") && json["memory_stats"].is_object() && json["memory_stats"].contains("usage") &&
+        json["memory_stats"]["usage"].is_number()) {
         return json["memory_stats"]["usage"].get<double>() / (1024.0 * 1024.0);
     }
     return std::nullopt;

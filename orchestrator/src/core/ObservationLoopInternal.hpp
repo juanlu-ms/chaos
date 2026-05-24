@@ -24,8 +24,7 @@ struct NetworkMetrics {
 // Reads cumulative RX/TX byte counters and computes B/s delta against
 // the previous snapshot. Updates in-out parameters for the next call.
 NetworkMetrics parseProcNetDev(int pid, uint64_t& prevRx, uint64_t& prevTx,
-                               std::chrono::steady_clock::time_point& prevTime,
-                               bool& prevValid);
+                               std::chrono::steady_clock::time_point& prevTime, bool& prevValid);
 
 // Execute a single ICMP ping to measure network latency.
 // Returns RTT in milliseconds, or nullopt on failure.

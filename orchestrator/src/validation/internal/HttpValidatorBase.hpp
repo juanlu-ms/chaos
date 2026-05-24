@@ -25,7 +25,6 @@ using CheckFn = std::function<void(int statusCode, double elapsedMs, ValidationR
 // creates an httplib::Client, performs a GET request, measures elapsed time,
 // and delegates the domain-specific check to checkFn.
 ValidationResult performHttpValidation(const shared::TargetState& targetState,
-                                       const manifests::Expectation& expectation,
-                                       CheckFn checkFn);
+                                       const manifests::Expectation& expectation, CheckFn checkFn);
 
 }  // namespace chaos::orchestrator::validation::detail

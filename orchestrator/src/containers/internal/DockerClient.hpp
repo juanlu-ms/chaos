@@ -252,8 +252,6 @@ private:
     std::optional<double> parseMemoryFromStats(const nlohmann::json& json) const;
     // Compute network B/s rates from cumulative Docker stats JSON.
     std::pair<double, double> parseNetworkFromStats(const nlohmann::json& json);
-
-
 };
 
 }  // namespace chaos::orchestrator::containers::internal

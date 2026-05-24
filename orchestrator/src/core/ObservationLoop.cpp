@@ -21,8 +21,7 @@
 namespace chaos::orchestrator::core::detail {
 
 NetworkMetrics parseProcNetDev(int pid, uint64_t& prevRx, uint64_t& prevTx,
-                               std::chrono::steady_clock::time_point& prevTime,
-                               bool& prevValid) {
+                               std::chrono::steady_clock::time_point& prevTime, bool& prevValid) {
     NetworkMetrics metrics;
 
     std::ifstream file(fmt::format("/proc/{}/net/dev", pid));
@@ -56,8 +55,7 @@ NetworkMetrics parseProcNetDev(int pid, uint64_t& prevRx, uint64_t& prevTx,
         uint64_t rcompressed{0};
         uint64_t rmulticast{0};
         uint64_t tbytes{0};
-        iss >> rbytes >> rpackets >> rerrs >> rdrop >> rfifo >> rframe >> rcompressed >>
-            rmulticast >> tbytes;
+        iss >> rbytes >> rpackets >> rerrs >> rdrop >> rfifo >> rframe >> rcompressed >> rmulticast >> tbytes;
         rx = rbytes;
         tx = tbytes;
         break;
@@ -196,8 +194,7 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
                     if (mem.has_value()) state.memory_usage_mb = mem;
 
                     if (containerPid_ > 0) {
-                        auto net = detail::parseProcNetDev(containerPid_, prevNetRx, prevNetTx,
-                                                           prevNetTime, firstNet);
+                        auto net = detail::parseProcNetDev(containerPid_, prevNetRx, prevNetTx, prevNetTime, firstNet);
                         if (!firstNet) {
                             state.network_rx_bps = net.rxBps;
                             state.network_tx_bps = net.txBps;

@@ -18,7 +18,6 @@ namespace chaos::orchestrator::containers::internal::detail {
 
 // Read a uint64_t by key from a multi-field cgroup file (e.g. cpu.stat).
 // Returns the integer value for the matching key, or nullopt if not found.
-[[nodiscard]] std::optional<uint64_t> readKeyValueU64(const std::filesystem::path& path,
-                                                       std::string_view key);
+[[nodiscard]] std::optional<uint64_t> readKeyValueU64(const std::filesystem::path& path, std::string_view key);
 
 }  // namespace chaos::orchestrator::containers::internal::detail

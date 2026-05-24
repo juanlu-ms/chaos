@@ -114,7 +114,8 @@ ScopedNamespaceGuard::ScopedNamespaceGuard(int pid) {
 ScopedNamespaceGuard::~ScopedNamespaceGuard() {
     if (originalNsFd_ >= 0) {
         if (setns(originalNsFd_, CLONE_NEWNET) < 0) {
-            SPDLOG_ERROR("ScopedNamespaceGuard: failed to restore original network namespace: {}", std::strerror(errno));
+            SPDLOG_ERROR("ScopedNamespaceGuard: failed to restore original network namespace: {}",
+                         std::strerror(errno));
         }
         close(originalNsFd_);
     }
@@ -146,7 +147,7 @@ uint16_t segmentChecksum(const std::vector<uint8_t>& data, uint32_t pseudoSum) {
     return static_cast<uint16_t>(~sum);
 }
 
-}  // namespace detail
+}  // namespace chaos::orchestrator::perturbations::detail
 
 namespace chaos::orchestrator::perturbations {
 
@@ -328,14 +329,11 @@ void PacketFloodPerturbation::floodLoop(const std::stop_token& stop) const {
                 std::span<const uint16_t>(reinterpret_cast<const uint16_t*>(ipHeader), sizeof(IpHeader) / 2));
 
             tcpHeader->checksum = 0;
-            uint32_t tcpSrcIp = (static_cast<uint32_t>(ipHeader->src[0]) << 24) |
-                                (static_cast<uint32_t>(ipHeader->src[1]) << 16) |
-                                (static_cast<uint32_t>(ipHeader->src[2]) << 8) |
-                                static_cast<uint32_t>(ipHeader->src[3]);
-            uint32_t tcpDstIp = (static_cast<uint32_t>(destIp[0]) << 24) |
-                                (static_cast<uint32_t>(destIp[1]) << 16) |
-                                (static_cast<uint32_t>(destIp[2]) << 8) |
-                                static_cast<uint32_t>(destIp[3]);
+            uint32_t tcpSrcIp =
+                (static_cast<uint32_t>(ipHeader->src[0]) << 24) | (static_cast<uint32_t>(ipHeader->src[1]) << 16) |
+                (static_cast<uint32_t>(ipHeader->src[2]) << 8) | static_cast<uint32_t>(ipHeader->src[3]);
+            uint32_t tcpDstIp = (static_cast<uint32_t>(destIp[0]) << 24) | (static_cast<uint32_t>(destIp[1]) << 16) |
+                                (static_cast<uint32_t>(destIp[2]) << 8) | static_cast<uint32_t>(destIp[3]);
             uint16_t tcpDataLen = static_cast<uint16_t>(sizeof(TcpHeader) + payloadLen);
             uint32_t pseudoSum = detail::pseudoHeaderChecksum(tcpSrcIp, tcpDstIp, tcpDataLen);
             {

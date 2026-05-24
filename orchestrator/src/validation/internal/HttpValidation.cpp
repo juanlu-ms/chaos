@@ -38,8 +38,7 @@ int getIntParamOrDefault(const manifests::Expectation& expectation, const std::s
 namespace detail {
 
 ValidationResult performHttpValidation(const shared::TargetState& targetState,
-                                       const manifests::Expectation& expectation,
-                                       CheckFn checkFn) {
+                                       const manifests::Expectation& expectation, CheckFn checkFn) {
     ValidationResult result{.passed = false, .expectationType = expectation.type, .message = {}};
 
     try {
@@ -69,8 +68,7 @@ ValidationResult performHttpValidation(const shared::TargetState& targetState,
         }
 
         result.passed = false;
-        result.message =
-            fmt::format("HTTP GET {}:{} {} failed: {}", ip, port, path, httplib::to_string(res.error()));
+        result.message = fmt::format("HTTP GET {}:{} {} failed: {}", ip, port, path, httplib::to_string(res.error()));
     } catch (const std::invalid_argument& e) {
         result.passed = false;
         result.message = fmt::format("HTTP validation failed (invalid parameter): {}", e.what());
@@ -90,19 +88,23 @@ ValidationResult performHttpValidation(const shared::TargetState& targetState,
 ValidationResult HttpStatusValidation::validate(const shared::TargetState& targetState,
                                                 const manifests::Expectation& expectation) const {
     try {
-        return detail::performHttpValidation(targetState, expectation,
-            [expected = getIntParamOrDefault(expectation, "expected_status", 200)]
-            (int statusCode, double, ValidationResult& result) {
+        return detail::performHttpValidation(
+            targetState, expectation,
+            [expected = getIntParamOrDefault(expectation, "expected_status", 200)](int statusCode, double,
+                                                                                   ValidationResult& result) {
                 result.passed = (statusCode == expected);
                 result.message = result.passed
-                    ? fmt::format("HTTP GET returned status {}", statusCode)
-                    : fmt::format("HTTP GET returned status {} (expected {})", statusCode, expected);
+                                     ? fmt::format("HTTP GET returned status {}", statusCode)
+                                     : fmt::format("HTTP GET returned status {} (expected {})", statusCode, expected);
             });
     } catch (const std::invalid_argument& e) {
-        return ValidationResult{.passed = false, .expectationType = expectation.type,
-                                .message = fmt::format("HTTP Status validation failed (invalid parameter): {}", e.what())};
+        return ValidationResult{
+            .passed = false,
+            .expectationType = expectation.type,
+            .message = fmt::format("HTTP Status validation failed (invalid parameter): {}", e.what())};
     } catch (const std::out_of_range& e) {
-        return ValidationResult{.passed = false, .expectationType = expectation.type,
+        return ValidationResult{.passed = false,
+                                .expectationType = expectation.type,
                                 .message = fmt::format("HTTP Status validation failed (out-of-range): {}", e.what())};
     }
 }
@@ -110,20 +112,25 @@ ValidationResult HttpStatusValidation::validate(const shared::TargetState& targe
 ValidationResult HttpLatencyValidation::validate(const shared::TargetState& targetState,
                                                  const manifests::Expectation& expectation) const {
     try {
-        return detail::performHttpValidation(targetState, expectation,
+        return detail::performHttpValidation(
+            targetState, expectation,
             [maxMs = getIntParamOrDefault(expectation, "max_latency_ms", 1000),
-             minMs = getIntParamOrDefault(expectation, "min_latency_ms", 0)]
-            (int, double elapsedMs, ValidationResult& result) {
+             minMs = getIntParamOrDefault(expectation, "min_latency_ms", 0)](int, double elapsedMs,
+                                                                             ValidationResult& result) {
                 result.passed = (elapsedMs >= minMs && elapsedMs <= maxMs);
-                result.message = result.passed
-                    ? fmt::format("HTTP Latency {:.0f}ms (expected {} - {}ms)", elapsedMs, minMs, maxMs)
-                    : fmt::format("HTTP Latency {:.0f}ms outside expected bounds ({} - {}ms)", elapsedMs, minMs, maxMs);
+                result.message =
+                    result.passed ? fmt::format("HTTP Latency {:.0f}ms (expected {} - {}ms)", elapsedMs, minMs, maxMs)
+                                  : fmt::format("HTTP Latency {:.0f}ms outside expected bounds ({} - {}ms)", elapsedMs,
+                                                minMs, maxMs);
             });
     } catch (const std::invalid_argument& e) {
-        return ValidationResult{.passed = false, .expectationType = expectation.type,
-                                .message = fmt::format("HTTP Latency validation failed (invalid parameter): {}", e.what())};
+        return ValidationResult{
+            .passed = false,
+            .expectationType = expectation.type,
+            .message = fmt::format("HTTP Latency validation failed (invalid parameter): {}", e.what())};
     } catch (const std::out_of_range& e) {
-        return ValidationResult{.passed = false, .expectationType = expectation.type,
+        return ValidationResult{.passed = false,
+                                .expectationType = expectation.type,
                                 .message = fmt::format("HTTP Latency validation failed (out-of-range): {}", e.what())};
     }
 }

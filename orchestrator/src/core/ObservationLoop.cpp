@@ -14,8 +14,110 @@
 #include <thread>
 
 #include "containers/internal/CgroupMetricsGatherer.hpp"
+#include "core/ObservationLoopInternal.hpp"
 #include "observability/ObservabilityEngine.hpp"
 #include "validation/ValidationEngine.hpp"
+
+namespace chaos::orchestrator::core::detail {
+
+NetworkMetrics parseProcNetDev(int pid, uint64_t& prevRx, uint64_t& prevTx,
+                               std::chrono::steady_clock::time_point& prevTime,
+                               bool& prevValid) {
+    NetworkMetrics metrics;
+
+    std::ifstream file(fmt::format("/proc/{}/net/dev", pid));
+    if (!file.is_open()) {
+        return metrics;
+    }
+
+    uint64_t rx{0};
+    uint64_t tx{0};
+    std::string line;
+    while (std::getline(file, line)) {
+        auto colon = line.find(':');
+        if (colon == std::string::npos) {
+            continue;
+        }
+        std::string iface = line.substr(0, colon);
+        if (auto start = iface.find_first_not_of(" \t"); start != std::string::npos) {
+            iface = iface.substr(start);
+        }
+        if (iface != "eth0") {
+            continue;
+        }
+
+        std::istringstream iss(line.substr(colon + 1));
+        uint64_t rbytes{0};
+        uint64_t rpackets{0};
+        uint64_t rerrs{0};
+        uint64_t rdrop{0};
+        uint64_t rfifo{0};
+        uint64_t rframe{0};
+        uint64_t rcompressed{0};
+        uint64_t rmulticast{0};
+        uint64_t tbytes{0};
+        iss >> rbytes >> rpackets >> rerrs >> rdrop >> rfifo >> rframe >> rcompressed >>
+            rmulticast >> tbytes;
+        rx = rbytes;
+        tx = tbytes;
+        break;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    if (prevValid) {
+        auto dt = std::chrono::duration_cast<std::chrono::duration<double>>(now - prevTime).count();
+        if (dt > 0.0) {
+            metrics.rxBps = static_cast<double>(rx - prevRx) / dt;
+            metrics.txBps = static_cast<double>(tx - prevTx) / dt;
+        }
+    }
+    prevRx = rx;
+    prevTx = tx;
+    prevTime = now;
+    prevValid = true;
+
+    return metrics;
+}
+
+std::optional<double> executePing(std::string_view targetIp) {
+    std::string cmd = fmt::format("LC_ALL=C ping -c 1 -W 2 {} 2>&1", targetIp);
+
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) {
+        return std::nullopt;
+    }
+
+    std::string output;
+    char buffer[256];
+    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+        output += buffer;
+    }
+    int rc = pclose(pipe);
+
+    if (rc != 0) {
+        return std::nullopt;
+    }
+
+    std::regex re(R"(time=([0-9.]+)\s*ms)");
+    std::smatch match;
+    if (!std::regex_search(output, match, re)) {
+        return std::nullopt;
+    }
+
+    try {
+        return std::stod(match[1].str());
+    } catch (const std::exception&) {
+        return std::nullopt;
+    }
+}
+
+void interruptibleSleep(std::chrono::seconds duration, const std::stop_token& stop) {
+    for (int i = 0; i < static_cast<int>(duration.count() * 10) && !stop.stop_requested(); ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+}
+
+}  // namespace chaos::orchestrator::core::detail
 
 namespace chaos::orchestrator::core {
 
@@ -94,53 +196,11 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
                     if (mem.has_value()) state.memory_usage_mb = mem;
 
                     if (containerPid_ > 0) {
-                        std::ifstream file(fmt::format("/proc/{}/net/dev", containerPid_));
-                        if (file.is_open()) {
-                            std::string line;
-                            uint64_t rx{0};
-                            uint64_t tx{0};
-                            while (std::getline(file, line)) {
-                                auto colon = line.find(':');
-                                if (colon == std::string::npos) {
-                                    continue;
-                                }
-                                std::string iface = line.substr(0, colon);
-                                if (auto start = iface.find_first_not_of(" \t"); start != std::string::npos) {
-                                    iface = iface.substr(start);
-                                }
-                                if (iface != "eth0") {
-                                    continue;
-                                }
-
-                                std::istringstream iss(line.substr(colon + 1));
-                                uint64_t rbytes{0};
-                                uint64_t rpackets{0};
-                                uint64_t rerrs{0};
-                                uint64_t rdrop{0};
-                                uint64_t rfifo{0};
-                                uint64_t rframe{0};
-                                uint64_t rcompressed{0};
-                                uint64_t rmulticast{0};
-                                uint64_t tbytes{0};
-                                iss >> rbytes >> rpackets >> rerrs >> rdrop >> rfifo >> rframe >> rcompressed >>
-                                    rmulticast >> tbytes;
-                                rx = rbytes;
-                                tx = tbytes;
-                                break;
-                            }
-
-                            if (!firstNet) {
-                                auto dt = std::chrono::duration_cast<std::chrono::duration<double>>(tick - prevNetTime)
-                                              .count();
-                                if (dt > 0.0) {
-                                    state.network_rx_bps = static_cast<double>(rx - prevNetRx) / dt;
-                                    state.network_tx_bps = static_cast<double>(tx - prevNetTx) / dt;
-                                }
-                            }
-                            prevNetRx = rx;
-                            prevNetTx = tx;
-                            prevNetTime = tick;
-                            firstNet = false;
+                        auto net = detail::parseProcNetDev(containerPid_, prevNetRx, prevNetTx,
+                                                           prevNetTime, firstNet);
+                        if (!firstNet) {
+                            state.network_rx_bps = net.rxBps;
+                            state.network_tx_bps = net.txBps;
                         }
                     }
                 } else {
@@ -220,38 +280,12 @@ void ObservationLoop::latencyThreadFn(std::stop_token internal_stop, std::stop_t
         std::optional<double> latency;
 
         if (containerIp_.has_value() && !containerIp_->empty()) {
-            std::string cmd = fmt::format("LC_ALL=C ping -c 1 -W 2 {} 2>&1", *containerIp_);
-
-            FILE* pipe = popen(cmd.c_str(), "r");
-            if (pipe) {
-                std::string output;
-                char buffer[256];
-                while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-                    output += buffer;
-                }
-                int rc = pclose(pipe);
-
-                if (rc == 0) {
-                    std::regex re(R"(time=([0-9.]+)\s*ms)");
-                    std::smatch match;
-                    if (std::regex_search(output, match, re)) {
-                        try {
-                            latency = std::stod(match[1].str());
-                        } catch (const std::exception& e) {
-                            SPDLOG_DEBUG("Latency thread: failed to parse ping RTT: {}", e.what());
-                        }
-                    }
-                }
-            }
+            latency = detail::executePing(*containerIp_);
         }
 
         state_.updateNetworkLatency(latency);
 
-        // Sleep 1 second between pings. Check stop tokens periodically
-        // during sleep so we don't block shutdown for a full second.
-        for (int i = 0; i < 10 && !internal_stop.stop_requested() && !external_stop.stop_requested(); ++i) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
+        detail::interruptibleSleep(1s, internal_stop);
     }
 }
 

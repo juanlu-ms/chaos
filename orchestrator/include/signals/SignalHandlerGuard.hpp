@@ -13,10 +13,11 @@ namespace chaos::orchestrator::signals {
 /**
  * @brief RAII guard that installs a SIGINT handler using the self-pipe trick.
  *
- * On construction, creates a non-blocking pipe and installs a signal handler
- * that writes to the pipe on SIGINT. The read end can be polled to detect
- * signal delivery. On destruction, restores the previous signal handler and
- * closes the pipe.
+ * On first construction, creates a non-blocking pipe and installs a signal
+ * handler that writes to the pipe on SIGINT. Subsequent constructions share
+ * the same pipe and handler via reference counting. Only the last destructor
+ * restores the previous signal handler and closes the pipe, making multiple
+ * coexisting instances safe.
  */
 class SignalHandlerGuard {
 public:

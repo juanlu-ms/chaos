@@ -71,7 +71,7 @@ export function openEventStream({
 
   es.addEventListener('state', (e) => {
     try {
-      onState && onState(JSON.parse(e.data));
+      onState?.(JSON.parse(e.data));
     } catch (err) {
       console.error('bad state event', err);
     }
@@ -79,27 +79,27 @@ export function openEventStream({
 
   es.addEventListener('complete', (e) => {
     try {
-      onComplete && onComplete(JSON.parse(e.data));
+      onComplete?.(JSON.parse(e.data));
     } catch (err) {
       console.error('bad complete event', err);
     }
   });
 
   es.addEventListener('error', (e) => {
-    if (e && e.data) {
+    if (e?.data) {
       try {
         const payload = JSON.parse(e.data);
-        onServerError && onServerError(payload);
+        onServerError?.(payload);
       } catch {
-        onServerError && onServerError({ error: String(e.data) });
+        onServerError?.({ error: String(e.data) });
       }
     } else {
-      onConnectionError && onConnectionError();
+      onConnectionError?.();
     }
   });
 
   es.addEventListener('open', () => {
-    onConnectionRestored && onConnectionRestored();
+    onConnectionRestored?.();
   });
 
   return () => es.close();

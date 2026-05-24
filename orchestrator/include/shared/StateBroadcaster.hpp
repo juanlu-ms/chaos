@@ -45,9 +45,9 @@ public:
      */
     void unsubscribe(Handle handle) {
         std::lock_guard lock(mutex_);
-        auto it =
+        auto iter =
             std::remove_if(subscribers_.begin(), subscribers_.end(), [&](const Entry& e) { return e.id == handle.id; });
-        subscribers_.erase(it, subscribers_.end());
+        subscribers_.erase(iter, subscribers_.end());
     }
 
     /**

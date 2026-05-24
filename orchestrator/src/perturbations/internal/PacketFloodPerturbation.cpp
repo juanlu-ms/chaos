@@ -23,8 +23,10 @@
 #include <span>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include "containers/IContainerEngine.hpp"
+#include "perturbations/internal/PacketFloodInternal.hpp"
 
 namespace chaos::orchestrator::perturbations {
 namespace {
@@ -66,6 +68,17 @@ struct TcpHeader {
 static_assert(sizeof(TcpHeader) == 20);
 #pragma pack(pop)
 
+uint16_t ipChecksum(const std::span<const uint16_t> words) {
+    uint32_t sum = 0;
+    for (const auto word : words) {
+        sum += word;
+    }
+    while (sum >> 16) {
+        sum = (sum & 0xFFFF) + (sum >> 16);
+    }
+    return static_cast<uint16_t>(~sum);
+}
+
 struct UniqueFd {
     int fd = -1;
     explicit UniqueFd(int descriptor) noexcept : fd(descriptor) {}
@@ -84,6 +97,58 @@ struct UniqueFd {
 };
 
 }  // namespace
+
+}  // namespace chaos::orchestrator::perturbations
+
+namespace chaos::orchestrator::perturbations::detail {
+
+ScopedNamespaceGuard::ScopedNamespaceGuard(int pid) {
+    const std::string nsPath = fmt::format("/proc/{}/ns/net", pid);
+    originalNsFd_ = open(nsPath.c_str(), O_RDONLY);
+    if (originalNsFd_ < 0) {
+        throw std::system_error(errno, std::generic_category(),
+                                fmt::format("Failed to open network namespace for PID {}", pid));
+    }
+}
+
+ScopedNamespaceGuard::~ScopedNamespaceGuard() {
+    if (originalNsFd_ >= 0) {
+        if (setns(originalNsFd_, CLONE_NEWNET) < 0) {
+            SPDLOG_ERROR("ScopedNamespaceGuard: failed to restore original network namespace: {}", std::strerror(errno));
+        }
+        close(originalNsFd_);
+    }
+}
+
+uint32_t pseudoHeaderChecksum(uint32_t srcIp, uint32_t dstIp, uint16_t tcpLen) {
+    uint32_t sum = 0;
+    sum += (srcIp >> 16) & 0xFFFF;
+    sum += srcIp & 0xFFFF;
+    sum += (dstIp >> 16) & 0xFFFF;
+    sum += dstIp & 0xFFFF;
+    sum += IPPROTO_TCP;
+    sum += htons(tcpLen);
+    return sum;
+}
+
+uint16_t segmentChecksum(const std::vector<uint8_t>& data, uint32_t pseudoSum) {
+    uint32_t sum = pseudoSum;
+    for (size_t i = 0; i < data.size(); i += 2) {
+        uint16_t word = static_cast<uint16_t>(data[i]);
+        if (i + 1 < data.size()) {
+            word = static_cast<uint16_t>(word << 8 | data[i + 1]);
+        }
+        sum += word;
+    }
+    while (sum >> 16) {
+        sum = (sum & 0xFFFF) + (sum >> 16);
+    }
+    return static_cast<uint16_t>(~sum);
+}
+
+}  // namespace detail
+
+namespace chaos::orchestrator::perturbations {
 
 PacketFloodPerturbation::PacketFloodPerturbation(std::shared_ptr<containers::IContainerEngine> engine,
                                                  std::string target_id, const manifests::Perturbation& spec)
@@ -114,10 +179,7 @@ PacketFloodPerturbation::PacketFloodPerturbation(std::shared_ptr<containers::ICo
 
 void PacketFloodPerturbation::setupSocketInNetns() {
     UniqueFd netnsFd(engine_->getContainerNetnsFd(target_id_));
-    UniqueFd origNetnsFd(open("/proc/self/ns/net", O_RDONLY));
-    if (origNetnsFd.get() < 0) {
-        throw std::system_error(errno, std::generic_category(), "Failed to save current network namespace");
-    }
+    detail::ScopedNamespaceGuard nsGuard(getpid());
 
     if (setns(netnsFd.get(), CLONE_NEWNET) < 0) {
         throw std::system_error(errno, std::generic_category(),
@@ -159,12 +221,7 @@ void PacketFloodPerturbation::setupSocketInNetns() {
         throw std::system_error(errno, std::generic_category(), "Failed to bind raw socket to interface");
     }
 
-    if (setns(origNetnsFd.get(), CLONE_NEWNET) < 0) {
-        close(raw_sd_);
-        raw_sd_ = -1;
-        throw std::system_error(errno, std::generic_category(), "Failed to restore original network namespace");
-    }
-    origNetnsFd.reset();
+    // nsGuard destructor restores original network namespace.
 }
 
 void PacketFloodPerturbation::apply() {
@@ -210,53 +267,6 @@ void PacketFloodPerturbation::revert() {
     }
     SPDLOG_INFO("Packet Flood reverted on target {}", target_id_);
 }
-
-namespace {
-
-uint16_t ipChecksum(const std::span<const uint16_t> words) {
-    uint32_t sum = 0;
-    for (const auto word : words) {
-        sum += word;
-    }
-    while (sum >> 16) {
-        sum = (sum & 0xFFFF) + (sum >> 16);
-    }
-    return static_cast<uint16_t>(~sum);
-}
-
-uint16_t tcpChecksum(const std::span<const uint8_t> tcpData, const std::array<uint8_t, 4>& srcIp,
-                     const std::array<uint8_t, 4>& dstIp) {
-    const size_t tcpLenBytes = tcpData.size();
-    uint32_t sum = 0;
-
-    const auto to16 = [](const std::array<uint8_t, 4>& ip) {
-        return static_cast<uint32_t>(static_cast<uint16_t>(ip[0]) << 8 | ip[1]) |
-               (static_cast<uint32_t>(static_cast<uint16_t>(ip[2]) << 8 | ip[3]) << 16);
-    };
-    const uint32_t srcVal = to16(srcIp);
-    const uint32_t dstVal = to16(dstIp);
-    sum += srcVal & 0xFFFF;
-    sum += (srcVal >> 16) & 0xFFFF;
-    sum += dstVal & 0xFFFF;
-    sum += (dstVal >> 16) & 0xFFFF;
-    sum += static_cast<uint16_t>(IPPROTO_TCP);
-    sum += htons(static_cast<uint16_t>(tcpLenBytes));
-
-    for (size_t i = 0; i < tcpLenBytes; i += 2) {
-        uint16_t word = static_cast<uint16_t>(tcpData[i]);
-        if (i + 1 < tcpLenBytes) {
-            word = static_cast<uint16_t>(word << 8 | tcpData[i + 1]);
-        }
-        sum += word;
-    }
-
-    while (sum >> 16) {
-        sum = (sum & 0xFFFF) + (sum >> 16);
-    }
-    return static_cast<uint16_t>(~sum);
-}
-
-}  // namespace
 
 void PacketFloodPerturbation::floodLoop(const std::stop_token& stop) const {
     constexpr size_t minPkt = sizeof(EthernetHeader) + sizeof(IpHeader) + sizeof(TcpHeader);
@@ -318,9 +328,21 @@ void PacketFloodPerturbation::floodLoop(const std::stop_token& stop) const {
                 std::span<const uint16_t>(reinterpret_cast<const uint16_t*>(ipHeader), sizeof(IpHeader) / 2));
 
             tcpHeader->checksum = 0;
-            tcpHeader->checksum = tcpChecksum(
-                std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(tcpHeader), sizeof(TcpHeader) + payloadLen),
-                ipHeader->src, destIp);
+            uint32_t tcpSrcIp = (static_cast<uint32_t>(ipHeader->src[0]) << 24) |
+                                (static_cast<uint32_t>(ipHeader->src[1]) << 16) |
+                                (static_cast<uint32_t>(ipHeader->src[2]) << 8) |
+                                static_cast<uint32_t>(ipHeader->src[3]);
+            uint32_t tcpDstIp = (static_cast<uint32_t>(destIp[0]) << 24) |
+                                (static_cast<uint32_t>(destIp[1]) << 16) |
+                                (static_cast<uint32_t>(destIp[2]) << 8) |
+                                static_cast<uint32_t>(destIp[3]);
+            uint16_t tcpDataLen = static_cast<uint16_t>(sizeof(TcpHeader) + payloadLen);
+            uint32_t pseudoSum = detail::pseudoHeaderChecksum(tcpSrcIp, tcpDstIp, tcpDataLen);
+            {
+                std::vector<uint8_t> tcpSegData(tcpDataLen);
+                std::memcpy(tcpSegData.data(), tcpHeader, tcpDataLen);
+                tcpHeader->checksum = detail::segmentChecksum(tcpSegData, pseudoSum);
+            }
 
             sendto(raw_sd_, frame.data(), frame.size(), 0, reinterpret_cast<struct sockaddr*>(&dst), sizeof(dst));
         }

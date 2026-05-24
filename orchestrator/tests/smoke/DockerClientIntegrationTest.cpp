@@ -27,6 +27,9 @@ TEST_F(DockerClientIntegrationTest, ListsContainersWhenDockerAvailable) {
     EXPECT_TRUE(foundCreated) << "Created container not found in listing";
 }
 
+/**
+ * @test Verifies getSystemInfo returns a positive memTotal value.
+ */
 TEST(DockerClientSystemInfoTest, GetSystemInfoReturnsTotalMemory) {
     auto adapter = createTestEngine();
     const auto info = adapter->getSystemInfo();

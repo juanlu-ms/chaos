@@ -1,3 +1,8 @@
+/**
+ * @file OtlpExporterUnitTest.cpp
+ * @brief Unit tests for OtlpExporter OTLP log payload construction and export.
+ */
+
 #include <gtest/gtest.h>
 #include <httplib.h>
 
@@ -7,6 +12,9 @@
 
 using namespace chaos::orchestrator::observability;
 
+/**
+ * @test Verifies buildLogPayload creates a payload with resource attributes.
+ */
 TEST(OtlpExporterTest, BuildLogPayload) {
     auto payload = OtlpExporter::buildLogPayload(
         "chaos-run-123", "run_started", R"({"test_name":"demo","target":"abc"})", {{"service.name", "chaos-engine"}});
@@ -28,6 +36,9 @@ TEST(OtlpExporterTest, BuildLogPayload) {
     EXPECT_TRUE(found);
 }
 
+/**
+ * @test Verifies buildLogPayload creates a properly structured log record for state changes.
+ */
 TEST(OtlpExporterTest, BuildStateChangeEvent) {
     auto payload = OtlpExporter::buildLogPayload(
         "run-456", "state_changed", R"({"container_id":"abc","cpu_percent":45.2})", {{"service.name", "chaos-engine"}});
@@ -41,11 +52,17 @@ TEST(OtlpExporterTest, BuildStateChangeEvent) {
     EXPECT_TRUE(record["body"]["stringValue"].get<std::string>().find("cpu_percent") != std::string::npos);
 }
 
+/**
+ * @test Verifies the exporter endpoint URL is correctly formatted with the logs path.
+ */
 TEST(OtlpExporterTest, ExportToEndpoint) {
     OtlpExporter exporter("http://localhost:4318");
     EXPECT_EQ(exporter.endpoint(), "http://localhost:4318/v1/logs");
 }
 
+/**
+ * @test Verifies buildLogPayload handles empty attributes gracefully.
+ */
 TEST(OtlpExporterTest, EmptyAttributes) {
     auto payload = OtlpExporter::buildLogPayload("run-empty", "run_started", "", {});
     EXPECT_TRUE(payload.contains("resourceLogs"));
@@ -53,6 +70,9 @@ TEST(OtlpExporterTest, EmptyAttributes) {
     EXPECT_TRUE(attrs.empty() || attrs.is_null());
 }
 
+/**
+ * @test Verifies buildLogPayload preserves special characters in the log body.
+ */
 TEST(OtlpExporterTest, SpecialCharactersInBody) {
     std::string special = R"({"msg":"hello\nworld™ ✓"})";
     auto payload = OtlpExporter::buildLogPayload("run-special", "data", special, {{"key", "val-with-äöü"}});
@@ -60,6 +80,9 @@ TEST(OtlpExporterTest, SpecialCharactersInBody) {
     EXPECT_EQ(body, special);
 }
 
+/**
+ * @test Verifies buildLogPayload includes a non-empty timeUnixNano field.
+ */
 TEST(OtlpExporterTest, BuildLogPayloadHasTimestamp) {
     auto payload = OtlpExporter::buildLogPayload("run-ts", "test", "{}", {});
     auto& record = payload["resourceLogs"][0]["scopeLogs"][0]["logRecords"][0];
@@ -67,6 +90,9 @@ TEST(OtlpExporterTest, BuildLogPayloadHasTimestamp) {
     EXPECT_FALSE(record["timeUnixNano"].get<std::string>().empty());
 }
 
+/**
+ * @test Verifies buildLogPayload includes the run_id attribute in log records.
+ */
 TEST(OtlpExporterTest, BuildLogPayloadHasRunId) {
     auto payload = OtlpExporter::buildLogPayload("my-run-id", "test", "{}", {});
     auto& attrs = payload["resourceLogs"][0]["scopeLogs"][0]["logRecords"][0]["attributes"];
@@ -80,6 +106,9 @@ TEST(OtlpExporterTest, BuildLogPayloadHasRunId) {
     EXPECT_TRUE(found);
 }
 
+/**
+ * @test Verifies exportLogs returns false when the endpoint is unreachable.
+ */
 TEST(OtlpExporterTest, ExportReturnsFalseForUnreachableEndpoint) {
     OtlpExporter exporter("http://127.0.0.1:1");
     auto payload = OtlpExporter::buildLogPayload("x", "test", "{}", {});

@@ -14,6 +14,9 @@
 using namespace chaos::orchestrator;
 using namespace testing;
 
+/**
+ * @test Verifies buildPerturbations produces one perturbation from a single-entry manifest.
+ */
 TEST(ChaosRunnerUnitTest, BuildPerturbationsFromManifest) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     core::ChaosRunner runner(mockEngine);
@@ -27,6 +30,9 @@ TEST(ChaosRunnerUnitTest, BuildPerturbationsFromManifest) {
     EXPECT_EQ(perturbations.size(), 1u);
 }
 
+/**
+ * @test Verifies buildPerturbations handles multiple perturbation types.
+ */
 TEST(ChaosRunnerUnitTest, BuildPerturbationsMultipleTypes) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     core::ChaosRunner runner(mockEngine);
@@ -42,6 +48,9 @@ TEST(ChaosRunnerUnitTest, BuildPerturbationsMultipleTypes) {
     EXPECT_EQ(perturbations.size(), 3u);
 }
 
+/**
+ * @test Verifies buildPerturbations throws std::invalid_argument for unknown perturbation type.
+ */
 TEST(ChaosRunnerUnitTest, BuildPerturbationsThrowsOnUnknownType) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     core::ChaosRunner runner(mockEngine);
@@ -54,6 +63,9 @@ TEST(ChaosRunnerUnitTest, BuildPerturbationsThrowsOnUnknownType) {
     EXPECT_THROW((void)runner.buildPerturbations(manifest), std::invalid_argument);
 }
 
+/**
+ * @test Verifies finalize returns passed=true when no expectations are set.
+ */
 TEST(ChaosRunnerUnitTest, FinalizeReturnsPassedTrueWhenEmpty) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     core::ChaosRunner runner(mockEngine);
@@ -67,6 +79,9 @@ TEST(ChaosRunnerUnitTest, FinalizeReturnsPassedTrueWhenEmpty) {
     EXPECT_TRUE(result.results.empty());
 }
 
+/**
+ * @test Verifies finalize returns passed=true with no expectations and empty state.
+ */
 TEST(ChaosRunnerUnitTest, ValidateExpectationsReturnsTrueWhenEmpty) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     core::ChaosRunner runner(mockEngine);
@@ -78,6 +93,9 @@ TEST(ChaosRunnerUnitTest, ValidateExpectationsReturnsTrueWhenEmpty) {
     EXPECT_TRUE(runner.finalize(manifest, state).passed);
 }
 
+/**
+ * @test Verifies finalize returns per-expectation pass/fail results for mixed expectations.
+ */
 TEST(ChaosRunnerUnitTest, FinalizeReturnsDetailedResults) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     core::ChaosRunner runner(mockEngine);
@@ -97,6 +115,9 @@ TEST(ChaosRunnerUnitTest, FinalizeReturnsDetailedResults) {
     EXPECT_EQ(result.results[1].expectationType, "container_not_running");
 }
 
+/**
+ * @test Verifies finalize marks expectations as failed with continuous-failure message.
+ */
 TEST(ChaosRunnerUnitTest, FinalizeMarksContinuousFailures) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     core::ChaosRunner runner(mockEngine);
@@ -115,6 +136,9 @@ TEST(ChaosRunnerUnitTest, FinalizeMarksContinuousFailures) {
     EXPECT_EQ(result.results[0].message, "Passed final validation but failed mid-run continuous check");
 }
 
+/**
+ * @test Verifies finalize passes when all expectations are satisfied by the target state.
+ */
 TEST(ChaosRunnerUnitTest, ValidateExpectationsPassesWhenAllMet) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     core::ChaosRunner runner(mockEngine);
@@ -127,6 +151,9 @@ TEST(ChaosRunnerUnitTest, ValidateExpectationsPassesWhenAllMet) {
     EXPECT_TRUE(runner.finalize(manifest, state).passed);
 }
 
+/**
+ * @test Verifies finalize fails when expectations are not met by the target state.
+ */
 TEST(ChaosRunnerUnitTest, ValidateExpectationsFailsWhenNotMet) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     core::ChaosRunner runner(mockEngine);
@@ -139,6 +166,9 @@ TEST(ChaosRunnerUnitTest, ValidateExpectationsFailsWhenNotMet) {
     EXPECT_FALSE(runner.finalize(manifest, state).passed);
 }
 
+/**
+ * @test Verifies finalize fails when some expectations pass and others fail.
+ */
 TEST(ChaosRunnerUnitTest, ValidateExpectationsMixedResultsFails) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     core::ChaosRunner runner(mockEngine);
@@ -152,6 +182,9 @@ TEST(ChaosRunnerUnitTest, ValidateExpectationsMixedResultsFails) {
     EXPECT_FALSE(runner.finalize(manifest, state).passed);
 }
 
+/**
+ * @test Verifies parseManifest throws ManifestParserError for a nonexistent file path.
+ */
 TEST(ChaosRunnerUnitTest, ParseManifestThrowsOnBadPath) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     core::ChaosRunner runner(mockEngine);

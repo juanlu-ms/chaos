@@ -1,3 +1,8 @@
+/**
+ * @file MemoryCapPerturbationUnitTest.cpp
+ * @brief Unit tests for MemoryCapPerturbation apply/revert behavior.
+ */
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -11,6 +16,9 @@ using namespace chaos::orchestrator;
 using namespace chaos::orchestrator::perturbations;
 using namespace testing;
 
+/**
+ * @test Verifies revert does not clear the applied flag when the initial revert attempt fails.
+ */
 TEST(MemoryCapPerturbationTest, RevertDoesNotClearAppliedFlagOnFailure) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
 
@@ -44,6 +52,9 @@ TEST(MemoryCapPerturbationTest, RevertDoesNotClearAppliedFlagOnFailure) {
     EXPECT_NO_THROW(p.revert());
 }
 
+/**
+ * @test Verifies apply stores the original memory limit for restoration on revert.
+ */
 TEST(MemoryCapPerturbationTest, StoresOriginalMemoryInApply) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
 

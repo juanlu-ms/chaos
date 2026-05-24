@@ -19,12 +19,18 @@ TargetState makeState(const std::string& id) {
     return s;
 }
 
+/**
+ * @test Verifies subscribe returns a valid non-default handle.
+ */
 TEST(StateBroadcasterTest, SubscribeReturnsHandle) {
     StateBroadcaster bc;
     auto h = bc.subscribe([](const TargetState&) {});
     EXPECT_NE(h, StateBroadcaster::Handle{});
 }
 
+/**
+ * @test Verifies unsubscribed callbacks are not invoked on subsequent broadcasts.
+ */
 TEST(StateBroadcasterTest, UnsubscribeRemovesCallback) {
     StateBroadcaster bc;
     std::atomic<int> count{0};
@@ -34,6 +40,9 @@ TEST(StateBroadcasterTest, UnsubscribeRemovesCallback) {
     EXPECT_EQ(count.load(), 0);
 }
 
+/**
+ * @test Verifies broadcast invokes all subscribed callbacks.
+ */
 TEST(StateBroadcasterTest, BroadcastReachesAllSubscribers) {
     StateBroadcaster bc;
     std::atomic<int> sum{0};
@@ -45,6 +54,9 @@ TEST(StateBroadcasterTest, BroadcastReachesAllSubscribers) {
     bc.unsubscribe(h2);
 }
 
+/**
+ * @test Verifies concurrent subscribe calls are thread-safe.
+ */
 TEST(StateBroadcasterTest, ConcurrentSubscribe) {
     StateBroadcaster bc;
     std::atomic<int> count{0};
@@ -62,6 +74,9 @@ TEST(StateBroadcasterTest, ConcurrentSubscribe) {
     for (auto h : handles) bc.unsubscribe(h);
 }
 
+/**
+ * @test Verifies concurrent unsubscribe calls are thread-safe.
+ */
 TEST(StateBroadcasterTest, ConcurrentUnsubscribe) {
     StateBroadcaster bc;
     std::atomic<int> count{0};
@@ -78,6 +93,9 @@ TEST(StateBroadcasterTest, ConcurrentUnsubscribe) {
     EXPECT_EQ(count.load(), 0);
 }
 
+/**
+ * @test Verifies an exception in one callback does not prevent other callbacks from executing.
+ */
 TEST(StateBroadcasterTest, ExceptionInCallbackDoesNotCrashOthers) {
     StateBroadcaster bc;
     std::atomic<int> count{0};

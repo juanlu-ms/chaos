@@ -1,3 +1,8 @@
+/**
+ * @file ContainerNetworkTest.cpp
+ * @brief Smoke tests for container network operations.
+ */
+
 #include <gtest/gtest.h>
 
 #include <regex>
@@ -14,6 +19,9 @@ protected:
     }
 };
 
+/**
+ * @test Verifies getContainerIp returns a valid IPv4 address.
+ */
 TEST_F(ContainerNetworkTest, GetContainerIpReturnsValidAddress) {
     const auto ip = engine_->getContainerIp(containerId_);
     EXPECT_FALSE(ip.empty());

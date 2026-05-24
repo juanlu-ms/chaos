@@ -13,6 +13,9 @@
 
 using namespace chaos::orchestrator::interfaces::web;
 
+/**
+ * @test Verifies stateToJson includes container_id, status, metrics, and phase fields.
+ */
 TEST(JsonSerializerTest, StateToJsonIncludesPhase) {
     chaos::orchestrator::shared::TargetState state;
     state.container_id = "abc123";
@@ -32,6 +35,9 @@ TEST(JsonSerializerTest, StateToJsonIncludesPhase) {
     EXPECT_EQ(j["phase"], "chaos");
 }
 
+/**
+ * @test Verifies stateToJson omits optional fields when they are not populated.
+ */
 TEST(JsonSerializerTest, StateToJsonOmitsOptionalFieldsWhenEmpty) {
     chaos::orchestrator::shared::TargetState state;
     state.container_id = "abc";
@@ -43,6 +49,9 @@ TEST(JsonSerializerTest, StateToJsonOmitsOptionalFieldsWhenEmpty) {
     EXPECT_FALSE(j.contains("phase"));
 }
 
+/**
+ * @test Verifies limitsToJson includes cpu_cores, memory_total_mb, and perturbation_limits.
+ */
 TEST(JsonSerializerTest, LimitsToJsonContainsCpuAndMemory) {
     chaos::orchestrator::containers::SystemInfo info;
     info.memTotal = 8589934592;
@@ -53,6 +62,9 @@ TEST(JsonSerializerTest, LimitsToJsonContainsCpuAndMemory) {
     EXPECT_TRUE(j.contains("perturbation_limits"));
 }
 
+/**
+ * @test Verifies parseLogLines splits input on newline characters.
+ */
 TEST(JsonSerializerTest, ParseLogLinesSplitsOnNewline) {
     std::vector<std::string> out;
     chaos::orchestrator::observability::parseLogLines("line1\nline2\nline3", out);
@@ -62,12 +74,18 @@ TEST(JsonSerializerTest, ParseLogLinesSplitsOnNewline) {
     EXPECT_EQ(out[2], "line3");
 }
 
+/**
+ * @test Verifies parseLogLines returns an empty list for empty input.
+ */
 TEST(JsonSerializerTest, ParseLogLinesHandlesEmptyInput) {
     std::vector<std::string> out;
     chaos::orchestrator::observability::parseLogLines("", out);
     EXPECT_TRUE(out.empty());
 }
 
+/**
+ * @test Verifies parseLogLines strips carriage return characters from lines.
+ */
 TEST(JsonSerializerTest, ParseLogLinesStripsCarriageReturns) {
     std::vector<std::string> out;
     chaos::orchestrator::observability::parseLogLines("line1\r\nline2\r", out);
@@ -76,6 +94,9 @@ TEST(JsonSerializerTest, ParseLogLinesStripsCarriageReturns) {
     EXPECT_EQ(out[1], "line2");
 }
 
+/**
+ * @test Verifies parseLogLines skips empty lines in the input.
+ */
 TEST(JsonSerializerTest, ParseLogLinesSkipsEmptyLines) {
     std::vector<std::string> out;
     chaos::orchestrator::observability::parseLogLines("line1\n\nline2", out);

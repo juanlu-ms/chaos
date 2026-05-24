@@ -1,3 +1,8 @@
+/**
+ * @file TrafficCorruptionPerturbationUnitTest.cpp
+ * @brief Unit tests for TrafficCorruptionPerturbation revert-on-failure behavior.
+ */
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -12,6 +17,9 @@ using namespace chaos::orchestrator;
 using namespace chaos::orchestrator::perturbations;
 using namespace testing;
 
+/**
+ * @test Verifies revert does not clear the applied flag when the initial revert attempt fails.
+ */
 TEST(TrafficCorruptionPerturbationTest, RevertDoesNotClearAppliedFlagOnFailure) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
 

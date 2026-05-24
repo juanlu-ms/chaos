@@ -33,7 +33,7 @@ async function jsonOrThrow(res) {
   return body;
 }
 
-export const getTargets = () => fetch('/api/targets').then(jsonOrThrow);
+export const getTargets = () => fetch('/api/containers').then(jsonOrThrow);
 export const getLimits = () => fetch('/api/limits').then(jsonOrThrow);
 
 export const runManifest = (manifest) =>
@@ -47,13 +47,13 @@ export const abortRun = () =>
   fetch('/api/run/abort', { method: 'POST' }).then(jsonOrThrow);
 
 export const stopContainer = (id) =>
-  fetch(`/containers/${id}/stop`, { method: 'POST' }).then(jsonOrThrow);
+  fetch(`/api/containers/${id}/stop`, { method: 'POST' }).then(jsonOrThrow);
 
 export const killContainer = (id) =>
-  fetch(`/containers/${id}/kill`, { method: 'POST' }).then(jsonOrThrow);
+  fetch(`/api/containers/${id}/kill`, { method: 'POST' }).then(jsonOrThrow);
 
 export const getContainerLogs = (id) =>
-  fetch(`/containers/${id}/logs`).then(jsonOrThrow);
+  fetch(`/api/containers/${id}/logs`).then(jsonOrThrow);
 
 /**
  * Open the SSE event stream and dispatch typed callbacks.
@@ -67,7 +67,7 @@ export function openEventStream({
   onConnectionError,
   onConnectionRestored,
 }) {
-  const es = new EventSource('/events');
+  const es = new EventSource('/api/events');
 
   es.addEventListener('state', (e) => {
     try {

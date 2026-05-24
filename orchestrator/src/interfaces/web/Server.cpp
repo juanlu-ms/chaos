@@ -2,7 +2,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <filesystem>
@@ -122,6 +121,12 @@ void Server::setupRoutes() {
         SPDLOG_WARN("Static UI not found. Expected orchestrator/src/interfaces/web/static relative to project root.");
     }
 
+    setupStatusRoutes();
+    setupContainerRoutes();
+    setupRunRoutes();
+}
+
+void Server::setupStatusRoutes() {
     server_.Get("/status", [](const httplib::Request&, httplib::Response& response) {
         json result;
         result["project"] = "Chaos Engine";
@@ -129,7 +134,9 @@ void Server::setupRoutes() {
 
         response.set_content(result.dump(4), "application/json");
     });
+}
 
+void Server::setupContainerRoutes() {
     server_.Get("/containers", [this](const httplib::Request&, httplib::Response& response) {
         try {
             SPDLOG_DEBUG("/containers requested");
@@ -149,54 +156,12 @@ void Server::setupRoutes() {
         }
     });
 
-    server_.Post(R"(/containers/([^/]+)/stop)", [this](const httplib::Request& request, httplib::Response& response) {
-        if (request.matches.size() < 2) {
-            response.status = 400;
-            response.set_content(R"({"error":"Missing container id"})", "application/json");
-            return;
-        }
-
-        const std::string containerId = request.matches[1];
-        try {
-            SPDLOG_INFO("/containers/{}/stop requested", containerId);
-            engine_->stopContainer(containerId);
-            json result;
-            result["status"] = "ok";
-            result["action"] = "stop";
-            result["id"] = containerId;
-            response.set_content(result.dump(4), "application/json");
-        } catch (const std::exception& ex) {
-            json error;
-            error["error"] = "Failed to stop container";
-            response.status = 500;
-            response.set_content(error.dump(4), "application/json");
-            SPDLOG_ERROR("/containers/{}/stop failed: {}", containerId, ex.what());
-        }
+    server_.Post(R"(/containers/([^/]+)/stop)", [this](const httplib::Request& req, httplib::Response& res) {
+        handleContainerAction(req, res, "stop");
     });
 
-    server_.Post(R"(/containers/([^/]+)/kill)", [this](const httplib::Request& request, httplib::Response& response) {
-        if (request.matches.size() < 2) {
-            response.status = 400;
-            response.set_content(R"({"error":"Missing container id"})", "application/json");
-            return;
-        }
-
-        const std::string containerId = request.matches[1];
-        try {
-            SPDLOG_INFO("/containers/{}/kill requested", containerId);
-            engine_->killContainer(containerId);
-            json result;
-            result["status"] = "ok";
-            result["action"] = "kill";
-            result["id"] = containerId;
-            response.set_content(result.dump(4), "application/json");
-        } catch (const std::exception& ex) {
-            json error;
-            error["error"] = "Failed to kill container";
-            response.status = 500;
-            response.set_content(error.dump(4), "application/json");
-            SPDLOG_ERROR("/containers/{}/kill failed: {}", containerId, ex.what());
-        }
+    server_.Post(R"(/containers/([^/]+)/kill)", [this](const httplib::Request& req, httplib::Response& res) {
+        handleContainerAction(req, res, "kill");
     });
 
     server_.Get(R"(/containers/([^/]+)/logs)", [this](const httplib::Request& request, httplib::Response& response) {
@@ -217,7 +182,9 @@ void Server::setupRoutes() {
             SPDLOG_ERROR("/containers/{}/logs failed: {}", id, ex.what());
         }
     });
+}
 
+void Server::setupRunRoutes() {
     server_.Get("/api/targets", [this](const httplib::Request& request, httplib::Response& response) {
         handleTargets(request, response);
     });
@@ -237,6 +204,177 @@ void Server::setupRoutes() {
     server_.Get("/events", [this](const httplib::Request& request, httplib::Response& response) {
         handleEvents(request, response);
     });
+}
+
+void Server::handleContainerAction(const httplib::Request& req, httplib::Response& res, std::string_view actionName) {
+    if (req.matches.size() < 2) {
+        res.status = 400;
+        res.set_content(R"({"error":"Missing container id"})", "application/json");
+        return;
+    }
+
+    const std::string containerId = req.matches[1];
+    try {
+        SPDLOG_INFO("/containers/{}/{} requested", containerId, actionName);
+
+        if (actionName == "stop") {
+            engine_->stopContainer(containerId);
+        } else if (actionName == "kill") {
+            engine_->killContainer(containerId);
+        }
+
+        json result;
+        result["status"] = "ok";
+        result["action"] = std::string(actionName);
+        result["id"] = containerId;
+        res.set_content(result.dump(4), "application/json");
+    } catch (const std::exception& ex) {
+        json error;
+        error["error"] = "Failed to " + std::string(actionName) + " container";
+        res.status = 500;
+        res.set_content(error.dump(4), "application/json");
+        SPDLOG_ERROR("/containers/{}/{} failed: {}", containerId, actionName, ex.what());
+    }
+}
+
+void Server::executeRunAsync(manifests::ChaosManifest manifest, std::shared_ptr<core::RunSession> session) {
+    run_thread_ = std::jthread(
+        [this, engine = engine_, session, manifest = std::move(manifest)](const std::stop_token& token) mutable {
+            if (token.stop_requested()) {
+                return;
+            }
+            try {
+                WebRunObserver observer(session);
+
+                core::ObservationLoop::Config loopConfig;
+                loopConfig.metricsInterval = std::chrono::milliseconds(100);
+                loopConfig.logsInterval = std::chrono::milliseconds(1500);
+                loopConfig.continuousExpectations = manifest.expectations;
+
+                core::ObservationLoop obsLoop(engine, manifest.target.id, session->state, observer, loopConfig);
+                obsLoop.start(token);
+
+                core::RunOrchestrator orchestrator(runner_);
+                auto perturbation_instances = runner_.buildPerturbations(manifest);
+                auto runResult =
+                    orchestrator.run(manifest, session->state, observer, std::move(perturbation_instances), token);
+
+                auto result = runResultToJson(runResult);
+                storeRunResult(session, std::move(result));
+                session->cv.notify_all();
+            } catch (const std::exception& ex) {
+                storeRunError(session, ex.what());
+                session->cv.notify_all();
+                SPDLOG_ERROR("/api/run async failed: {}", ex.what());
+            }
+        });
+}
+
+void Server::handleRun(const httplib::Request& request, httplib::Response& response) {
+    if (request.body.empty()) {
+        response.status = 400;
+        json error;
+        error["error"] = "Empty request body";
+        response.set_content(error.dump(4), "application/json");
+        return;
+    }
+
+    try {
+        auto manifest = manifests::ManifestParser::parseFromJson(request.body);
+        SPDLOG_INFO("Executing manifest '{}' against target '{}' (async)", manifest.test_name, manifest.target.id);
+
+        auto session = std::make_shared<RunSession>();
+        {
+            std::lock_guard lock(session_mutex_);
+            session_.reset();
+            session_ = session;
+            session->running = true;
+        }
+
+        if (run_thread_.joinable()) {
+            run_thread_.request_stop();
+            run_thread_.join();
+        }
+
+        executeRunAsync(std::move(manifest), std::move(session));
+
+        json resp;
+        resp["status"] = "started";
+        response.status = 202;
+        response.set_content(resp.dump(4), "application/json");
+        SPDLOG_INFO("/api/run started async execution");
+
+    } catch (const manifests::ManifestParserError& ex) {
+        response.status = 400;
+        json error;
+        error["error"] = "Invalid manifest";
+        response.set_content(error.dump(4), "application/json");
+        SPDLOG_ERROR("/api/run manifest parse failed: {}", ex.what());
+    } catch (const std::exception& ex) {
+        response.status = 500;
+        json error;
+        error["error"] = "Internal server error";
+        response.set_content(error.dump(4), "application/json");
+        SPDLOG_ERROR("/api/run failed: {}", ex.what());
+    }
+}
+
+void Server::handleEvents(const httplib::Request&, httplib::Response& response) {
+    response.set_header("Cache-Control", "no-store");
+    response.set_header("Connection", "keep-alive");
+
+    std::shared_ptr<RunSession> session;
+    bool wasCompleteAtConnect = false;
+    {
+        std::lock_guard lock(session_mutex_);
+        session = session_;
+        wasCompleteAtConnect = session ? session->complete : false;
+    }
+
+    response.set_chunked_content_provider(
+        "text/event-stream", [this, session, wasCompleteAtConnect](size_t /*offset*/, httplib::DataSink const& sink) {
+            if (!session || wasCompleteAtConnect) {
+                if (!sink.write("event: error\ndata: {\"error\":\"No active run\"}\n\n", 47)) {
+                    return false;
+                }
+                sink.done();
+                return false;
+            }
+
+            std::unique_lock lock(session->mtx);
+            session->cv.wait_for(lock, std::chrono::milliseconds(100),
+                                 [session]() { return session->latest.has_value() || session->complete; });
+
+            if (session->latest.has_value()) {
+                if (!session->pending_logs.empty()) {
+                    session->latest->recent_logs = std::move(session->pending_logs);
+                    session->pending_logs.clear();
+                }
+                auto stateJson = stateToJson(*session->latest, session->phase, session->state.continuousFailures());
+                writeSSEEvent(sink, stateJson);
+                session->latest.reset();
+            }
+
+            if (session->complete) {
+                if (!session->error.empty()) {
+                    json error;
+                    error["error"] = session->error;
+                    std::string data = "event: error\ndata: " + error.dump() + "\n\n";
+                    if (!sink.write(data.data(), data.size())) {
+                        return false;
+                    }
+                } else {
+                    std::string data = "event: complete\ndata: " + session->results.dump() + "\n\n";
+                    if (!sink.write(data.data(), data.size())) {
+                        return false;
+                    }
+                }
+                sink.done();
+                return false;
+            }
+
+            return true;
+        });
 }
 
 void Server::handleTargets(const httplib::Request&, httplib::Response& response) {
@@ -272,160 +410,6 @@ void Server::handleLimits(const httplib::Request&, httplib::Response& response) 
     }
 }
 
-void Server::handleRun(const httplib::Request& request, httplib::Response& response) {
-    if (request.body.empty()) {
-        response.status = 400;
-        json error;
-        error["error"] = "Empty request body";
-        response.set_content(error.dump(4), "application/json");
-        return;
-    }
-
-    try {
-        auto manifest = manifests::ManifestParser::parseFromJson(request.body);
-        SPDLOG_INFO("Executing manifest '{}' against target '{}' (async)", manifest.test_name, manifest.target.id);
-
-        {
-            std::lock_guard lock(session_mutex_);
-            session_.reset();
-        }
-
-        auto session = std::make_shared<RunSession>();
-        {
-            std::lock_guard lock(session_mutex_);
-            session_ = session;
-            session->running = true;
-        }
-
-        auto perturbation_instances = runner_.buildPerturbations(manifest);
-        const std::string runName = manifest.test_name;
-
-        // Cancel any previous run.
-        if (run_thread_.joinable()) {
-            run_thread_.request_stop();
-            run_thread_.join();
-        }
-
-        run_thread_ = std::jthread(
-            [this, engine = engine_, session, manifest = std::move(manifest),
-             perturbation_instances = std::move(perturbation_instances)](const std::stop_token& token) mutable {
-                if (token.stop_requested()) {
-                    return;
-                }
-                try {
-                    WebRunObserver observer(session);
-
-                    core::ObservationLoop::Config loopConfig;
-                    loopConfig.metricsInterval = std::chrono::milliseconds(100);
-                    loopConfig.logsInterval = std::chrono::milliseconds(1500);
-                    loopConfig.continuousExpectations = manifest.expectations;
-
-                    core::ObservationLoop obsLoop(engine, manifest.target.id, session->state, observer, loopConfig);
-                    obsLoop.start(token);
-
-                    core::RunOrchestrator orchestrator(runner_);
-                    auto runResult =
-                        orchestrator.run(manifest, session->state, observer, std::move(perturbation_instances), token);
-
-                    auto result = runResultToJson(runResult);
-                    storeRunResult(session, std::move(result));
-                    session->cv.notify_all();
-                } catch (const std::exception& ex) {
-                    storeRunError(session, ex.what());
-                    session->cv.notify_all();
-                    SPDLOG_ERROR("/api/run async failed: {}", ex.what());
-                }
-            });
-
-        json resp;
-        resp["status"] = "started";
-        response.status = 202;
-        response.set_content(resp.dump(4), "application/json");
-        SPDLOG_INFO("/api/run started async execution for '{}'", runName);
-
-    } catch (const manifests::ManifestParserError& ex) {
-        response.status = 400;
-        json error;
-        error["error"] = "Invalid manifest";
-        response.set_content(error.dump(4), "application/json");
-        SPDLOG_ERROR("/api/run manifest parse failed: {}", ex.what());
-    } catch (const std::exception& ex) {
-        response.status = 500;
-        json error;
-        error["error"] = "Internal server error";
-        response.set_content(error.dump(4), "application/json");
-        SPDLOG_ERROR("/api/run failed: {}", ex.what());
-    }
-}
-
-void Server::handleEvents(const httplib::Request&, httplib::Response& response) {
-    response.set_header("Cache-Control", "no-store");
-    response.set_header("Connection", "keep-alive");
-
-    std::shared_ptr<RunSession> session;
-    {
-        std::lock_guard lock(session_mutex_);
-        session = session_;
-    }
-
-    response.set_chunked_content_provider(
-        "text/event-stream", [session, wasCompleteAtConnect = session ? session->complete : false](
-                                 size_t /*offset*/, httplib::DataSink const& sink) {
-            if (!session) {
-                if (!sink.write("event: error\ndata: {\"error\":\"No active run\"}\n\n", 47)) {
-                    return false;
-                }
-                sink.done();
-                return false;
-            }
-
-            if (wasCompleteAtConnect) {
-                if (!sink.write("event: error\ndata: {\"error\":\"No active run\"}\n\n", 47)) {
-                    return false;
-                }
-                sink.done();
-                return false;
-            }
-
-            std::unique_lock lock(session->mtx);
-            session->cv.wait_for(lock, std::chrono::milliseconds(100),
-                                 [session]() { return session->latest.has_value() || session->complete; });
-
-            if (session->latest.has_value()) {
-                if (!session->pending_logs.empty()) {
-                    session->latest->recent_logs = std::move(session->pending_logs);
-                    session->pending_logs.clear();
-                }
-                auto stateJson = stateToJson(*session->latest, session->phase, session->state.continuousFailures());
-                if (std::string data = "event: state\ndata: " + stateJson.dump() + "\n\n";
-                    !sink.write(data.data(), data.size())) {
-                    return false;
-                }
-                session->latest.reset();
-            }
-
-            if (session->complete) {
-                if (!session->error.empty()) {
-                    json error;
-                    error["error"] = session->error;
-                    std::string data = "event: error\ndata: " + error.dump() + "\n\n";
-                    if (!sink.write(data.data(), data.size())) {
-                        return false;
-                    }
-                } else {
-                    std::string data = "event: complete\ndata: " + session->results.dump() + "\n\n";
-                    if (!sink.write(data.data(), data.size())) {
-                        return false;
-                    }
-                }
-                sink.done();
-                return false;
-            }
-
-            return true;
-        });
-}
-
 void Server::handleAbort(const httplib::Request&, httplib::Response& response) {
     std::shared_ptr<RunSession> session;
     {
@@ -449,6 +433,11 @@ void Server::handleAbort(const httplib::Request&, httplib::Response& response) {
     session->cv.notify_all();
     json result = {{"status", "aborted"}};
     response.set_content(result.dump(4), "application/json");
+}
+
+void Server::writeSSEEvent(const httplib::DataSink& sink, const nlohmann::json& data) {
+    std::string event = "event: state\ndata: " + data.dump() + "\n\n";
+    sink.write(event.data(), event.size());
 }
 
 }  // namespace chaos::orchestrator::interfaces::web

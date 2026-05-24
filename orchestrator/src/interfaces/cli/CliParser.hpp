@@ -47,6 +47,7 @@ private:
     int handleKill(const std::string& containerId) const;
     int handleServe(int port) const;
     int handleRun(const std::string& manifestPath) const;
+    void printRunResults(const core::RunResult& results) const;
     int dispatchCommand(const std::vector<std::string>& args) const;
 };
 

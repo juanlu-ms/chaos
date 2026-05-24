@@ -238,13 +238,7 @@ int CliParser::handleRun(const std::string& manifestPath) const {
         auto runResult =
             orchestrator.run(manifest, state, observer, std::move(perturbation_instances), signal_guard.token());
 
-        for (const auto& result : runResult.results) {
-            if (result.passed) {
-                SPDLOG_INFO("  ✓ {}: {}", result.expectationType, result.message);
-            } else {
-                SPDLOG_ERROR("  ✗ {}: {}", result.expectationType, result.message);
-            }
-        }
+        printRunResults(runResult);
         if (!runResult.passed) {
             return 1;
         }
@@ -262,6 +256,16 @@ int CliParser::handleRun(const std::string& manifestPath) const {
         return 1;
     }
     return 0;
+}
+
+void CliParser::printRunResults(const core::RunResult& runResult) const {
+    for (const auto& result : runResult.results) {
+        if (result.passed) {
+            SPDLOG_INFO("  ✓ {}: {}", result.expectationType, result.message);
+        } else {
+            SPDLOG_ERROR("  ✗ {}: {}", result.expectationType, result.message);
+        }
+    }
 }
 
 }  // namespace chaos::orchestrator::interfaces::cli

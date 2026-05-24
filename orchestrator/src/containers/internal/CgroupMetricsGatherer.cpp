@@ -11,25 +11,19 @@
 #include <fstream>
 #include <string>
 
-namespace chaos::orchestrator::containers::internal {
+#include "containers/internal/CgroupMetricsInternal.hpp"
 
-namespace {
+namespace chaos::orchestrator::containers::internal::detail {
 
-constexpr auto CGROUP_ROOT = "/sys/fs/cgroup/system.slice";
-
-// Read the first uint64_t from a single-key cgroup v2 file.
-std::optional<uint64_t> readU64(const std::filesystem::path& path) {
+std::optional<uint64_t> readSimpleU64(const std::filesystem::path& path) {
     std::ifstream file(path);
     if (!file.is_open()) {
         return std::nullopt;
     }
-    // cpu.stat has multiple key-value pairs; memory.current has a single number.
-    // Handle both: try number first, then "key value" line.
     std::string line;
     if (!std::getline(file, line)) {
         return std::nullopt;
     }
-    // Try single number
     try {
         size_t pos = 0;
         uint64_t val = std::stoull(line, &pos);
@@ -38,21 +32,32 @@ std::optional<uint64_t> readU64(const std::filesystem::path& path) {
         }
     } catch (...) {
     }
-    // Key-value format (cpu.stat): find the usage_usec line
-    std::istringstream iss(line);
-    // Actually re-read the whole file for cpu.stat which has multiple lines
-    file.clear();
-    file.seekg(0);
-    std::string key;
+    return std::nullopt;
+}
+
+std::optional<uint64_t> readKeyValueU64(const std::filesystem::path& path, std::string_view key) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        return std::nullopt;
+    }
+    std::string line;
+    std::string currentKey;
     uint64_t val = 0;
-    // The key is "usage_usec" for cpu.stat
-    while (file >> key >> val) {
-        if (key == "usage_usec") {
+    while (file >> currentKey >> val) {
+        if (currentKey == key) {
             return val;
         }
     }
     return std::nullopt;
 }
+
+}  // namespace chaos::orchestrator::containers::internal::detail
+
+namespace chaos::orchestrator::containers::internal {
+
+namespace {
+
+constexpr auto CGROUP_ROOT = "/sys/fs/cgroup/system.slice";
 
 }  // namespace
 
@@ -64,8 +69,6 @@ std::optional<std::filesystem::path> CgroupMetricsGatherer::resolveCgroupPath(co
         return std::nullopt;
     }
 
-    // Look for a directory whose name contains the container ID.
-    // With systemd + cgroups v2 the name is docker-<full-id>.scope.
     const std::string idStr(containerId);
     for (const auto& entry : fs::directory_iterator(base, ec)) {
         if (!entry.is_directory(ec)) {
@@ -86,7 +89,7 @@ std::optional<double> CgroupMetricsGatherer::getCpuUsagePercent(const std::strin
     }
 
     auto path = *dir / "cpu.stat";
-    auto current = readU64(path);
+    auto current = detail::readKeyValueU64(path, "usage_usec");
     if (!current.has_value()) {
         return std::nullopt;
     }
@@ -96,10 +99,6 @@ std::optional<double> CgroupMetricsGatherer::getCpuUsagePercent(const std::strin
     if (prev_valid_) {
         auto dt = std::chrono::duration_cast<std::chrono::duration<double>>(now - prev_cpu_time_).count();
         if (dt > 0.0) {
-            // usage_usec is in microseconds, dt is in seconds.
-            // usage delta (us) / dt (s) = usage per second in us.
-            // To get percent, divide by 10000 (since 1 core for 1s = 1e6 us).
-            // For n cores, the total can exceed 100%.
             percent = static_cast<double>(*current - prev_cpu_usec_) / (dt * 10000.0);
         }
     }
@@ -116,7 +115,7 @@ std::optional<double> CgroupMetricsGatherer::getMemoryUsageMb(const std::string_
     }
 
     auto path = *dir / "memory.current";
-    auto bytes = readU64(path);
+    auto bytes = detail::readSimpleU64(path);
     if (!bytes.has_value()) {
         return std::nullopt;
     }

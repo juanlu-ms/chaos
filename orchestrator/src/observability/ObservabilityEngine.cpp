@@ -7,7 +7,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include <future>
 #include <ranges>
 #include <string>
 #include <utility>
@@ -24,13 +23,9 @@ shared::TargetState ObservabilityEngine::observe(const std::string_view containe
     shared::TargetState state;
     state.container_id = std::string(containerId);
 
-    // Fetch logs in parallel with status + stats.
-    auto logsFut = std::async(std::launch::async, [this, &containerId]() { return getLogs(containerId); });
-
     state.status = getStatus(containerId);
-
-    // Parse logs (already fetched in background).
-    parseLogLines(logsFut.get(), state.recent_logs);
+    auto logs = getLogs(containerId);
+    parseLogLines(logs, state.recent_logs);
 
     if (state.status != shared::ContainerStatus::Running) {
         SPDLOG_DEBUG("Container '{}' is not running. Skipping resource usage metrics.", containerId);

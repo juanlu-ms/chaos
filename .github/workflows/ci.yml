@@ -53,22 +53,22 @@ jobs:
             cmake_args: ""
           
           - name: "Memory Check (ASan/UBSan)"
-            config_preset: "dev-linux-clang"
-            build_preset: "debug"
-            test_cmd: "ctest --preset test-debug -L unit"
-            cmake_args: "-DCHAOS_ENABLE_ASAN_UBSAN=ON"
+            config_preset: "ci-asan-ubsan"
+            build_preset: "debug-asan"
+            test_cmd: "ctest --preset test-asan -L unit"
+            cmake_args: ""
           
           - name: "Concurrency Check (TSan)"
-            config_preset: "dev-linux-clang"
-            build_preset: "debug"
-            test_cmd: "ctest --preset test-debug -L unit"
-            cmake_args: "-DCHAOS_ENABLE_TSAN=ON"
+            config_preset: "ci-tsan"
+            build_preset: "debug-tsan"
+            test_cmd: "ctest --preset test-tsan -L unit"
+            cmake_args: ""
             
           - name: "Code Coverage"
-            config_preset: "dev-linux-clang"
-            build_preset: "debug"
-            test_cmd: "cmake --build build/dev-linux-clang --target coverage_report"
-            cmake_args: "-DCHAOS_ENABLE_COVERAGE=ON"
+            config_preset: "ci-coverage"
+            build_preset: "debug-cov"
+            test_cmd: "cmake --build build/ci-coverage --target coverage_report"
+            cmake_args: ""
 
     env:
       CC: clang-18
@@ -148,7 +148,7 @@ jobs:
 
       - name: Run Tests & Quality Checks
         env:
-          TSAN_OPTIONS: ${{ contains(matrix.name, 'TSan') && 'die_after_fork=0:second_deadlock_stack_size=4096:history_size=5:verbosity=0' || '' }}
+          TSAN_OPTIONS: ${{ contains(matrix.name, 'TSan') && 'die_after_fork=0:history_size=5:verbosity=0' || '' }}
         run: ${{ matrix.test_cmd }}
 
       - name: Upload Coverage Artifact (Only for Coverage job)
@@ -156,5 +156,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lcov-report
-          path: build/dev-linux-clang/coverage.lcov
+          path: build/ci-coverage/coverage.lcov
           if-no-files-found: ignore

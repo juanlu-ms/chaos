@@ -51,6 +51,36 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
+    },
+    {
+      "name": "ci-asan-ubsan",
+      "displayName": "CI ASan/UBSan (Debug, isolated)",
+      "inherits": [
+        "dev-linux-clang"
+      ],
+      "cacheVariables": {
+        "CHAOS_ENABLE_ASAN_UBSAN": "ON"
+      }
+    },
+    {
+      "name": "ci-tsan",
+      "displayName": "CI TSan (Debug, isolated)",
+      "inherits": [
+        "dev-linux-clang"
+      ],
+      "cacheVariables": {
+        "CHAOS_ENABLE_TSAN": "ON"
+      }
+    },
+    {
+      "name": "ci-coverage",
+      "displayName": "CI Coverage (Debug, isolated)",
+      "inherits": [
+        "dev-linux-clang"
+      ],
+      "cacheVariables": {
+        "CHAOS_ENABLE_COVERAGE": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -63,6 +93,21 @@
       "name": "release",
       "configurePreset": "release-linux-clang",
       "configuration": "Release"
+    },
+    {
+      "name": "debug-asan",
+      "configurePreset": "ci-asan-ubsan",
+      "configuration": "Debug"
+    },
+    {
+      "name": "debug-tsan",
+      "configurePreset": "ci-tsan",
+      "configuration": "Debug"
+    },
+    {
+      "name": "debug-cov",
+      "configurePreset": "ci-coverage",
+      "configuration": "Debug"
     },
     {
       "name": "check-format",
@@ -98,6 +143,30 @@
       "name": "test-release",
       "configurePreset": "release-linux-clang",
       "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "stopOnFailure": false
+      }
+    },
+    {
+      "name": "test-asan",
+      "configurePreset": "ci-asan-ubsan",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "stopOnFailure": false
+      }
+    },
+    {
+      "name": "test-tsan",
+      "configurePreset": "ci-tsan",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },

@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <exception>
 #include <fstream>
 #include <regex>
 #include <sstream>
@@ -76,106 +77,110 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
     while (!internal_stop.stop_requested() && !external_stop.stop_requested()) {
         auto tick = std::chrono::steady_clock::now();
 
-        shared::TargetState state;
-        state.container_id = containerId_;
-        if (containerIp_) {
-            state.container_ip = *containerIp_;
-        }
-
-        state.status = obs.getStatus(containerId_);
-
-        if (state.status == shared::ContainerStatus::Running) {
-            if (useCgroup_ && cgroup_.has_value()) {
-                auto cpu = cgroup_->getCpuUsagePercent(containerId_);
-                auto mem = cgroup_->getMemoryUsageMb(containerId_);
-                if (cpu.has_value()) state.cpu_usage_percent = cpu;
-                if (mem.has_value()) state.memory_usage_mb = mem;
-
-                if (containerPid_ > 0) {
-                    std::ifstream file(fmt::format("/proc/{}/net/dev", containerPid_));
-                    if (file.is_open()) {
-                        std::string line;
-                        uint64_t rx{0};
-                        uint64_t tx{0};
-                        while (std::getline(file, line)) {
-                            auto colon = line.find(':');
-                            if (colon == std::string::npos) {
-                                continue;
-                            }
-                            std::string iface = line.substr(0, colon);
-                            if (auto start = iface.find_first_not_of(" \t"); start != std::string::npos) {
-                                iface = iface.substr(start);
-                            }
-                            if (iface != "eth0") {
-                                continue;
-                            }
-
-                            std::istringstream iss(line.substr(colon + 1));
-                            uint64_t rbytes{0};
-                            uint64_t rpackets{0};
-                            uint64_t rerrs{0};
-                            uint64_t rdrop{0};
-                            uint64_t rfifo{0};
-                            uint64_t rframe{0};
-                            uint64_t rcompressed{0};
-                            uint64_t rmulticast{0};
-                            uint64_t tbytes{0};
-                            iss >> rbytes >> rpackets >> rerrs >> rdrop >> rfifo >> rframe >> rcompressed >>
-                                rmulticast >> tbytes;
-                            rx = rbytes;
-                            tx = tbytes;
-                            break;
-                        }
-
-                        if (!firstNet) {
-                            auto dt =
-                                std::chrono::duration_cast<std::chrono::duration<double>>(tick - prevNetTime).count();
-                            if (dt > 0.0) {
-                                state.network_rx_bps = static_cast<double>(rx - prevNetRx) / dt;
-                                state.network_tx_bps = static_cast<double>(tx - prevNetTx) / dt;
-                            }
-                        }
-                        prevNetRx = rx;
-                        prevNetTx = tx;
-                        prevNetTime = tick;
-                        firstNet = false;
-                    }
-                }
-            } else {
-                try {
-                    auto stats = obs.getStats(containerId_);
-                    state.cpu_usage_percent = stats.cpu_percent;
-                    state.memory_usage_mb = stats.memory_mb;
-                    state.network_rx_bps = stats.network_rx_bps;
-                    state.network_tx_bps = stats.network_tx_bps;
-                } catch (const containers::ContainerEngineError& e) {
-                    SPDLOG_ERROR("Metrics thread: failed to fetch stats: {}", e.what());
-                }
+        try {
+            shared::TargetState state;
+            state.container_id = containerId_;
+            if (containerIp_) {
+                state.container_ip = *containerIp_;
             }
-        }
 
-        state.network_latency_ms = state_.latestState().network_latency_ms;
+            state.status = obs.getStatus(containerId_);
 
-        state_.updateState(state);
-        observer_.onStateUpdate(state);
+            if (state.status == shared::ContainerStatus::Running) {
+                if (useCgroup_ && cgroup_.has_value()) {
+                    auto cpu = cgroup_->getCpuUsagePercent(containerId_);
+                    auto mem = cgroup_->getMemoryUsageMb(containerId_);
+                    if (cpu.has_value()) state.cpu_usage_percent = cpu;
+                    if (mem.has_value()) state.memory_usage_mb = mem;
 
-        if (auto timeSinceLastCheck = tick - lastContinuousCheck;
-            timeSinceLastCheck >= config_.continuousValidationInterval && !config_.continuousExpectations.empty()) {
-            lastContinuousCheck = tick;
+                    if (containerPid_ > 0) {
+                        std::ifstream file(fmt::format("/proc/{}/net/dev", containerPid_));
+                        if (file.is_open()) {
+                            std::string line;
+                            uint64_t rx{0};
+                            uint64_t tx{0};
+                            while (std::getline(file, line)) {
+                                auto colon = line.find(':');
+                                if (colon == std::string::npos) {
+                                    continue;
+                                }
+                                std::string iface = line.substr(0, colon);
+                                if (auto start = iface.find_first_not_of(" \t"); start != std::string::npos) {
+                                    iface = iface.substr(start);
+                                }
+                                if (iface != "eth0") {
+                                    continue;
+                                }
 
-            std::vector<manifests::Expectation> continuous;
-            std::ranges::copy_if(config_.continuousExpectations, std::back_inserter(continuous),
-                                 [](const auto& e) { return e.continuous; });
+                                std::istringstream iss(line.substr(colon + 1));
+                                uint64_t rbytes{0};
+                                uint64_t rpackets{0};
+                                uint64_t rerrs{0};
+                                uint64_t rdrop{0};
+                                uint64_t rfifo{0};
+                                uint64_t rframe{0};
+                                uint64_t rcompressed{0};
+                                uint64_t rmulticast{0};
+                                uint64_t tbytes{0};
+                                iss >> rbytes >> rpackets >> rerrs >> rdrop >> rfifo >> rframe >> rcompressed >>
+                                    rmulticast >> tbytes;
+                                rx = rbytes;
+                                tx = tbytes;
+                                break;
+                            }
 
-            if (!continuous.empty()) {
-                auto results = validation::validate(state, continuous);
-                for (const auto& r : results) {
-                    if (!r.passed) {
-                        state_.addContinuousFailure(r.expectationType);
-                        SPDLOG_WARN("Continuous expectation '{}' failed", r.expectationType);
+                            if (!firstNet) {
+                                auto dt = std::chrono::duration_cast<std::chrono::duration<double>>(tick - prevNetTime)
+                                              .count();
+                                if (dt > 0.0) {
+                                    state.network_rx_bps = static_cast<double>(rx - prevNetRx) / dt;
+                                    state.network_tx_bps = static_cast<double>(tx - prevNetTx) / dt;
+                                }
+                            }
+                            prevNetRx = rx;
+                            prevNetTx = tx;
+                            prevNetTime = tick;
+                            firstNet = false;
+                        }
+                    }
+                } else {
+                    try {
+                        auto stats = obs.getStats(containerId_);
+                        state.cpu_usage_percent = stats.cpu_percent;
+                        state.memory_usage_mb = stats.memory_mb;
+                        state.network_rx_bps = stats.network_rx_bps;
+                        state.network_tx_bps = stats.network_tx_bps;
+                    } catch (const containers::ContainerEngineError& e) {
+                        SPDLOG_ERROR("Metrics thread: failed to fetch stats: {}", e.what());
                     }
                 }
             }
+
+            state.network_latency_ms = state_.latestState().network_latency_ms;
+
+            state_.updateState(state);
+            observer_.onStateUpdate(state);
+
+            if (auto timeSinceLastCheck = tick - lastContinuousCheck;
+                timeSinceLastCheck >= config_.continuousValidationInterval && !config_.continuousExpectations.empty()) {
+                lastContinuousCheck = tick;
+
+                std::vector<manifests::Expectation> continuous;
+                std::ranges::copy_if(config_.continuousExpectations, std::back_inserter(continuous),
+                                     [](const auto& e) { return e.continuous; });
+
+                if (!continuous.empty()) {
+                    auto results = validation::validate(state, continuous);
+                    for (const auto& r : results) {
+                        if (!r.passed) {
+                            state_.addContinuousFailure(r.expectationType);
+                            SPDLOG_WARN("Continuous expectation '{}' failed", r.expectationType);
+                        }
+                    }
+                }
+            }
+        } catch (const std::exception& e) {
+            SPDLOG_ERROR("Metrics thread: unhandled exception — {}", e.what());
         }
 
         auto elapsed = std::chrono::steady_clock::now() - tick;
@@ -192,11 +197,15 @@ void ObservationLoop::logsThreadFn(std::stop_token internal_stop, std::stop_toke
     while (!internal_stop.stop_requested() && !external_stop.stop_requested()) {
         auto tick = std::chrono::steady_clock::now();
 
-        auto rawLogs = obs.getLogs(containerId_);
-        std::vector<std::string> logLines;
-        observability::parseLogLines(rawLogs, logLines);
-        state_.updateLogs(logLines);
-        observer_.onLogsUpdate(logLines);
+        try {
+            auto rawLogs = obs.getLogs(containerId_);
+            std::vector<std::string> logLines;
+            observability::parseLogLines(rawLogs, logLines);
+            state_.updateLogs(logLines);
+            observer_.onLogsUpdate(logLines);
+        } catch (const std::exception& e) {
+            SPDLOG_ERROR("Logs thread: unhandled exception — {}", e.what());
+        }
 
         auto elapsed = std::chrono::steady_clock::now() - tick;
         auto remaining = config_.logsInterval - elapsed;

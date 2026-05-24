@@ -44,9 +44,7 @@ private:
     std::jthread run_thread_;
 
     void setupRoutes();
-    void setupStatusRoutes();
-    void setupContainerRoutes();
-    void setupRunRoutes();
+    void setupApiRoutes();
 
     void handleRun(const httplib::Request& req, httplib::Response& res);
     void handleEvents(const httplib::Request& req, httplib::Response& res);

@@ -137,23 +137,8 @@ void Server::setupStatusRoutes() {
 }
 
 void Server::setupContainerRoutes() {
-    server_.Get("/containers", [this](const httplib::Request&, httplib::Response& response) {
-        try {
-            SPDLOG_DEBUG("/containers requested");
-            auto containers = engine_->listContainers();
-            json result = json::array();
-            for (const auto& container : containers) {
-                result.push_back({{"id", container.id}, {"name", container.name}, {"state", container.state}});
-            }
-            response.set_content(result.dump(4), "application/json");
-            SPDLOG_INFO("/containers served: {} items", containers.size());
-        } catch (const std::exception& ex) {
-            json error;
-            error["error"] = "Failed to list containers";
-            response.status = 500;
-            response.set_content(error.dump(4), "application/json");
-            SPDLOG_ERROR("/containers failed: {}", ex.what());
-        }
+    server_.Get("/containers", [this](const httplib::Request& request, httplib::Response& response) {
+        handleTargets(request, response);
     });
 
     server_.Post(R"(/containers/([^/]+)/stop)", [this](const httplib::Request& req, httplib::Response& res) {

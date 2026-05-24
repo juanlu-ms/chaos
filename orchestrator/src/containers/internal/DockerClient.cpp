@@ -19,6 +19,7 @@
 #include <stdexcept>
 
 #include "containers/IContainerEngine.hpp"
+#include "containers/internal/DockerClientInternal.hpp"
 #include "shared/ContainerStatus.hpp"
 
 namespace {
@@ -68,8 +69,7 @@ std::string createTarArchive(const std::string_view dockerfilePath) {
         }
 
         const auto& path = entry.path();
-        if (auto canonical = std::filesystem::weakly_canonical(path);
-            !canonical.string().starts_with(canonicalContext.string())) {
+        if (!chaos::orchestrator::containers::internal::detail::isWithinBuildContext(path, canonicalContext)) {
             SPDLOG_WARN("Path escapes build context, skipping: {}", path.string());
             continue;
         }
@@ -117,6 +117,16 @@ void parseBuildResponse(const std::string_view body) {
 }
 
 }  // namespace
+
+namespace chaos::orchestrator::containers::internal::detail {
+
+bool isWithinBuildContext(const std::filesystem::path& path,
+                          const std::filesystem::path& contextRoot) {
+    auto canonical = std::filesystem::weakly_canonical(path);
+    return canonical.string().starts_with(contextRoot.string());
+}
+
+}  // namespace chaos::orchestrator::containers::internal::detail
 
 namespace chaos::orchestrator::containers::internal {
 
@@ -654,42 +664,57 @@ containers::ContainerStats DockerClient::getStats(const std::string_view contain
     auto jsonResponse = parseResponse(response);
     containers::ContainerStats stats;
 
-    // CPU usage (delta between precpu_stats and cpu_stats).
-    if (jsonResponse.contains("cpu_stats") && jsonResponse["cpu_stats"].is_object() &&
-        jsonResponse["cpu_stats"].contains("cpu_usage") && jsonResponse["cpu_stats"]["cpu_usage"].is_object() &&
-        jsonResponse["cpu_stats"]["cpu_usage"].contains("total_usage") &&
-        jsonResponse["cpu_stats"]["cpu_usage"]["total_usage"].is_number() &&
-        jsonResponse["cpu_stats"].contains("system_cpu_usage") &&
-        jsonResponse["cpu_stats"]["system_cpu_usage"].is_number() && jsonResponse.contains("precpu_stats") &&
-        jsonResponse["precpu_stats"].is_object() && jsonResponse["precpu_stats"].contains("cpu_usage") &&
-        jsonResponse["precpu_stats"]["cpu_usage"].is_object() &&
-        jsonResponse["precpu_stats"]["cpu_usage"].contains("total_usage") &&
-        jsonResponse["precpu_stats"]["cpu_usage"]["total_usage"].is_number() &&
-        jsonResponse["precpu_stats"].contains("system_cpu_usage") &&
-        jsonResponse["precpu_stats"]["system_cpu_usage"].is_number() &&
-        jsonResponse["cpu_stats"].contains("online_cpus") && jsonResponse["cpu_stats"]["online_cpus"].is_number()) {
-        const auto cpu_delta = static_cast<int64_t>(jsonResponse["cpu_stats"]["cpu_usage"]["total_usage"]) -
-                               static_cast<int64_t>(jsonResponse["precpu_stats"]["cpu_usage"]["total_usage"]);
-        const auto system_cpu_delta = static_cast<int64_t>(jsonResponse["cpu_stats"]["system_cpu_usage"]) -
-                                      static_cast<int64_t>(jsonResponse["precpu_stats"]["system_cpu_usage"]);
-        const int number_cpus = jsonResponse["cpu_stats"]["online_cpus"];
+    stats.cpu_percent = parseCpuDelta(jsonResponse);
+    stats.memory_mb = parseMemoryFromStats(jsonResponse);
+    auto [rx, tx] = parseNetworkFromStats(jsonResponse);
+    stats.network_rx_bps = rx;
+    stats.network_tx_bps = tx;
+
+    SPDLOG_INFO("Fetched stats for container '{}': CPU={}% Mem={:.0f}MB", containerId,
+                stats.cpu_percent ? *stats.cpu_percent : -1.0, stats.memory_mb ? *stats.memory_mb : -1.0);
+    return stats;
+}
+
+std::optional<double> DockerClient::parseCpuDelta(const nlohmann::json& json) const {
+    if (json.contains("cpu_stats") && json["cpu_stats"].is_object() &&
+        json["cpu_stats"].contains("cpu_usage") && json["cpu_stats"]["cpu_usage"].is_object() &&
+        json["cpu_stats"]["cpu_usage"].contains("total_usage") &&
+        json["cpu_stats"]["cpu_usage"]["total_usage"].is_number() &&
+        json["cpu_stats"].contains("system_cpu_usage") &&
+        json["cpu_stats"]["system_cpu_usage"].is_number() && json.contains("precpu_stats") &&
+        json["precpu_stats"].is_object() && json["precpu_stats"].contains("cpu_usage") &&
+        json["precpu_stats"]["cpu_usage"].is_object() &&
+        json["precpu_stats"]["cpu_usage"].contains("total_usage") &&
+        json["precpu_stats"]["cpu_usage"]["total_usage"].is_number() &&
+        json["precpu_stats"].contains("system_cpu_usage") &&
+        json["precpu_stats"]["system_cpu_usage"].is_number() &&
+        json["cpu_stats"].contains("online_cpus") && json["cpu_stats"]["online_cpus"].is_number()) {
+        const auto cpu_delta = static_cast<int64_t>(json["cpu_stats"]["cpu_usage"]["total_usage"]) -
+                               static_cast<int64_t>(json["precpu_stats"]["cpu_usage"]["total_usage"]);
+        const auto system_cpu_delta = static_cast<int64_t>(json["cpu_stats"]["system_cpu_usage"]) -
+                                      static_cast<int64_t>(json["precpu_stats"]["system_cpu_usage"]);
+        const int number_cpus = json["cpu_stats"]["online_cpus"];
         if (system_cpu_delta > 0 && cpu_delta > 0) {
-            stats.cpu_percent = (static_cast<double>(cpu_delta) / static_cast<double>(system_cpu_delta)) *
-                                static_cast<double>(number_cpus) * 100.0;
+            return (static_cast<double>(cpu_delta) / static_cast<double>(system_cpu_delta)) *
+                   static_cast<double>(number_cpus) * 100.0;
         }
     }
+    return std::nullopt;
+}
 
-    // Memory usage.
-    if (jsonResponse.contains("memory_stats") && jsonResponse["memory_stats"].is_object() &&
-        jsonResponse["memory_stats"].contains("usage") && jsonResponse["memory_stats"]["usage"].is_number()) {
-        stats.memory_mb = jsonResponse["memory_stats"]["usage"].get<double>() / (1024.0 * 1024.0);
+std::optional<double> DockerClient::parseMemoryFromStats(const nlohmann::json& json) const {
+    if (json.contains("memory_stats") && json["memory_stats"].is_object() &&
+        json["memory_stats"].contains("usage") && json["memory_stats"]["usage"].is_number()) {
+        return json["memory_stats"]["usage"].get<double>() / (1024.0 * 1024.0);
     }
+    return std::nullopt;
+}
 
-    // Network I/O — cumulative bytes across all interfaces.
+std::pair<double, double> DockerClient::parseNetworkFromStats(const nlohmann::json& json) {
     double rx_bytes = 0;
     double tx_bytes = 0;
-    if (jsonResponse.contains("networks") && jsonResponse["networks"].is_object()) {
-        for (const auto& [iface, net] : jsonResponse["networks"].items()) {
+    if (json.contains("networks") && json["networks"].is_object()) {
+        for (const auto& [iface, net] : json["networks"].items()) {
             if (net.contains("rx_bytes") && net["rx_bytes"].is_number()) {
                 rx_bytes += net["rx_bytes"].get<double>();
             }
@@ -698,23 +723,21 @@ containers::ContainerStats DockerClient::getStats(const std::string_view contain
             }
         }
     }
-    // Convert cumulative bytes to B/s using the stored previous values.
+    double rx_bps = 0.0;
+    double tx_bps = 0.0;
     const auto now = std::chrono::steady_clock::now();
     if (prev_net_valid_) {
         const double dt = std::chrono::duration_cast<std::chrono::duration<double>>(now - prev_net_timestamp_).count();
         if (dt > 0.001) {
-            stats.network_rx_bps = (rx_bytes - prev_net_rx_) / dt;
-            stats.network_tx_bps = (tx_bytes - prev_net_tx_) / dt;
+            rx_bps = (rx_bytes - prev_net_rx_) / dt;
+            tx_bps = (tx_bytes - prev_net_tx_) / dt;
         }
     }
     prev_net_rx_ = rx_bytes;
     prev_net_tx_ = tx_bytes;
     prev_net_timestamp_ = now;
     prev_net_valid_ = true;
-
-    SPDLOG_INFO("Fetched stats for container '{}': CPU={}% Mem={:.0f}MB", containerId,
-                stats.cpu_percent ? *stats.cpu_percent : -1.0, stats.memory_mb ? *stats.memory_mb : -1.0);
-    return stats;
+    return {rx_bps, tx_bps};
 }
 
 std::string DockerClient::getContainerIp(const std::string_view containerId) const {

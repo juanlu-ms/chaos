@@ -9,8 +9,10 @@
 #include <functional>
 #include <memory>
 #include <nlohmann/json_fwd.hpp>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "containers/IContainerEngine.hpp"
@@ -232,7 +234,7 @@ public:
     [[nodiscard]] SystemInfo getSystemInfo() const override;
 
 private:
-    /** @brief Function used to execute API requests. */
+    // Function used to execute API requests.
     RequestFn request_;
 
     // Network B/s tracking: store previous cumulative bytes and timestamp
@@ -243,6 +245,15 @@ private:
     bool prev_net_valid_ = false;
 
     nlohmann::json parseResponse(const HttpResponse& response) const;
+
+    // Parse CPU usage percent from Docker stats JSON.
+    std::optional<double> parseCpuDelta(const nlohmann::json& json) const;
+    // Parse memory usage MB from Docker stats JSON.
+    std::optional<double> parseMemoryFromStats(const nlohmann::json& json) const;
+    // Compute network B/s rates from cumulative Docker stats JSON.
+    std::pair<double, double> parseNetworkFromStats(const nlohmann::json& json);
+
+
 };
 
 }  // namespace chaos::orchestrator::containers::internal

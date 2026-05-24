@@ -21,7 +21,8 @@ struct RunResult;
  * push, TUI rendering, etc.) without coupling the run logic to the
  * delivery mechanism.
  */
-struct IRunObserver {
+class IRunObserver {
+public:
     /**
      * @brief Called when the target state is updated.
      * @param state The newly observed state of the target.

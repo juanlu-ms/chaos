@@ -64,11 +64,11 @@ The backend is hardened for production, handling parallel execution and emergenc
 
 ## Web UI (Frontend)
 
-The Web UI lives in `frontend/` as a **Vite + Bun** project. It is built to static files in `orchestrator/src/interfaces/web/static/`, which the C++ binary serves via `httplib::Server::set_mount_point()`.
+The Web UI lives in `frontend/` as a **Vite + pnpm** project. It is built to static files in `orchestrator/src/interfaces/web/static/`, which the C++ binary serves via `httplib::Server::set_mount_point()`.
 
 ### Tech Stack
 - **Vite** — fast dev server with HMR, production bundling
-- **Bun** — package manager and runtime
+- **pnpm** — package manager
 - **React** — UI framework with component-based architecture
 - **Recharts** — charting library for live and results charts
 

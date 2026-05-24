@@ -14,7 +14,7 @@
 #include <thread>
 
 #include "containers/internal/CgroupMetricsGatherer.hpp"
-#include "core/ObservationLoopInternal.hpp"
+#include "core/internal/ObservationLoopInternal.hpp"
 #include "observability/ObservabilityEngine.hpp"
 #include "validation/ValidationEngine.hpp"
 

@@ -121,58 +121,49 @@ void Server::setupRoutes() {
         SPDLOG_WARN("Static UI not found. Expected orchestrator/src/interfaces/web/static relative to project root.");
     }
 
-    setupStatusRoutes();
-    setupContainerRoutes();
-    setupRunRoutes();
+    setupApiRoutes();
 }
 
-void Server::setupStatusRoutes() {
-    server_.Get("/status", [](const httplib::Request&, httplib::Response& response) {
+void Server::setupApiRoutes() {
+    server_.Get("/api/status", [](const httplib::Request&, httplib::Response& response) {
         json result;
         result["project"] = "Chaos Engine";
         result["status"] = "Online (Web Adapter)";
 
         response.set_content(result.dump(4), "application/json");
     });
-}
 
-void Server::setupContainerRoutes() {
-    server_.Get("/containers", [this](const httplib::Request& request, httplib::Response& response) {
+    server_.Get("/api/containers", [this](const httplib::Request& request, httplib::Response& response) {
         handleTargets(request, response);
     });
 
-    server_.Post(R"(/containers/([^/]+)/stop)", [this](const httplib::Request& req, httplib::Response& res) {
+    server_.Post(R"(/api/containers/([^/]+)/stop)", [this](const httplib::Request& req, httplib::Response& res) {
         handleContainerAction(req, res, "stop");
     });
 
-    server_.Post(R"(/containers/([^/]+)/kill)", [this](const httplib::Request& req, httplib::Response& res) {
+    server_.Post(R"(/api/containers/([^/]+)/kill)", [this](const httplib::Request& req, httplib::Response& res) {
         handleContainerAction(req, res, "kill");
     });
 
-    server_.Get(R"(/containers/([^/]+)/logs)", [this](const httplib::Request& request, httplib::Response& response) {
-        if (request.matches.size() < 2) {
-            response.status = 400;
-            response.set_content("Missing container id", "text/plain");
-            return;
-        }
-        const std::string id = request.matches[1];
-        try {
-            const auto logs = engine_->getLogs(id);
-            response.set_content(logs, "text/plain");
-        } catch (const std::exception& ex) {
-            response.status = 500;
-            json error;
-            error["error"] = "Failed to get logs";
-            response.set_content(error.dump(4), "application/json");
-            SPDLOG_ERROR("/containers/{}/logs failed: {}", id, ex.what());
-        }
-    });
-}
-
-void Server::setupRunRoutes() {
-    server_.Get("/api/targets", [this](const httplib::Request& request, httplib::Response& response) {
-        handleTargets(request, response);
-    });
+    server_.Get(R"(/api/containers/([^/]+)/logs)",
+                [this](const httplib::Request& request, httplib::Response& response) {
+                    if (request.matches.size() < 2) {
+                        response.status = 400;
+                        response.set_content("Missing container id", "text/plain");
+                        return;
+                    }
+                    const std::string id = request.matches[1];
+                    try {
+                        const auto logs = engine_->getLogs(id);
+                        response.set_content(logs, "text/plain");
+                    } catch (const std::exception& ex) {
+                        response.status = 500;
+                        json error;
+                        error["error"] = "Failed to get logs";
+                        response.set_content(error.dump(4), "application/json");
+                        SPDLOG_ERROR("/api/containers/{}/logs failed: {}", id, ex.what());
+                    }
+                });
 
     server_.Get("/api/limits", [this](const httplib::Request& request, httplib::Response& response) {
         handleLimits(request, response);
@@ -186,7 +177,7 @@ void Server::setupRunRoutes() {
         handleAbort(request, response);
     });
 
-    server_.Get("/events", [this](const httplib::Request& request, httplib::Response& response) {
+    server_.Get("/api/events", [this](const httplib::Request& request, httplib::Response& response) {
         handleEvents(request, response);
     });
 }
@@ -200,7 +191,7 @@ void Server::handleContainerAction(const httplib::Request& req, httplib::Respons
 
     const std::string containerId = req.matches[1];
     try {
-        SPDLOG_INFO("/containers/{}/{} requested", containerId, actionName);
+        SPDLOG_INFO("/api/containers/{}/{} requested", containerId, actionName);
 
         if (actionName == "stop") {
             engine_->stopContainer(containerId);
@@ -218,7 +209,7 @@ void Server::handleContainerAction(const httplib::Request& req, httplib::Respons
         error["error"] = "Failed to " + std::string(actionName) + " container";
         res.status = 500;
         res.set_content(error.dump(4), "application/json");
-        SPDLOG_ERROR("/containers/{}/{} failed: {}", containerId, actionName, ex.what());
+        SPDLOG_ERROR("/api/containers/{}/{} failed: {}", containerId, actionName, ex.what());
     }
 }
 
@@ -370,13 +361,13 @@ void Server::handleTargets(const httplib::Request&, httplib::Response& response)
             result.push_back({{"id", container.id}, {"name", container.name}, {"state", container.state}});
         }
         response.set_content(result.dump(4), "application/json");
-        SPDLOG_INFO("/api/targets served: {} items", containers.size());
+        SPDLOG_INFO("/api/containers served: {} items", containers.size());
     } catch (const std::exception& ex) {
         json error;
         error["error"] = "Failed to list containers";
         response.status = 500;
         response.set_content(error.dump(4), "application/json");
-        SPDLOG_ERROR("/api/targets failed: {}", ex.what());
+        SPDLOG_ERROR("/api/containers failed: {}", ex.what());
     }
 }
 

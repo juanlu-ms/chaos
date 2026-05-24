@@ -53,6 +53,9 @@ private:
 
     /** @brief Flag indicating whether the perturbation has been applied. */
     std::atomic<bool> hasBeenApplied_{false};
+
+    /** @brief Original memory limit captured before the cap was applied, for safe revert. */
+    int64_t original_memory_limit_{0};
 };
 
 }  // namespace chaos::orchestrator::perturbations

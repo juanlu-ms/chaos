@@ -486,8 +486,8 @@ TEST(PerturbationTests, MemoryCapRevertUsesTotalSystemMemory) {
     containers::SystemInfo sysInfo{8589934592};  // 8 GiB
 
     testing::InSequence seq;
-    EXPECT_CALL(*mockEngine, updateMemoryLimit(std::string_view("target"), 104857600)).Times(1);
     EXPECT_CALL(*mockEngine, getSystemInfo()).Times(1).WillOnce(Return(sysInfo));
+    EXPECT_CALL(*mockEngine, updateMemoryLimit(std::string_view("target"), 104857600)).Times(1);
     EXPECT_CALL(*mockEngine, updateMemoryLimit(std::string_view("target"), 8589934592)).Times(1);
 
     perturbations::MemoryCapPerturbation pert(mockEngine, "target", spec);

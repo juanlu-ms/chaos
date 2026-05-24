@@ -20,20 +20,25 @@ void MemoryCapPerturbation::apply() {
     }
 
     if (target_id_.empty()) {
+        hasBeenApplied_ = false;
         throw std::invalid_argument("Target ID is empty");
     }
 
     auto limit_it = params_.find("limit_bytes");
     if (limit_it == params_.end()) {
+        hasBeenApplied_ = false;
         throw std::invalid_argument("Missing limit_bytes parameter");
     }
 
     const std::string& limit = limit_it->second;
 
     try {
+        auto sysInfo = engine_->getSystemInfo();
+        original_memory_limit_ = sysInfo.memTotal;
         engine_->updateMemoryLimit(target_id_, std::stoll(limit));
         SPDLOG_INFO("Memory Cap Perturbation applied: limit_bytes={} on target {}", limit, target_id_);
     } catch (const containers::ContainerEngineError& e) {
+        hasBeenApplied_ = false;
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
                                 std::string("Failed to apply Memory cap: ") + e.what());
     }
@@ -46,14 +51,15 @@ void MemoryCapPerturbation::revert() {
     }
 
     if (target_id_.empty()) {
+        hasBeenApplied_ = true;
         throw std::invalid_argument("Target ID is empty");
     }
 
     try {
-        auto sysInfo = engine_->getSystemInfo();
-        engine_->updateMemoryLimit(target_id_, sysInfo.memTotal);
+        engine_->updateMemoryLimit(target_id_, original_memory_limit_);
         SPDLOG_INFO("Memory Cap Perturbation reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {
+        hasBeenApplied_ = true;
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
                                 std::string("Failed to revert Memory cap: ") + e.what());
     }

@@ -80,6 +80,7 @@ add_executable(orchestrator_unit_tests
     tests/observability/OtlpExporterUnitTest.cpp
     tests/observability/ValidationEngineUnitTest.cpp
     tests/perturbations/PerturbationEngineUnitTest.cpp
+    tests/perturbations/MemoryCapPerturbationUnitTest.cpp
     tests/perturbations/PerturbationTests.cpp
     tests/shared/StateBroadcasterUnitTest.cpp
     tests/signals/SignalHandlerGuardUnitTest.cpp

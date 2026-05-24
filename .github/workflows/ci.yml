@@ -39,7 +39,7 @@ jobs:
           - name: "Release Build"
             config_preset: "release-linux-clang"
             build_preset: "release"
-            test_cmd: "ctest --preset test-release"
+            test_cmd: "sudo ctest --preset test-release"
             cmake_args: ""
           
           - name: "Memory Check (ASan/UBSan)"

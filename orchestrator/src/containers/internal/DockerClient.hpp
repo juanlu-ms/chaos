@@ -15,10 +15,10 @@
 #include <utility>
 #include <vector>
 
+#include "containers/ContainerStatus.hpp"
 #include "containers/IContainerEngine.hpp"
-#include "shared/ContainerStatus.hpp"
 
-namespace chaos::orchestrator::containers::internal {
+namespace chaos::orchestrator::containers {
 
 /**
  * @brief Supported HTTP methods for Docker Engine API calls.
@@ -198,7 +198,7 @@ public:
      * @throws ContainerEngineApiError On non-OK HTTP responses.
      * @throws ContainerEngineParseError On JSON parsing failures.
      */
-    [[nodiscard]] shared::ContainerStatus getStatus(const std::string_view containerId) const override;
+    [[nodiscard]] containers::ContainerStatus getStatus(const std::string_view containerId) const override;
 
     /**
      * @brief Fetch stdout/stderr logs from a container via Docker Engine API.
@@ -254,4 +254,4 @@ private:
     std::pair<double, double> parseNetworkFromStats(const nlohmann::json& json);
 };
 
-}  // namespace chaos::orchestrator::containers::internal
+}  // namespace chaos::orchestrator::containers

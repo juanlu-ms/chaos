@@ -7,8 +7,8 @@
 
 #include <functional>
 
+#include "core/TargetState.hpp"
 #include "manifests/Manifest.hpp"
-#include "shared/TargetState.hpp"
 #include "validation/ValidationResult.hpp"
 
 namespace chaos::orchestrator::validation::detail {
@@ -22,7 +22,7 @@ using CheckFn = std::function<void(int statusCode, double elapsedMs, ValidationR
 // Extracts "url", "expected_status", and "timeout_ms" from the expectation parameters,
 // creates an httplib::Client, performs a GET request, measures elapsed time,
 // and delegates the domain-specific check to checkFn.
-ValidationResult performHttpValidation(const shared::TargetState& targetState,
-                                       const manifests::Expectation& expectation, CheckFn checkFn);
+ValidationResult performHttpValidation(const core::TargetState& targetState, const manifests::Expectation& expectation,
+                                       CheckFn checkFn);
 
 }  // namespace chaos::orchestrator::validation::detail

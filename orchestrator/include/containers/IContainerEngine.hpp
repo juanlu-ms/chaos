@@ -11,8 +11,8 @@
 #include <string_view>
 #include <vector>
 
-#include "../shared/ContainerStatus.hpp"
 #include "Container.hpp"
+#include "ContainerStatus.hpp"
 #include "SystemInfo.hpp"
 
 namespace chaos::orchestrator::containers {
@@ -152,7 +152,7 @@ public:
      * @throws ContainerEngineApiError On non-OK HTTP responses.
      * @throws ContainerEngineParseError On JSON parsing failures.
      */
-    [[nodiscard]] virtual shared::ContainerStatus getStatus(const std::string_view containerId) const = 0;
+    [[nodiscard]] virtual containers::ContainerStatus getStatus(const std::string_view containerId) const = 0;
 
     /**
      * @brief Fetch stdout/stderr logs for a container.

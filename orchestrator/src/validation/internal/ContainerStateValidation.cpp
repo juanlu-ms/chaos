@@ -2,9 +2,9 @@
 
 namespace chaos::orchestrator::validation {
 
-ValidationResult ContainerRunningValidation::validate(const shared::TargetState& targetState,
+ValidationResult ContainerRunningValidation::validate(const core::TargetState& targetState,
                                                       const manifests::Expectation& expectation) const {
-    const bool isRunning = targetState.status == shared::ContainerStatus::Running;
+    const bool isRunning = targetState.status == containers::ContainerStatus::Running;
     return {
         .passed = isRunning,
         .expectationType = expectation.type,
@@ -12,9 +12,9 @@ ValidationResult ContainerRunningValidation::validate(const shared::TargetState&
     };
 }
 
-ValidationResult ContainerNotRunningValidation::validate(const shared::TargetState& targetState,
+ValidationResult ContainerNotRunningValidation::validate(const core::TargetState& targetState,
                                                          const manifests::Expectation& expectation) const {
-    const bool isRunning = targetState.status == shared::ContainerStatus::Running;
+    const bool isRunning = targetState.status == containers::ContainerStatus::Running;
     return {
         .passed = !isRunning,
         .expectationType = expectation.type,

@@ -15,8 +15,8 @@
 #include "core/IRunObserver.hpp"
 #include "core/ObservationLoop.hpp"
 #include "core/RunOrchestrator.hpp"
+#include "interfaces/web/JsonSerializer.hpp"
 #include "manifests/ManifestParser.hpp"
-#include "web/JsonSerializer.hpp"
 
 using json = nlohmann::json;
 
@@ -30,7 +30,7 @@ class WebRunObserver final : public core::IRunObserver {
 public:
     explicit WebRunObserver(std::shared_ptr<core::RunSession> session) : session_(std::move(session)) {}
 
-    void onStateUpdate(const shared::TargetState& state) override {
+    void onStateUpdate(const core::TargetState& state) override {
         std::lock_guard lock(session_->mtx);
         session_->latest = state;
         session_->cv.notify_all();

@@ -107,7 +107,7 @@ private:
     Config config_;
 
     // Cgroup-based metrics gathering (optional, resolved at start time).
-    std::optional<containers::internal::CgroupMetricsGatherer> cgroup_;
+    std::optional<containers::CgroupMetricsGatherer> cgroup_;
     bool useCgroup_{false};
 
     // Container IP string, fetched once at start and stamped on every state.

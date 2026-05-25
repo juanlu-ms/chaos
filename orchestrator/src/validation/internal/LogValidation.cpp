@@ -4,7 +4,7 @@
 
 namespace chaos::orchestrator::validation {
 
-ValidationResult LogContainsValidation::validate(const shared::TargetState& targetState,
+ValidationResult LogContainsValidation::validate(const core::TargetState& targetState,
                                                  const manifests::Expectation& expectation) const {
     const auto& substring = expectation.parameters.at("substring");
     for (const auto& log : targetState.recent_logs) {
@@ -23,7 +23,7 @@ ValidationResult LogContainsValidation::validate(const shared::TargetState& targ
     };
 }
 
-ValidationResult LogNotContainsValidation::validate(const shared::TargetState& targetState,
+ValidationResult LogNotContainsValidation::validate(const core::TargetState& targetState,
                                                     const manifests::Expectation& expectation) const {
     const auto& substring = expectation.parameters.at("substring");
     for (const auto& log : targetState.recent_logs) {

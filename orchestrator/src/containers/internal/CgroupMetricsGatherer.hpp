@@ -11,7 +11,7 @@
 #include <optional>
 #include <string_view>
 
-namespace chaos::orchestrator::containers::internal {
+namespace chaos::orchestrator::containers {
 
 /**
  * @brief Gathers CPU and memory usage from the host's cgroup v2 hierarchy.
@@ -59,4 +59,4 @@ private:
     bool prev_valid_ = false;
 };
 
-}  // namespace chaos::orchestrator::containers::internal
+}  // namespace chaos::orchestrator::containers

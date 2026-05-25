@@ -7,8 +7,8 @@
 
 #include <vector>
 
+#include "../core/TargetState.hpp"
 #include "../manifests/Manifest.hpp"
-#include "../shared/TargetState.hpp"
 #include "ValidationResult.hpp"
 
 namespace chaos::orchestrator::validation {
@@ -24,7 +24,7 @@ namespace chaos::orchestrator::validation {
  * - log_contains / log_not_contains
  * - http_status / http_latency
  */
-[[nodiscard]] std::vector<ValidationResult> validate(const shared::TargetState& targetState,
+[[nodiscard]] std::vector<ValidationResult> validate(const core::TargetState& targetState,
                                                      const std::vector<manifests::Expectation>& expectations);
 
 }  // namespace chaos::orchestrator::validation

@@ -26,7 +26,7 @@ constexpr auto kContainerId = "abc123";
 TEST(ObservabilityEngineTests, ObserveReturnsFullStateWhenRunning) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     EXPECT_CALL(*mockEngine, getStatus(std::string_view(kContainerId)))
-        .WillOnce(Return(shared::ContainerStatus::Running));
+        .WillOnce(Return(containers::ContainerStatus::Running));
     EXPECT_CALL(*mockEngine, getLogs(std::string_view(kContainerId))).WillOnce(Return("log line"));
     EXPECT_CALL(*mockEngine, getStats(std::string_view(kContainerId)))
         .WillOnce(Return(containers::ContainerStats{
@@ -36,7 +36,7 @@ TEST(ObservabilityEngineTests, ObserveReturnsFullStateWhenRunning) {
     const auto state = obs.observe(kContainerId);
 
     EXPECT_EQ(state.container_id, kContainerId);
-    EXPECT_EQ(state.status, shared::ContainerStatus::Running);
+    EXPECT_EQ(state.status, containers::ContainerStatus::Running);
     ASSERT_EQ(state.recent_logs.size(), 1u);
     EXPECT_EQ(state.recent_logs[0], "log line");
     ASSERT_TRUE(state.memory_usage_mb.has_value());
@@ -55,14 +55,14 @@ TEST(ObservabilityEngineTests, ObserveReturnsFullStateWhenRunning) {
 TEST(ObservabilityEngineTests, ObserveSkipsResourceMetricsWhenNotRunning) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     EXPECT_CALL(*mockEngine, getStatus(std::string_view(kContainerId)))
-        .WillOnce(Return(shared::ContainerStatus::Exited));
+        .WillOnce(Return(containers::ContainerStatus::Exited));
     EXPECT_CALL(*mockEngine, getLogs(std::string_view(kContainerId))).WillOnce(Return("logs"));
     EXPECT_CALL(*mockEngine, getStats(_)).Times(0);
 
     observability::ObservabilityEngine obs(mockEngine);
     const auto state = obs.observe(kContainerId);
 
-    EXPECT_EQ(state.status, shared::ContainerStatus::Exited);
+    EXPECT_EQ(state.status, containers::ContainerStatus::Exited);
     EXPECT_FALSE(state.memory_usage_mb.has_value());
     EXPECT_FALSE(state.cpu_usage_percent.has_value());
     EXPECT_FALSE(state.container_ip.has_value());
@@ -74,7 +74,7 @@ TEST(ObservabilityEngineTests, ObserveSkipsResourceMetricsWhenNotRunning) {
 TEST(ObservabilityEngineTests, ObserveReturnsNulloptWhenUsageLookupsFail) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     EXPECT_CALL(*mockEngine, getStatus(std::string_view(kContainerId)))
-        .WillOnce(Return(shared::ContainerStatus::Running));
+        .WillOnce(Return(containers::ContainerStatus::Running));
     EXPECT_CALL(*mockEngine, getLogs(std::string_view(kContainerId))).WillOnce(Return("logs"));
     EXPECT_CALL(*mockEngine, getStats(std::string_view(kContainerId)))
         .WillOnce(Throw(containers::ContainerEngineApiError("no stats")));
@@ -106,7 +106,7 @@ TEST(ObservabilityEngineTests, ObservePropagatesStatusErrors) {
 TEST(ObservabilityEngineTests, ObservePropagatesLogErrors) {
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     EXPECT_CALL(*mockEngine, getStatus(std::string_view(kContainerId)))
-        .WillOnce(Return(shared::ContainerStatus::Running));
+        .WillOnce(Return(containers::ContainerStatus::Running));
     EXPECT_CALL(*mockEngine, getLogs(std::string_view(kContainerId)))
         .WillOnce(Throw(containers::ContainerEngineTransportError("log failure")));
 

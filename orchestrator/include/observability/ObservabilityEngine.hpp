@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "../containers/IContainerEngine.hpp"
-#include "../shared/TargetState.hpp"
+#include "../core/TargetState.hpp"
 
 namespace chaos::orchestrator::observability {
 
@@ -37,7 +37,7 @@ public:
      * @return A populated TargetState DTO with all observed metrics.
      * @throws std::system_error On retrieval failure.
      */
-    shared::TargetState observe(const std::string_view containerId);
+    core::TargetState observe(const std::string_view containerId);
 
     /**
      * @brief Fetch the IP. Called once at run setup, not on every observe tick.
@@ -45,7 +45,7 @@ public:
     std::optional<std::string> getContainerIp(const std::string_view containerId) const;
 
     // ── Data-source getters ─────────────────────────────────────────
-    shared::ContainerStatus getStatus(const std::string_view containerId) const;
+    containers::ContainerStatus getStatus(const std::string_view containerId) const;
     std::string getLogs(const std::string_view containerId) const;
     containers::ContainerStats getStats(const std::string_view containerId);
 

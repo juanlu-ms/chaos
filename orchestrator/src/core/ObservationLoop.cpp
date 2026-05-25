@@ -14,7 +14,7 @@
 #include <thread>
 
 #include "containers/internal/CgroupMetricsGatherer.hpp"
-#include "core/internal/ObservationLoopInternal.hpp"
+#include "core/internal/ObservationLoopDetail.hpp"
 #include "observability/ObservabilityEngine.hpp"
 #include "validation/ValidationEngine.hpp"
 
@@ -132,7 +132,7 @@ ObservationLoop::ObservationLoop(std::shared_ptr<containers::IContainerEngine> e
 ObservationLoop::~ObservationLoop() { internalStopSource_.request_stop(); }
 
 void ObservationLoop::start(std::stop_token external_stop) {
-    if (containers::internal::CgroupMetricsGatherer::resolveCgroupPath(containerId_).has_value()) {
+    if (containers::CgroupMetricsGatherer::resolveCgroupPath(containerId_).has_value()) {
         useCgroup_ = true;
         cgroup_.emplace();
         SPDLOG_DEBUG("ObservationLoop: using cgroup v2 for {}", containerId_);
@@ -178,7 +178,7 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
         auto tick = std::chrono::steady_clock::now();
 
         try {
-            shared::TargetState state;
+            core::TargetState state;
             state.container_id = containerId_;
             if (containerIp_) {
                 state.container_ip = *containerIp_;
@@ -186,7 +186,7 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
 
             state.status = obs.getStatus(containerId_);
 
-            if (state.status == shared::ContainerStatus::Running) {
+            if (state.status == containers::ContainerStatus::Running) {
                 if (useCgroup_ && cgroup_.has_value()) {
                     auto cpu = cgroup_->getCpuUsagePercent(containerId_);
                     auto mem = cgroup_->getMemoryUsageMb(containerId_);

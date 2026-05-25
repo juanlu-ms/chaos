@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "../shared/TargetState.hpp"
+#include "../core/TargetState.hpp"
 #include "ValidationResult.hpp"
 #include "manifests/Manifest.hpp"
 
@@ -21,7 +21,7 @@ public:
     /**
      * @brief Evaluate the given expectation using the provided context.
      */
-    virtual ValidationResult validate(const shared::TargetState& targetState,
+    virtual ValidationResult validate(const core::TargetState& targetState,
                                       const manifests::Expectation& expectation) const = 0;
 };
 

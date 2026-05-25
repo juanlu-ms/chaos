@@ -27,7 +27,7 @@ namespace {
  */
 class MockRunObserver final : public core::IRunObserver {
 public:
-    MOCK_METHOD(void, onStateUpdate, (const shared::TargetState&), (override));
+    MOCK_METHOD(void, onStateUpdate, (const core::TargetState&), (override));
     MOCK_METHOD(void, onLogsUpdate, (const std::vector<std::string>&), (override));
     MOCK_METHOD(void, onPhaseChange, (std::string_view), (override));
 };

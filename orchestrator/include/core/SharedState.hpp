@@ -12,7 +12,7 @@
 #include <string_view>
 #include <vector>
 
-#include "shared/TargetState.hpp"
+#include "core/TargetState.hpp"
 
 namespace chaos::orchestrator::core {
 
@@ -29,7 +29,7 @@ public:
      * @brief Update the latest observed target state.
      * @param state The newly observed state of the target.
      */
-    void updateState(const shared::TargetState& state);
+    void updateState(const core::TargetState& state);
 
     /**
      * @brief Patch only the network latency field on the latest state.
@@ -41,7 +41,7 @@ public:
      * @brief Get the latest observed target state.
      * @return The most recent state written via updateState().
      */
-    [[nodiscard]] shared::TargetState latestState() const;
+    [[nodiscard]] core::TargetState latestState() const;
 
     /**
      * @brief Update the latest log lines.
@@ -81,7 +81,7 @@ public:
 
 private:
     mutable std::mutex mtx_;
-    shared::TargetState latest_;
+    core::TargetState latest_;
     std::vector<std::string> pending_logs_;
     std::string phase_;
     std::vector<std::string> continuous_failures_;
@@ -89,7 +89,7 @@ private:
 
 // ── Inline implementation ──────────────────────────────────────────
 
-inline void SharedState::updateState(const shared::TargetState& state) {
+inline void SharedState::updateState(const core::TargetState& state) {
     std::lock_guard lock(mtx_);
     latest_ = state;
 }
@@ -99,7 +99,7 @@ inline void SharedState::updateNetworkLatency(std::optional<double> latency) {
     latest_.network_latency_ms = latency;
 }
 
-inline shared::TargetState SharedState::latestState() const {
+inline core::TargetState SharedState::latestState() const {
     std::lock_guard lock(mtx_);
     return latest_;
 }

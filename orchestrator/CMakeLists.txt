@@ -87,7 +87,7 @@ add_executable(orchestrator_unit_tests
     tests/perturbations/TrafficCorruptionPerturbationUnitTest.cpp
     tests/perturbations/PerturbationTests.cpp
     tests/perturbations/internal/PacketFloodInternalUnitTest.cpp
-    tests/shared/StateBroadcasterUnitTest.cpp
+    tests/core/StateBroadcasterUnitTest.cpp
     tests/signals/SignalHandlerGuardUnitTest.cpp
     tests/validation/internal/HttpValidatorBaseUnitTest.cpp
     tests/core/ChaosRunnerUnitTest.cpp

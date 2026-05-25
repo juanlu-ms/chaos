@@ -8,7 +8,7 @@
 
 namespace chaos::orchestrator::validation {
 
-std::vector<ValidationResult> validate(const shared::TargetState& targetState,
+std::vector<ValidationResult> validate(const core::TargetState& targetState,
                                        const std::vector<manifests::Expectation>& expectations) {
     std::vector<ValidationResult> results;
     results.reserve(expectations.size());

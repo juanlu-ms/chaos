@@ -8,7 +8,7 @@
 #include <string_view>
 #include <vector>
 
-#include "shared/TargetState.hpp"
+#include "core/TargetState.hpp"
 
 namespace chaos::orchestrator::core {
 
@@ -27,7 +27,7 @@ public:
      * @brief Called when the target state is updated.
      * @param state The newly observed state of the target.
      */
-    virtual void onStateUpdate(const shared::TargetState& state) = 0;
+    virtual void onStateUpdate(const core::TargetState& state) = 0;
 
     /**
      * @brief Called when the current execution phase changes (e.g. normal, chaos, recovery).

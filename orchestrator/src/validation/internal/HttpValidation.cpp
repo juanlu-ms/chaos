@@ -37,8 +37,8 @@ int getIntParamOrDefault(const manifests::Expectation& expectation, const std::s
 
 namespace detail {
 
-ValidationResult performHttpValidation(const shared::TargetState& targetState,
-                                       const manifests::Expectation& expectation, CheckFn checkFn) {
+ValidationResult performHttpValidation(const core::TargetState& targetState, const manifests::Expectation& expectation,
+                                       CheckFn checkFn) {
     ValidationResult result{.passed = false, .expectationType = expectation.type, .message = {}};
 
     try {
@@ -88,7 +88,7 @@ ValidationResult performHttpValidation(const shared::TargetState& targetState,
 
 }  // namespace detail
 
-ValidationResult HttpStatusValidation::validate(const shared::TargetState& targetState,
+ValidationResult HttpStatusValidation::validate(const core::TargetState& targetState,
                                                 const manifests::Expectation& expectation) const {
     try {
         return detail::performHttpValidation(
@@ -112,7 +112,7 @@ ValidationResult HttpStatusValidation::validate(const shared::TargetState& targe
     }
 }
 
-ValidationResult HttpLatencyValidation::validate(const shared::TargetState& targetState,
+ValidationResult HttpLatencyValidation::validate(const core::TargetState& targetState,
                                                  const manifests::Expectation& expectation) const {
     try {
         return detail::performHttpValidation(

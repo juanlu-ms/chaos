@@ -8,10 +8,11 @@
 #include <atomic>
 #include <thread>
 
-#include "shared/StateBroadcaster.hpp"
-#include "shared/TargetState.hpp"
+#include "core/StateBroadcaster.hpp"
+#include "core/TargetState.hpp"
 
-using namespace chaos::orchestrator::shared;
+using namespace chaos::orchestrator::core;
+using namespace chaos::orchestrator::containers;
 
 TargetState makeState(const std::string& id) {
     TargetState s;

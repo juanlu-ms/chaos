@@ -1,6 +1,5 @@
 #pragma once
 
-#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <mutex>
@@ -8,7 +7,7 @@
 
 #include "TargetState.hpp"
 
-namespace chaos::orchestrator::shared {
+namespace chaos::orchestrator::core {
 
 /**
  * @brief Thread-safe broadcaster for target state updates.
@@ -35,7 +34,7 @@ public:
     Handle subscribe(StateCallback callback) {
         std::lock_guard lock(mutex_);
         auto id = ++next_id_;
-        subscribers_.push_back({id, std::move(callback)});
+        subscribers_.emplace_back(id, std::move(callback));
         return Handle{id};
     }
 
@@ -45,9 +44,7 @@ public:
      */
     void unsubscribe(Handle handle) {
         std::lock_guard lock(mutex_);
-        auto iter =
-            std::remove_if(subscribers_.begin(), subscribers_.end(), [&](const Entry& e) { return e.id == handle.id; });
-        subscribers_.erase(iter, subscribers_.end());
+        std::erase_if(subscribers_, [&handle](const Entry& e) { return e.id == handle.id; });
     }
 
     /**
@@ -81,4 +78,4 @@ private:
     std::vector<Entry> subscribers_;
 };
 
-}  // namespace chaos::orchestrator::shared
+}  // namespace chaos::orchestrator::core

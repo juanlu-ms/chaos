@@ -3,7 +3,7 @@
  * @brief Implementation of JSON serialization helpers.
  */
 
-#include "web/JsonSerializer.hpp"
+#include "interfaces/web/JsonSerializer.hpp"
 
 #include <string>
 #include <thread>
@@ -11,11 +11,11 @@
 
 namespace chaos::orchestrator::interfaces::web {
 
-json stateToJson(const shared::TargetState& state, const std::string& phase,
+json stateToJson(const core::TargetState& state, const std::string& phase,
                  const std::vector<std::string>& continuous_failures) {
     json result;
     result["container_id"] = state.container_id;
-    result["status"] = shared::toString(state.status);
+    result["status"] = containers::toString(state.status);
     if (state.cpu_usage_percent.has_value()) {
         result["cpu_usage_percent"] = state.cpu_usage_percent.value();
     }

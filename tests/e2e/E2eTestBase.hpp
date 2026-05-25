@@ -7,11 +7,11 @@
 
 #include "containers/ContainerEngineFactory.hpp"
 #include "containers/IContainerEngine.hpp"
-#include "shared/ContainerStatus.hpp"
+#include "containers/ContainerStatus.hpp"
 
 using chaos::orchestrator::containers::createContainerEngine;
 using chaos::orchestrator::containers::IContainerEngine;
-using chaos::orchestrator::shared::ContainerStatus;
+using chaos::orchestrator::containers::ContainerStatus;
 
 class E2eTestBase : public ::testing::Test {
 protected:

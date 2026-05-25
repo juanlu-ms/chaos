@@ -11,13 +11,13 @@ namespace chaos::orchestrator::validation {
 
 class ContainerRunningValidation final : public IValidation {
 public:
-    ValidationResult validate(const shared::TargetState& targetState,
+    ValidationResult validate(const core::TargetState& targetState,
                               const manifests::Expectation& expectation) const override;
 };
 
 class ContainerNotRunningValidation final : public IValidation {
 public:
-    ValidationResult validate(const shared::TargetState& targetState,
+    ValidationResult validate(const core::TargetState& targetState,
                               const manifests::Expectation& expectation) const override;
 };
 

@@ -11,9 +11,9 @@
 #include <fstream>
 #include <string>
 
-#include "CgroupMetricsInternal.hpp"
+#include "CgroupMetricsDetail.hpp"
 
-namespace chaos::orchestrator::containers::internal::detail {
+namespace chaos::orchestrator::containers::detail {
 
 std::optional<uint64_t> readSimpleU64(const std::filesystem::path& path) {
     std::ifstream file(path);
@@ -51,9 +51,9 @@ std::optional<uint64_t> readKeyValueU64(const std::filesystem::path& path, std::
     return std::nullopt;
 }
 
-}  // namespace chaos::orchestrator::containers::internal::detail
+}  // namespace chaos::orchestrator::containers::detail
 
-namespace chaos::orchestrator::containers::internal {
+namespace chaos::orchestrator::containers {
 
 namespace {
 
@@ -123,4 +123,4 @@ std::optional<double> CgroupMetricsGatherer::getMemoryUsageMb(const std::string_
     return static_cast<double>(*bytes) / (1024.0 * 1024.0);
 }
 
-}  // namespace chaos::orchestrator::containers::internal
+}  // namespace chaos::orchestrator::containers

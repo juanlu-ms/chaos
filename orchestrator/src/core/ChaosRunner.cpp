@@ -31,7 +31,7 @@ std::vector<std::unique_ptr<perturbations::IPerturbation>> ChaosRunner::buildPer
     return instances;
 }
 
-RunResult ChaosRunner::finalize(const manifests::ChaosManifest& manifest, const shared::TargetState& finalState,
+RunResult ChaosRunner::finalize(const manifests::ChaosManifest& manifest, const core::TargetState& finalState,
                                 const std::vector<std::string>& continuousFailures) const {
     if (manifest.expectations.empty()) {
         return {true, {}};

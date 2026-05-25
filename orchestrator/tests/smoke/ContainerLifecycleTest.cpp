@@ -6,9 +6,9 @@
 #include <gtest/gtest.h>
 
 #include "ContainerSmokeTestBase.hpp"
-#include "shared/ContainerStatus.hpp"
+#include "containers/ContainerStatus.hpp"
 
-using chaos::orchestrator::shared::ContainerStatus;
+using chaos::orchestrator::containers::ContainerStatus;
 using namespace chaos::orchestrator::tests::smoke;
 
 class ContainerLifecycleTest : public ContainerSmokeTestBase {};

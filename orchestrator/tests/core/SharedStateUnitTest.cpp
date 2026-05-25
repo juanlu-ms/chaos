@@ -10,10 +10,10 @@
 #include <vector>
 
 #include "core/SharedState.hpp"
-#include "shared/TargetState.hpp"
+#include "core/TargetState.hpp"
 
 using namespace chaos::orchestrator::core;
-using namespace chaos::orchestrator::shared;
+using namespace chaos::orchestrator::containers;
 
 /**
  * @test Verifies that a default-constructed SharedState has empty/zero values.

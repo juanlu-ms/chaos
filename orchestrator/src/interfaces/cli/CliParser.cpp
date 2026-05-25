@@ -16,9 +16,9 @@
 #include "core/ObservationLoop.hpp"
 #include "core/RunOrchestrator.hpp"
 #include "core/SharedState.hpp"
+#include "core/StateBroadcaster.hpp"
 #include "interfaces/web/Server.hpp"
 #include "manifests/ManifestParser.hpp"
-#include "shared/StateBroadcaster.hpp"
 #include "signals/SignalHandlerGuard.hpp"
 
 namespace chaos::orchestrator::interfaces::cli {
@@ -33,12 +33,12 @@ namespace {
 
 class CliRunObserver final : public core::IRunObserver {
 public:
-    void onStateUpdate(const shared::TargetState& state) override { broadcaster_.broadcast(state); }
+    void onStateUpdate(const core::TargetState& state) override { broadcaster_.broadcast(state); }
 
     void onPhaseChange(std::string_view phase) override { SPDLOG_INFO("Entering phase: {}", phase); }
 
 private:
-    shared::StateBroadcaster broadcaster_;
+    core::StateBroadcaster broadcaster_;
 };
 
 }  // namespace

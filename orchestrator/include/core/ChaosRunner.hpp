@@ -10,9 +10,9 @@
 #include <string>
 #include <vector>
 
+#include "core/TargetState.hpp"
 #include "manifests/Manifest.hpp"
 #include "perturbations/IPerturbation.hpp"
-#include "shared/TargetState.hpp"
 #include "validation/ValidationResult.hpp"
 
 namespace chaos::orchestrator::containers {
@@ -57,7 +57,7 @@ public:
      * @param continuousFailures Optional list of expectation types that failed mid-run.
      * @return RunResult with pass/fail and per-expectation details.
      */
-    [[nodiscard]] RunResult finalize(const manifests::ChaosManifest& manifest, const shared::TargetState& finalState,
+    [[nodiscard]] RunResult finalize(const manifests::ChaosManifest& manifest, const core::TargetState& finalState,
                                      const std::vector<std::string>& continuousFailures = {}) const;
 
     /**

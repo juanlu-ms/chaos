@@ -26,7 +26,7 @@ namespace {
 
 class E2eRunObserver final : public core::IRunObserver {
 public:
-    void onStateUpdate(const shared::TargetState&) override { ++stateUpdates; }
+    void onStateUpdate(const core::TargetState&) override { ++stateUpdates; }
     void onPhaseChange(std::string_view phase) override { lastPhase = phase; }
     void onLogsUpdate(const std::vector<std::string>&) override { ++logUpdates; }
 

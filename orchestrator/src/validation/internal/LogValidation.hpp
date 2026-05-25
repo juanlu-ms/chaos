@@ -11,13 +11,13 @@ namespace chaos::orchestrator::validation {
 
 class LogContainsValidation final : public IValidation {
 public:
-    ValidationResult validate(const shared::TargetState& targetState,
+    ValidationResult validate(const core::TargetState& targetState,
                               const manifests::Expectation& expectation) const override;
 };
 
 class LogNotContainsValidation final : public IValidation {
 public:
-    ValidationResult validate(const shared::TargetState& targetState,
+    ValidationResult validate(const core::TargetState& targetState,
                               const manifests::Expectation& expectation) const override;
 };
 

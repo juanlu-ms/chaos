@@ -33,7 +33,7 @@ public:
                 (const, override));
     MOCK_METHOD(std::string, execInNetNs, (const std::string_view containerId, const std::string_view command),
                 (const, override));
-    MOCK_METHOD(shared::ContainerStatus, getStatus, (const std::string_view containerId), (const, override));
+    MOCK_METHOD(containers::ContainerStatus, getStatus, (const std::string_view containerId), (const, override));
     MOCK_METHOD(std::string, getLogs, (const std::string_view containerId), (const, override));
     MOCK_METHOD(void, updateMemoryLimit, (const std::string_view containerId, int64_t memory_bytes), (const, override));
     MOCK_METHOD(void, updateCpuQuota, (const std::string_view containerId, int64_t cpu_quota, int64_t cpu_period),

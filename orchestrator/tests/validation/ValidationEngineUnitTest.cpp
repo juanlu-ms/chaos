@@ -22,8 +22,8 @@ using namespace chaos::orchestrator;
 
 namespace {
 
-shared::TargetState makeTargetState(std::string id, shared::ContainerStatus status) {
-    shared::TargetState state;
+core::TargetState makeTargetState(std::string id, containers::ContainerStatus status) {
+    core::TargetState state;
     state.container_id = std::move(id);
     state.status = status;
     return state;
@@ -35,7 +35,7 @@ shared::TargetState makeTargetState(std::string id, shared::ContainerStatus stat
  * @test Verifies container_running passes when status is running.
  */
 TEST(ValidationEngineTests, ContainerRunningPassesWhenRunning) {
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     const auto results = validation::validate(state, {manifests::Expectation{"container_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
@@ -47,7 +47,7 @@ TEST(ValidationEngineTests, ContainerRunningPassesWhenRunning) {
  * @test Verifies container_running fails when status is not running.
  */
 TEST(ValidationEngineTests, ContainerRunningFailsWhenNotRunning) {
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Exited);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Exited);
     const auto results = validation::validate(state, {manifests::Expectation{"container_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
@@ -58,7 +58,7 @@ TEST(ValidationEngineTests, ContainerRunningFailsWhenNotRunning) {
  * @test Verifies container_not_running passes when status is not running.
  */
 TEST(ValidationEngineTests, ContainerNotRunningPassesWhenStopped) {
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Exited);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Exited);
     const auto results = validation::validate(state, {manifests::Expectation{"container_not_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
@@ -69,7 +69,7 @@ TEST(ValidationEngineTests, ContainerNotRunningPassesWhenStopped) {
  * @test Verifies container_not_running fails when status is running.
  */
 TEST(ValidationEngineTests, ContainerNotRunningFailsWhenRunning) {
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     const auto results = validation::validate(state, {manifests::Expectation{"container_not_running", {}}});
 
     ASSERT_EQ(results.size(), 1u);
@@ -80,7 +80,7 @@ TEST(ValidationEngineTests, ContainerNotRunningFailsWhenRunning) {
  * @test Verifies log_contains passes when substring is present.
  */
 TEST(ValidationEngineTests, LogContainsPassesWhenSubstringPresent) {
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     state.recent_logs = {"app started ok\n"};
     manifests::Expectation exp{"log_contains", {{"substring", "started"}}};
     const auto results = validation::validate(state, {exp});
@@ -93,7 +93,7 @@ TEST(ValidationEngineTests, LogContainsPassesWhenSubstringPresent) {
  * @test Verifies log_contains fails when substring is absent.
  */
 TEST(ValidationEngineTests, LogContainsFailsWhenSubstringAbsent) {
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     state.recent_logs = {"crash\n"};
     manifests::Expectation exp{"log_contains", {{"substring", "started"}}};
     const auto results = validation::validate(state, {exp});
@@ -106,7 +106,7 @@ TEST(ValidationEngineTests, LogContainsFailsWhenSubstringAbsent) {
  * @test Verifies log_not_contains passes when substring is absent.
  */
 TEST(ValidationEngineTests, LogNotContainsPassesWhenSubstringAbsent) {
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     state.recent_logs = {"all good\n"};
     manifests::Expectation exp{"log_not_contains", {{"substring", "panic"}}};
     const auto results = validation::validate(state, {exp});
@@ -119,7 +119,7 @@ TEST(ValidationEngineTests, LogNotContainsPassesWhenSubstringAbsent) {
  * @test Verifies log_not_contains fails when substring is present.
  */
 TEST(ValidationEngineTests, LogNotContainsFailsWhenSubstringPresent) {
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     state.recent_logs = {"panic: nil ptr\n"};
     manifests::Expectation exp{"log_not_contains", {{"substring", "panic"}}};
     const auto results = validation::validate(state, {exp});
@@ -132,7 +132,7 @@ TEST(ValidationEngineTests, LogNotContainsFailsWhenSubstringPresent) {
  * @test Verifies validate returns results for all expectations in order.
  */
 TEST(ValidationEngineTests, MixedExpectationsReturnsAllResults) {
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     state.recent_logs = {"app started\n"};
     const std::vector<manifests::Expectation> expectations = {
         {"container_running", {}},
@@ -152,7 +152,7 @@ TEST(ValidationEngineTests, MixedExpectationsReturnsAllResults) {
  */
 TEST(ValidationEngineTests, UnknownExpectationTypeThrowsInvalidArgument) {
     manifests::Expectation exp{"unknown_type", {}};
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     EXPECT_THROW(static_cast<void>(validation::validate(state, {exp})), std::invalid_argument);
 }
 
@@ -170,7 +170,7 @@ TEST(ValidationEngineTests, HttpStatusPassesOnExpectedStatus) {
 
     manifests::Expectation exp{"http_status",
                                {{"port", std::to_string(port)}, {"path", "/ping"}, {"expected_status", "200"}}};
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     state.container_ip = std::string{"127.0.0.1"};
     const auto results = validation::validate(state, {exp});
 
@@ -194,7 +194,7 @@ TEST(ValidationEngineTests, HttpStatusFailsOnUnexpectedStatus) {
 
     manifests::Expectation exp{"http_status",
                                {{"port", std::to_string(port)}, {"path", "/ping"}, {"expected_status", "200"}}};
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     state.container_ip = std::string{"127.0.0.1"};
     const auto results = validation::validate(state, {exp});
 
@@ -219,7 +219,7 @@ TEST(ValidationEngineTests, HttpLatencyPassesWithinBounds) {
     manifests::Expectation exp{
         "http_latency",
         {{"port", std::to_string(port)}, {"path", "/ping"}, {"min_latency_ms", "0"}, {"max_latency_ms", "5000"}}};
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     state.container_ip = std::string{"127.0.0.1"};
     const auto results = validation::validate(state, {exp});
 
@@ -246,7 +246,7 @@ TEST(ValidationEngineTests, HttpLatencyFailsWhenServerExceedsMax) {
     manifests::Expectation exp{
         "http_latency",
         {{"port", std::to_string(port)}, {"path", "/slow"}, {"min_latency_ms", "0"}, {"max_latency_ms", "50"}}};
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     state.container_ip = std::string{"127.0.0.1"};
     const auto results = validation::validate(state, {exp});
 
@@ -261,10 +261,10 @@ TEST(ValidationEngineTests, HttpLatencyFailsWhenServerExceedsMax) {
  */
 TEST(ValidationEngineTests, HttpStatusFailsWhenIpMissing) {
     manifests::Expectation exp{"http_status", {{"port", "8080"}, {"path", "/ping"}, {"expected_status", "200"}}};
-    shared::TargetState state;
+    core::TargetState state;
     state.container_id = "ctr";
     state.container_ip = std::nullopt;
-    state.status = shared::ContainerStatus::Running;
+    state.status = containers::ContainerStatus::Running;
 
     const auto results = validation::validate(state, {exp});
 
@@ -278,10 +278,10 @@ TEST(ValidationEngineTests, HttpStatusFailsWhenIpMissing) {
 TEST(ValidationEngineTests, HttpStatusHandlesInvalidPortParameter) {
     manifests::Expectation exp{"http_status",
                                {{"port", "not-a-number"}, {"path", "/ping"}, {"expected_status", "200"}}};
-    shared::TargetState state;
+    core::TargetState state;
     state.container_id = "ctr";
     state.container_ip = std::string{"127.0.0.1"};
-    state.status = shared::ContainerStatus::Running;
+    state.status = containers::ContainerStatus::Running;
 
     const auto results = validation::validate(state, {exp});
 
@@ -294,10 +294,10 @@ TEST(ValidationEngineTests, HttpStatusHandlesInvalidPortParameter) {
  */
 TEST(ValidationEngineTests, HttpLatencyHandlesInvalidLatencyParameter) {
     manifests::Expectation exp{"http_latency", {{"port", "8080"}, {"path", "/ping"}, {"max_latency_ms", "oops"}}};
-    shared::TargetState state;
+    core::TargetState state;
     state.container_id = "ctr";
     state.container_ip = std::string{"127.0.0.1"};
-    state.status = shared::ContainerStatus::Running;
+    state.status = containers::ContainerStatus::Running;
 
     const auto results = validation::validate(state, {exp});
 
@@ -310,10 +310,10 @@ TEST(ValidationEngineTests, HttpLatencyHandlesInvalidLatencyParameter) {
  */
 TEST(ValidationEngineTests, HttpLatencyFailsWhenIpMissing) {
     manifests::Expectation exp{"http_latency", {{"port", "8080"}, {"path", "/ping"}, {"max_latency_ms", "50"}}};
-    shared::TargetState state;
+    core::TargetState state;
     state.container_id = "ctr";
     state.container_ip = std::nullopt;
-    state.status = shared::ContainerStatus::Running;
+    state.status = containers::ContainerStatus::Running;
 
     const auto results = validation::validate(state, {exp});
 
@@ -325,7 +325,7 @@ TEST(ValidationEngineTests, HttpLatencyFailsWhenIpMissing) {
  * @test Verifies log_contains passes when substring parameter is empty (empty string is trivially present).
  */
 TEST(ValidationEngineTests, LogContainsPassesWithEmptySubstring) {
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     state.recent_logs = {"some log\n"};
     manifests::Expectation exp{"log_contains", {{"substring", ""}}};
     const auto results = validation::validate(state, {exp});
@@ -338,7 +338,7 @@ TEST(ValidationEngineTests, LogContainsPassesWithEmptySubstring) {
  * @test Verifies log_not_contains fails when substring parameter is empty (empty string is trivially contained).
  */
 TEST(ValidationEngineTests, LogNotContainsFailsWithEmptySubstring) {
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     state.recent_logs = {"some log\n"};
     manifests::Expectation exp{"log_not_contains", {{"substring", ""}}};
     const auto results = validation::validate(state, {exp});
@@ -351,7 +351,7 @@ TEST(ValidationEngineTests, LogNotContainsFailsWithEmptySubstring) {
  * @test Verifies log_contains searches across multiple log lines.
  */
 TEST(ValidationEngineTests, LogContainsSearchesAllLines) {
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     state.recent_logs = {"first line\n", "second line\n", "third line\n"};
     manifests::Expectation exp{"log_contains", {{"substring", "second"}}};
     const auto results = validation::validate(state, {exp});
@@ -364,7 +364,7 @@ TEST(ValidationEngineTests, LogContainsSearchesAllLines) {
  * @test Verifies log expectations handle empty logs gracefully.
  */
 TEST(ValidationEngineTests, LogExpectationsHandleEmptyLogs) {
-    auto state = makeTargetState("ctr", shared::ContainerStatus::Running);
+    auto state = makeTargetState("ctr", containers::ContainerStatus::Running);
     manifests::Expectation exp{"log_contains", {{"substring", "missing"}}};
     const auto results = validation::validate(state, {exp});
 
@@ -378,10 +378,10 @@ TEST(ValidationEngineTests, LogExpectationsHandleEmptyLogs) {
 TEST(ValidationEngineTests, HttpLatencyFailsWhenMinExceedsMax) {
     manifests::Expectation exp{
         "http_latency", {{"port", "8080"}, {"path", "/ping"}, {"min_latency_ms", "500"}, {"max_latency_ms", "100"}}};
-    shared::TargetState state;
+    core::TargetState state;
     state.container_id = "ctr";
     state.container_ip = std::string{"127.0.0.1"};
-    state.status = shared::ContainerStatus::Running;
+    state.status = containers::ContainerStatus::Running;
 
     const auto results = validation::validate(state, {exp});
 

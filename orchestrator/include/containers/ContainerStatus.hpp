@@ -2,7 +2,7 @@
 
 #include <cstdint>
 #include <string_view>
-namespace chaos::orchestrator::shared {
+namespace chaos::orchestrator::containers {
 
 /**
  * @brief Possible states of a container.
@@ -17,7 +17,7 @@ enum class ContainerStatus : uint8_t {
 
 // From string to enum
 inline ContainerStatus parseContainerStatus(std::string_view status_str) {
-    using enum chaos::orchestrator::shared::ContainerStatus;
+    using enum chaos::orchestrator::containers::ContainerStatus;
     if (status_str == "running") {
         return Running;
     }
@@ -36,7 +36,7 @@ inline ContainerStatus parseContainerStatus(std::string_view status_str) {
 // From enum to string
 constexpr std::string_view toString(ContainerStatus status) {
     switch (status) {
-        using enum chaos::orchestrator::shared::ContainerStatus;
+        using enum chaos::orchestrator::containers::ContainerStatus;
         case Running:
             return "running";
         case Exited:
@@ -50,4 +50,4 @@ constexpr std::string_view toString(ContainerStatus status) {
     }
 }
 
-}  // namespace chaos::orchestrator::shared
+}  // namespace chaos::orchestrator::containers

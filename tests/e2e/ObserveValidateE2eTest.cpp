@@ -6,9 +6,9 @@
 #include <gtest/gtest.h>
 
 #include "E2eTestBase.hpp"
+#include "core/TargetState.hpp"
 #include "manifests/Manifest.hpp"
 #include "observability/ObservabilityEngine.hpp"
-#include "shared/TargetState.hpp"
 #include "validation/ValidationEngine.hpp"
 
 using chaos::orchestrator::manifests::Expectation;

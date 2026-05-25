@@ -25,7 +25,7 @@ namespace {
  */
 class NullRunObserver final : public core::IRunObserver {
 public:
-    void onStateUpdate(const shared::TargetState&) override {}
+    void onStateUpdate(const core::TargetState&) override {}
     void onPhaseChange(std::string_view) override {}
 };
 

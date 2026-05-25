@@ -18,9 +18,9 @@
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 
+#include "containers/ContainerStatus.hpp"
 #include "containers/IContainerEngine.hpp"
-#include "containers/internal/DockerClientInternal.hpp"
-#include "shared/ContainerStatus.hpp"
+#include "containers/internal/DockerClientDetail.hpp"
 
 namespace {
 
@@ -69,7 +69,7 @@ std::string createTarArchive(const std::string_view dockerfilePath) {
         }
 
         const auto& path = entry.path();
-        if (!chaos::orchestrator::containers::internal::detail::isWithinBuildContext(path, canonicalContext)) {
+        if (!chaos::orchestrator::containers::detail::isWithinBuildContext(path, canonicalContext)) {
             SPDLOG_WARN("Path escapes build context, skipping: {}", path.string());
             continue;
         }
@@ -118,16 +118,16 @@ void parseBuildResponse(const std::string_view body) {
 
 }  // namespace
 
-namespace chaos::orchestrator::containers::internal::detail {
+namespace chaos::orchestrator::containers::detail {
 
 bool isWithinBuildContext(const std::filesystem::path& path, const std::filesystem::path& contextRoot) {
     auto canonical = std::filesystem::weakly_canonical(path);
     return canonical.string().starts_with(contextRoot.string());
 }
 
-}  // namespace chaos::orchestrator::containers::internal::detail
+}  // namespace chaos::orchestrator::containers::detail
 
-namespace chaos::orchestrator::containers::internal {
+namespace chaos::orchestrator::containers {
 
 DockerClient::DockerClient(RequestFn requestFn) : request_(std::move(requestFn)) {}
 
@@ -148,7 +148,7 @@ std::shared_ptr<containers::IContainerEngine> DockerClient::create(const std::st
         httplib::Result response;
         std::string endpointStr(endpoint);
         switch (method) {
-            using enum chaos::orchestrator::containers::internal::HttpMethod;
+            using enum chaos::orchestrator::containers::HttpMethod;
             case GET:
                 response = client->Get(endpointStr);
                 break;
@@ -573,7 +573,7 @@ void DockerClient::updateCpuQuota(const std::string_view containerId, int64_t cp
     SPDLOG_INFO("Updated CPU quota for container '{}'", containerId);
 }
 
-shared::ContainerStatus DockerClient::getStatus(const std::string_view containerId) const {
+containers::ContainerStatus DockerClient::getStatus(const std::string_view containerId) const {
     if (containerId.empty()) {
         throw std::invalid_argument("Container ID cannot be empty");
     }
@@ -592,7 +592,7 @@ shared::ContainerStatus DockerClient::getStatus(const std::string_view container
         jsonResponse["State"].contains("Status") && jsonResponse["State"]["Status"].is_string()) {
         std::string stateStr = jsonResponse["State"]["Status"].get<std::string>();
         SPDLOG_INFO("DockerClient: container {} status is {}", containerId, stateStr);
-        return shared::parseContainerStatus(stateStr);
+        return parseContainerStatus(stateStr);
     }
 
     throw containers::ContainerEngineParseError(
@@ -806,4 +806,4 @@ nlohmann::json DockerClient::parseResponse(const HttpResponse& response) const {
     return jsonResponse;
 }
 
-}  // namespace chaos::orchestrator::containers::internal
+}  // namespace chaos::orchestrator::containers

@@ -8,8 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "interfaces/web/JsonSerializer.hpp"
 #include "observability/ObservabilityEngine.hpp"
-#include "web/JsonSerializer.hpp"
 
 using namespace chaos::orchestrator::interfaces::web;
 
@@ -17,9 +17,9 @@ using namespace chaos::orchestrator::interfaces::web;
  * @test Verifies stateToJson includes container_id, status, metrics, and phase fields.
  */
 TEST(JsonSerializerTest, StateToJsonIncludesPhase) {
-    chaos::orchestrator::shared::TargetState state;
+    chaos::orchestrator::core::TargetState state;
     state.container_id = "abc123";
-    state.status = chaos::orchestrator::shared::ContainerStatus::Running;
+    state.status = chaos::orchestrator::containers::ContainerStatus::Running;
     state.cpu_usage_percent = 42.5;
     state.memory_usage_mb = 128.0;
     state.network_rx_bps = 1000.0;
@@ -39,9 +39,9 @@ TEST(JsonSerializerTest, StateToJsonIncludesPhase) {
  * @test Verifies stateToJson omits optional fields when they are not populated.
  */
 TEST(JsonSerializerTest, StateToJsonOmitsOptionalFieldsWhenEmpty) {
-    chaos::orchestrator::shared::TargetState state;
+    chaos::orchestrator::core::TargetState state;
     state.container_id = "abc";
-    state.status = chaos::orchestrator::shared::ContainerStatus::Running;
+    state.status = chaos::orchestrator::containers::ContainerStatus::Running;
 
     auto j = stateToJson(state);
     EXPECT_FALSE(j.contains("cpu_usage_percent"));
@@ -107,9 +107,9 @@ TEST(JsonSerializerTest, ParseLogLinesSkipsEmptyLines) {
  * @test Verifies stateToJson includes network_latency_ms when present.
  */
 TEST(JsonSerializerTest, StateToJsonIncludesNetworkLatencyMs) {
-    chaos::orchestrator::shared::TargetState state;
+    chaos::orchestrator::core::TargetState state;
     state.container_id = "abc";
-    state.status = chaos::orchestrator::shared::ContainerStatus::Running;
+    state.status = chaos::orchestrator::containers::ContainerStatus::Running;
     state.network_latency_ms = 12.75;
 
     auto j = stateToJson(state);
@@ -120,9 +120,9 @@ TEST(JsonSerializerTest, StateToJsonIncludesNetworkLatencyMs) {
  * @test Verifies stateToJson omits network_latency_ms when not set.
  */
 TEST(JsonSerializerTest, StateToJsonOmitsNetworkLatencyMsWhenAbsent) {
-    chaos::orchestrator::shared::TargetState state;
+    chaos::orchestrator::core::TargetState state;
     state.container_id = "abc";
-    state.status = chaos::orchestrator::shared::ContainerStatus::Running;
+    state.status = chaos::orchestrator::containers::ContainerStatus::Running;
 
     auto j = stateToJson(state);
     EXPECT_FALSE(j.contains("network_latency_ms"));

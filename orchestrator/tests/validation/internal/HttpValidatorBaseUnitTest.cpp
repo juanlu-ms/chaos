@@ -9,8 +9,8 @@
 
 using namespace chaos::orchestrator::validation::detail;
 using namespace chaos::orchestrator::validation;
+using chaos::orchestrator::core::TargetState;
 using chaos::orchestrator::manifests::Expectation;
-using chaos::orchestrator::shared::TargetState;
 
 /**
  * @test performHttpValidation returns a result with the correct expectationType.

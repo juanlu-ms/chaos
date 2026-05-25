@@ -10,9 +10,9 @@
 #include <string>
 #include <vector>
 
-#include "ContainerStatus.hpp"
+#include "containers/ContainerStatus.hpp"
 
-namespace chaos::orchestrator::shared {
+namespace chaos::orchestrator::core {
 
 /**
  * @brief Represents the observed state of a target at a given point in time.
@@ -20,7 +20,7 @@ namespace chaos::orchestrator::shared {
  */
 struct TargetState {
     std::string container_id;
-    ContainerStatus status;
+    containers::ContainerStatus status;
     std::optional<double> cpu_usage_percent;
     std::optional<double> memory_usage_mb;
     std::optional<std::string> container_ip;
@@ -30,4 +30,4 @@ struct TargetState {
     std::optional<double> network_latency_ms;
 };
 
-}  // namespace chaos::orchestrator::shared
+}  // namespace chaos::orchestrator::core

@@ -17,17 +17,17 @@ namespace chaos::orchestrator::observability {
 ObservabilityEngine::ObservabilityEngine(std::shared_ptr<containers::IContainerEngine> engine)
     : engine_(std::move(engine)) {}
 
-shared::TargetState ObservabilityEngine::observe(const std::string_view containerId) {
+core::TargetState ObservabilityEngine::observe(const std::string_view containerId) {
     SPDLOG_DEBUG("ObservabilityEngine: observing container '{}'", containerId);
 
-    shared::TargetState state;
+    core::TargetState state;
     state.container_id = std::string(containerId);
 
     state.status = getStatus(containerId);
     auto logs = getLogs(containerId);
     parseLogLines(logs, state.recent_logs);
 
-    if (state.status != shared::ContainerStatus::Running) {
+    if (state.status != containers::ContainerStatus::Running) {
         SPDLOG_DEBUG("Container '{}' is not running. Skipping resource usage metrics.", containerId);
     } else {
         // All resource metrics come from a single stats API call.
@@ -45,7 +45,7 @@ shared::TargetState ObservabilityEngine::observe(const std::string_view containe
     return state;
 }
 
-shared::ContainerStatus ObservabilityEngine::getStatus(const std::string_view containerId) const {
+containers::ContainerStatus ObservabilityEngine::getStatus(const std::string_view containerId) const {
     return engine_->getStatus(containerId);
 }
 

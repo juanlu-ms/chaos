@@ -72,7 +72,7 @@ TEST(ChaosRunnerUnitTest, FinalizeReturnsPassedTrueWhenEmpty) {
 
     manifests::ChaosManifest manifest;
     manifest.expectations = {};
-    shared::TargetState state;
+    core::TargetState state;
 
     auto result = runner.finalize(manifest, state);
     EXPECT_TRUE(result.passed);
@@ -88,7 +88,7 @@ TEST(ChaosRunnerUnitTest, ValidateExpectationsReturnsTrueWhenEmpty) {
 
     manifests::ChaosManifest manifest;
     manifest.expectations = {};
-    shared::TargetState state;
+    core::TargetState state;
 
     EXPECT_TRUE(runner.finalize(manifest, state).passed);
 }
@@ -103,8 +103,8 @@ TEST(ChaosRunnerUnitTest, FinalizeReturnsDetailedResults) {
     manifests::ChaosManifest manifest;
     manifest.expectations.push_back({.type = "container_running", .parameters = {}});
     manifest.expectations.push_back({.type = "container_not_running", .parameters = {}});
-    shared::TargetState state;
-    state.status = shared::ContainerStatus::Running;
+    core::TargetState state;
+    state.status = containers::ContainerStatus::Running;
 
     auto result = runner.finalize(manifest, state);
     EXPECT_FALSE(result.passed);
@@ -124,8 +124,8 @@ TEST(ChaosRunnerUnitTest, FinalizeMarksContinuousFailures) {
 
     manifests::ChaosManifest manifest;
     manifest.expectations.push_back({.type = "container_running", .parameters = {}});
-    shared::TargetState state;
-    state.status = shared::ContainerStatus::Running;
+    core::TargetState state;
+    state.status = containers::ContainerStatus::Running;
 
     // With a continuous failure on "container_running", the aggregate fails and
     // the per-expectation result is also marked as failed with an explanatory message.
@@ -145,8 +145,8 @@ TEST(ChaosRunnerUnitTest, ValidateExpectationsPassesWhenAllMet) {
 
     manifests::ChaosManifest manifest;
     manifest.expectations.push_back({.type = "container_running", .parameters = {}});
-    shared::TargetState state;
-    state.status = shared::ContainerStatus::Running;
+    core::TargetState state;
+    state.status = containers::ContainerStatus::Running;
 
     EXPECT_TRUE(runner.finalize(manifest, state).passed);
 }
@@ -160,8 +160,8 @@ TEST(ChaosRunnerUnitTest, ValidateExpectationsFailsWhenNotMet) {
 
     manifests::ChaosManifest manifest;
     manifest.expectations.push_back({.type = "container_running", .parameters = {}});
-    shared::TargetState state;
-    state.status = shared::ContainerStatus::Exited;
+    core::TargetState state;
+    state.status = containers::ContainerStatus::Exited;
 
     EXPECT_FALSE(runner.finalize(manifest, state).passed);
 }
@@ -176,8 +176,8 @@ TEST(ChaosRunnerUnitTest, ValidateExpectationsMixedResultsFails) {
     manifests::ChaosManifest manifest;
     manifest.expectations.push_back({.type = "container_running", .parameters = {}});
     manifest.expectations.push_back({.type = "container_not_running", .parameters = {}});
-    shared::TargetState state;
-    state.status = shared::ContainerStatus::Running;
+    core::TargetState state;
+    state.status = containers::ContainerStatus::Running;
 
     EXPECT_FALSE(runner.finalize(manifest, state).passed);
 }

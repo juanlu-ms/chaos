@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "core/SharedState.hpp"
-#include "shared/TargetState.hpp"
+#include "core/TargetState.hpp"
 
 namespace chaos::orchestrator::core {
 
@@ -28,7 +28,7 @@ struct RunSession {
 
     std::mutex mtx;
     std::condition_variable cv;
-    std::optional<shared::TargetState> latest;
+    std::optional<core::TargetState> latest;
     std::vector<std::string> pending_logs;
     bool running = false;
     bool complete = false;

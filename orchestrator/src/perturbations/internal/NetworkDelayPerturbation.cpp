@@ -40,7 +40,7 @@ void NetworkDelayPerturbation::apply() {
     try {
         {
             const auto execOut = engine_->execInNetNs(
-                target_id_, fmt::format("tc qdisc add dev {} root netem delay {}ms", kDefaultIface, delay));
+                target_id_, fmt::format("tc qdisc replace dev {} root netem delay {}ms", kDefaultIface, delay));
             if (!execOut.empty()) {
                 SPDLOG_DEBUG("tc output: {}", execOut);
             }

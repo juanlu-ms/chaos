@@ -26,7 +26,7 @@
 #include <vector>
 
 #include "containers/IContainerEngine.hpp"
-#include "perturbations/internal/PacketFloodInternal.hpp"
+#include "perturbations/internal/PacketFloodDetail.hpp"
 
 namespace chaos::orchestrator::perturbations {
 namespace {

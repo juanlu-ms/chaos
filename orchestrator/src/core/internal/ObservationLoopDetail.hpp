@@ -1,5 +1,5 @@
 /**
- * @file ObservationLoopInternal.hpp
+ * @file ObservationLoopDetail.hpp
  * @brief Testable helpers extracted from ObservationLoop for metrics parsing and latency measurement.
  */
 

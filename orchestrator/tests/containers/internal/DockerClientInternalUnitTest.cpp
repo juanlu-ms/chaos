@@ -7,9 +7,9 @@
 
 #include <filesystem>
 
-#include "containers/internal/DockerClientInternal.hpp"
+#include "containers/internal/DockerClientDetail.hpp"
 
-using namespace chaos::orchestrator::containers::internal::detail;
+using namespace chaos::orchestrator::containers::detail;
 
 /**
  * @test isWithinBuildContext rejects path traversal via ".." components.

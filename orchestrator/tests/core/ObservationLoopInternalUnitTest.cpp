@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <fstream>
 
-#include "core/internal/ObservationLoopInternal.hpp"
+#include "core/internal/ObservationLoopDetail.hpp"
 
 using namespace chaos::orchestrator::core::detail;
 using namespace std::chrono_literals;

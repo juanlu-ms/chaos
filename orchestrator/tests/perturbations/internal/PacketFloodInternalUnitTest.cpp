@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "perturbations/internal/PacketFloodInternal.hpp"
+#include "perturbations/internal/PacketFloodDetail.hpp"
 
 using namespace chaos::orchestrator::perturbations::detail;
 

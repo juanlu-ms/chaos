@@ -8,9 +8,9 @@
 #include <filesystem>
 #include <fstream>
 
-#include "containers/internal/CgroupMetricsInternal.hpp"
+#include "containers/internal/CgroupMetricsDetail.hpp"
 
-using namespace chaos::orchestrator::containers::internal::detail;
+using namespace chaos::orchestrator::containers::detail;
 
 /**
  * @test readSimpleU64 reads a single integer from a file.

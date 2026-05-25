@@ -1,5 +1,5 @@
 /**
- * @file PacketFloodInternal.hpp
+ * @file PacketFloodDetail.hpp
  * @brief Testable helpers for checksum computation and network namespace manipulation.
  */
 

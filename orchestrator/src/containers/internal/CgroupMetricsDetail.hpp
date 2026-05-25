@@ -1,5 +1,5 @@
 /**
- * @file CgroupMetricsInternal.hpp
+ * @file CgroupMetricsDetail.hpp
  * @brief Low-level cgroup v2 file reading helpers extracted from readU64.
  */
 
@@ -10,7 +10,7 @@
 #include <optional>
 #include <string_view>
 
-namespace chaos::orchestrator::containers::internal::detail {
+namespace chaos::orchestrator::containers::detail {
 
 // Read a uint64_t from a cgroup file containing a single integer value.
 // Returns the integer value, or nullopt if the file cannot be read or parsed.
@@ -20,4 +20,4 @@ namespace chaos::orchestrator::containers::internal::detail {
 // Returns the integer value for the matching key, or nullopt if not found.
 [[nodiscard]] std::optional<uint64_t> readKeyValueU64(const std::filesystem::path& path, std::string_view key);
 
-}  // namespace chaos::orchestrator::containers::internal::detail
+}  // namespace chaos::orchestrator::containers::detail

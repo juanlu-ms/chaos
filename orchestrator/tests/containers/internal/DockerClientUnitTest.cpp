@@ -17,9 +17,9 @@
 using chaos::orchestrator::containers::ContainerEngineApiError;
 using chaos::orchestrator::containers::ContainerEngineError;
 using chaos::orchestrator::containers::ContainerEngineParseError;
-using chaos::orchestrator::containers::internal::DockerClient;
-using chaos::orchestrator::containers::internal::HttpMethod;
-using chaos::orchestrator::containers::internal::HttpResponse;
+using chaos::orchestrator::containers::DockerClient;
+using chaos::orchestrator::containers::HttpMethod;
+using chaos::orchestrator::containers::HttpResponse;
 
 namespace {
 

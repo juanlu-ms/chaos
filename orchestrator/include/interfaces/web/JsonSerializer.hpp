@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "containers/SystemInfo.hpp"
-#include "shared/TargetState.hpp"
+#include "core/TargetState.hpp"
 
 namespace chaos::orchestrator::interfaces::web {
 
@@ -22,7 +22,7 @@ using json = nlohmann::json;
  * @param phase Optional phase label (e.g. "normal", "chaos", "recovery").
  * @param continuous_failures Optional list of continuous expectation failures.
  */
-json stateToJson(const shared::TargetState& state, const std::string& phase = "",
+json stateToJson(const core::TargetState& state, const std::string& phase = "",
                  const std::vector<std::string>& continuous_failures = {});
 
 /**

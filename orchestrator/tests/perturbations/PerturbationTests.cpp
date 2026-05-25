@@ -275,7 +275,7 @@ TEST(PerturbationTests, TrafficCorruptionRevertCallsExecWithDeleteCommand) {
 
     testing::InSequence seq;
     EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target"),
-                                         std::string_view("tc qdisc add dev eth0 root netem corrupt 5%")))
+                                         std::string_view("tc qdisc replace dev eth0 root netem corrupt 5%")))
         .WillOnce(Return(std::string{}));
     EXPECT_CALL(*mockEngine,
                 execInNetNs(std::string_view("target"), std::string_view("tc qdisc del dev eth0 root netem")))
@@ -308,7 +308,7 @@ TEST(PerturbationTests, NetworkDelayApplyCallsExecWithCorrectCommand) {
     manifests::Perturbation spec{"network_delay", {{"delay_ms", "100"}}};
 
     EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target-c"),
-                                         std::string_view("tc qdisc add dev eth0 root netem delay 100ms")))
+                                         std::string_view("tc qdisc replace dev eth0 root netem delay 100ms")))
         .Times(1)
         .WillOnce(Return(std::string{}));
 
@@ -325,7 +325,7 @@ TEST(PerturbationTests, NetworkDelayRevertCallsExecWithCorrectCommand) {
 
     testing::InSequence seq;
     EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target-c"),
-                                         std::string_view("tc qdisc add dev eth0 root netem delay 50ms")))
+                                         std::string_view("tc qdisc replace dev eth0 root netem delay 50ms")))
         .WillOnce(Return(std::string{}));
     EXPECT_CALL(*mockEngine,
                 execInNetNs(std::string_view("target-c"), std::string_view("tc qdisc del dev eth0 root netem")))
@@ -398,7 +398,7 @@ TEST(PerturbationTests, TrafficCorruptionApplyCallsExecWithDefaultNetemCommand) 
     auto mockEngine = std::make_shared<tests::MockContainerEngine>();
     manifests::Perturbation spec{"traffic_corruption", {}};
     EXPECT_CALL(*mockEngine, execInNetNs(std::string_view("target"),
-                                         std::string_view("tc qdisc add dev eth0 root netem corrupt 100")))
+                                         std::string_view("tc qdisc replace dev eth0 root netem corrupt 100")))
         .Times(1)
         .WillOnce(Return(std::string{}));
     perturbations::TrafficCorruptionPerturbation pert(mockEngine, "target", spec);

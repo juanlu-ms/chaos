@@ -12,7 +12,6 @@
 #include <string>
 
 #include "core/SharedState.hpp"
-#include "core/TargetState.hpp"
 
 namespace chaos::orchestrator::core {
 

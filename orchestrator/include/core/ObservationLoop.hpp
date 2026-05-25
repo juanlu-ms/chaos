@@ -14,7 +14,9 @@
 #include <vector>
 
 #include "containers/IContainerEngine.hpp"
-#include "containers/internal/CgroupMetricsGatherer.hpp"
+namespace chaos::orchestrator::containers {
+class CgroupMetricsGatherer;
+}
 #include "core/IRunObserver.hpp"
 #include "core/SharedState.hpp"
 #include "manifests/Manifest.hpp"
@@ -107,8 +109,7 @@ private:
     Config config_;
 
     // Cgroup-based metrics gathering (optional, resolved at start time).
-    std::optional<containers::CgroupMetricsGatherer> cgroup_;
-    bool useCgroup_{false};
+    std::unique_ptr<containers::CgroupMetricsGatherer> cgroup_;
 
     // Container IP string, fetched once at start and stamped on every state.
     // Set once before threads launch, then read-only — no synchronization needed.

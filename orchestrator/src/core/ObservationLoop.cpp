@@ -132,9 +132,10 @@ ObservationLoop::ObservationLoop(std::shared_ptr<containers::IContainerEngine> e
 ObservationLoop::~ObservationLoop() { internalStopSource_.request_stop(); }
 
 void ObservationLoop::start(std::stop_token external_stop) {
-    if (containers::CgroupMetricsGatherer::resolveCgroupPath(containerId_).has_value()) {
-        useCgroup_ = true;
-        cgroup_.emplace();
+    cgroup_ = std::make_unique<containers::CgroupMetricsGatherer>();
+    if (!containers::CgroupMetricsGatherer::resolveCgroupPath(containerId_).has_value()) {
+        cgroup_.reset();
+    } else {
         SPDLOG_DEBUG("ObservationLoop: using cgroup v2 for {}", containerId_);
     }
 
@@ -187,7 +188,7 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
             state.status = obs.getStatus(containerId_);
 
             if (state.status == containers::ContainerStatus::Running) {
-                if (useCgroup_ && cgroup_.has_value()) {
+                if (cgroup_) {
                     auto cpu = cgroup_->getCpuUsagePercent(containerId_);
                     auto mem = cgroup_->getMemoryUsageMb(containerId_);
                     if (cpu.has_value()) state.cpu_usage_percent = cpu;

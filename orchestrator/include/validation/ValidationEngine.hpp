@@ -7,9 +7,9 @@
 
 #include <vector>
 
-#include "../core/TargetState.hpp"
-#include "../manifests/Manifest.hpp"
 #include "ValidationResult.hpp"
+#include "core/TargetState.hpp"
+#include "manifests/Manifest.hpp"
 
 namespace chaos::orchestrator::validation {
 

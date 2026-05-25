@@ -10,8 +10,8 @@
 #include <string_view>
 #include <vector>
 
-#include "../containers/IContainerEngine.hpp"
-#include "../core/TargetState.hpp"
+#include "containers/IContainerEngine.hpp"
+#include "core/TargetState.hpp"
 
 namespace chaos::orchestrator::observability {
 

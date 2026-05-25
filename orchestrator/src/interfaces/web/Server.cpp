@@ -67,16 +67,6 @@ std::optional<std::filesystem::path> findWebRoot() {
     return std::nullopt;
 }
 
-json runResultToJson(const core::RunResult& runResult) {
-    json result;
-    result["passed"] = runResult.passed;
-    result["results"] = json::array();
-    for (const auto& vr : runResult.results) {
-        result["results"].push_back({{"type", vr.expectationType}, {"passed", vr.passed}, {"message", vr.message}});
-    }
-    return result;
-}
-
 void storeRunResult(const std::shared_ptr<core::RunSession>& session, json result) {
     std::lock_guard lock(session->mtx);
     if (!session->running) return;

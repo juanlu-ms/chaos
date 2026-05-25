@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "core/ChaosRunner.hpp"
 #include "interfaces/web/JsonSerializer.hpp"
 #include "observability/ObservabilityEngine.hpp"
 
@@ -101,6 +102,24 @@ TEST(JsonSerializerTest, ParseLogLinesSkipsEmptyLines) {
     std::vector<std::string> out;
     chaos::orchestrator::observability::parseLogLines("line1\n\nline2", out);
     EXPECT_EQ(out.size(), 2u);
+}
+
+/**
+ * @test Verifies runResultToJson serializes RunResult with pass/fail and results array.
+ */
+TEST(JsonSerializerTest, SerializeRunResult) {
+    chaos::orchestrator::core::RunResult runResult;
+    runResult.passed = true;
+    runResult.results.push_back(
+        chaos::orchestrator::validation::ValidationResult{true, "container_running", "Container is running"});
+
+    auto j = runResultToJson(runResult);
+
+    EXPECT_EQ(j["passed"], true);
+    EXPECT_EQ(j["results"].size(), 1);
+    EXPECT_EQ(j["results"][0]["type"], "container_running");
+    EXPECT_EQ(j["results"][0]["passed"], true);
+    EXPECT_EQ(j["results"][0]["message"], "Container is running");
 }
 
 /**

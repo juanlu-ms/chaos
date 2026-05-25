@@ -12,6 +12,10 @@
 #include "containers/SystemInfo.hpp"
 #include "core/TargetState.hpp"
 
+namespace chaos::orchestrator::core {
+struct RunResult;
+}
+
 namespace chaos::orchestrator::interfaces::web {
 
 using json = nlohmann::json;
@@ -29,5 +33,10 @@ json stateToJson(const core::TargetState& state, const std::string& phase = "",
  * @brief Serialize system limits to JSON for the /api/limits endpoint.
  */
 json limitsToJson(const containers::SystemInfo& info);
+
+/**
+ * @brief Serialize a RunResult to JSON for the /api/events complete message.
+ */
+json runResultToJson(const core::RunResult& runResult);
 
 }  // namespace chaos::orchestrator::interfaces::web

@@ -6,7 +6,7 @@
 
 namespace chaos::orchestrator::validation {
 
-std::unique_ptr<IValidation> ValidationFactory::create(const manifests::Expectation& expectation) {
+std::unique_ptr<IValidation> createValidator(const manifests::Expectation& expectation) {
     if (expectation.type == "container_running") {
         return std::make_unique<ContainerRunningValidation>();
     } else if (expectation.type == "container_not_running") {

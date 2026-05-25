@@ -13,9 +13,8 @@ std::vector<ValidationResult> validate(const core::TargetState& targetState,
     std::vector<ValidationResult> results;
     results.reserve(expectations.size());
 
-    ValidationFactory factory;
     for (const auto& expectation : expectations) {
-        auto validator = factory.create(expectation);
+        auto validator = createValidator(expectation);
         ValidationResult result = validator->validate(targetState, expectation);
 
         if (result.passed) {

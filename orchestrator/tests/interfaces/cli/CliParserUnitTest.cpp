@@ -152,16 +152,6 @@ TEST(CliParserUnitTest, RunRequiresManifestPath) {
 }
 
 /**
- * @test Verifies serve command rejects invalid port strings.
- */
-TEST(CliParserUnitTest, ServeRejectsInvalidPort) {
-    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
-    interfaces::cli::CliParser cli(mockEngine);
-
-    EXPECT_NE(runCli(cli, {"chaos", "serve", "--port", "not-a-number"}), 0);
-}
-
-/**
  * @test Verifies unknown command returns a non-zero exit code.
  */
 TEST(CliParserUnitTest, UnknownCommandReturnsError) {

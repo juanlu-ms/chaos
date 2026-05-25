@@ -2,7 +2,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include <charconv>
 #include <chrono>
 #include <memory>
 #include <span>
@@ -17,7 +16,6 @@
 #include "core/RunOrchestrator.hpp"
 #include "core/SharedState.hpp"
 #include "core/StateBroadcaster.hpp"
-#include "interfaces/web/Server.hpp"
 #include "manifests/ManifestParser.hpp"
 #include "signals/SignalHandlerGuard.hpp"
 
@@ -107,22 +105,6 @@ int CliParser::dispatchCommand(const std::vector<std::string>& args) const {
         return handleRun(args[2]);
     }
 
-    if (command == "serve") {
-        int port = 8080;
-        for (size_t i = 2; i + 1 < args.size(); ++i) {
-            if (args[i] == "--port") {
-                {
-                    auto [ptr, ec] = std::from_chars(args[i + 1].data(), args[i + 1].data() + args[i + 1].size(), port);
-                    if (ec != std::errc{}) {
-                        SPDLOG_ERROR("Invalid port number: {}", args[i + 1]);
-                        return 1;
-                    }
-                }
-            }
-        }
-        return handleServe(port);
-    }
-
     SPDLOG_ERROR("Unknown command: '{}'", command);
     printUsage();
     return 1;
@@ -139,7 +121,6 @@ void CliParser::printUsage() const {
         "  stop  <container_id>  Stop a running container\n"
         "  kill  <container_id>  Kill a running container\n"
         "  run   <manifest.json> Execute a chaos manifest\n"
-        "  serve [--port <n>]    Start the web server (default: 8080)\n"
         "  help                  Show this help message\n"
         "\n"
         "Options:\n"
@@ -196,18 +177,6 @@ int CliParser::handleKill(const std::string& containerId) const {
         return 1;
     } catch (const containers::ContainerEngineError& ex) {
         SPDLOG_ERROR("Failed to kill container {}: {}", containerId, ex.what());
-        return 1;
-    }
-
-    return 0;
-}
-
-int CliParser::handleServe(int port) const {
-    try {
-        auto server = interfaces::web::Server(engine_);
-        server.listen(port);
-    } catch (const std::system_error& ex) {
-        SPDLOG_ERROR("Server error: {}", ex.what());
         return 1;
     }
 

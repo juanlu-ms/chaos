@@ -5,25 +5,68 @@
 
 #include <spdlog/spdlog.h>
 
+#include <charconv>
+#include <cstring>
+#include <memory>
 #include <span>
+#include <string_view>
+#include <system_error>
 
 #include "containers/ContainerEngineFactory.hpp"
 #include "interfaces/cli/CliParser.hpp"
+#include "interfaces/web/Server.hpp"
 
 using chaos::orchestrator::containers::createContainerEngine;
-using chaos::orchestrator::interfaces::cli::CliParser;
 
-/**
- * @brief Orchestrator entry point.
- * @param argc Argument count.
- * @param argv Argument vector.
- * @return Exit code (0 on success, 1 on failure).
- */
+namespace {
+
+[[nodiscard]] bool isServeCommand(std::string_view arg) { return arg == "serve"; }
+
+int parsePort(std::span<char*> args) {
+    int port = 8080;
+    for (std::size_t i = 0; i + 1 < args.size(); ++i) {
+        if (std::string_view(args[i]) == "--port") {
+            auto [ptr, ec] = std::from_chars(args[i + 1], args[i + 1] + std::strlen(args[i + 1]), port);
+            if (ec != std::errc{}) {
+                SPDLOG_ERROR("Invalid port number: {}", args[i + 1]);
+                return -1;
+            }
+        }
+    }
+    return port;
+}
+
+int runServer(std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> engine, std::span<char*> args) {
+    int port = parsePort(args);
+    if (port < 0) {
+        return 1;
+    }
+
+    try {
+        chaos::orchestrator::interfaces::web::Server server(std::move(engine));
+        server.listen(port);
+    } catch (const std::system_error& ex) {
+        SPDLOG_ERROR("Server error: {}", ex.what());
+        return 1;
+    }
+    return 0;
+}
+
+}  // namespace
+
 int main(int argc, char* argv[]) {
     spdlog::set_level(spdlog::level::debug);
 
     auto engine = createContainerEngine();
 
-    CliParser cli(engine);
-    return cli.run(std::span<char*>{argv, static_cast<std::size_t>(argc)});
+    std::span<char*> args{argv, static_cast<std::size_t>(argc)};
+
+    // Route "serve" directly to the web server, bypassing CLI parser
+    if (argc >= 2 && isServeCommand(argv[1])) {
+        return runServer(engine, args.subspan(2));
+    }
+
+    // All other commands go through the CLI parser
+    chaos::orchestrator::interfaces::cli::CliParser cli(engine);
+    return cli.run(args);
 }

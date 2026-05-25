@@ -8,10 +8,8 @@
 #include <condition_variable>
 #include <mutex>
 #include <nlohmann/json.hpp>
-#include <optional>
 #include <stop_token>
 #include <string>
-#include <vector>
 
 #include "core/SharedState.hpp"
 #include "core/TargetState.hpp"
@@ -28,13 +26,10 @@ struct RunSession {
 
     std::mutex mtx;
     std::condition_variable cv;
-    std::optional<core::TargetState> latest;
-    std::vector<std::string> pending_logs;
     bool running = false;
     bool complete = false;
     json results;
     std::string error;
-    std::string phase;
     std::stop_source stop_source;
 };
 

@@ -31,20 +31,17 @@ public:
     explicit WebRunObserver(std::shared_ptr<core::RunSession> session) : session_(std::move(session)) {}
 
     void onStateUpdate(const core::TargetState& state) override {
-        std::lock_guard lock(session_->mtx);
-        session_->latest = state;
+        session_->state.updateState(state);
         session_->cv.notify_all();
     }
 
     void onPhaseChange(std::string_view phase) override {
-        std::lock_guard lock(session_->mtx);
-        session_->phase = std::string(phase);
+        session_->state.setPhase(phase);
         session_->cv.notify_all();
     }
 
     void onLogsUpdate(const std::vector<std::string>& logs) override {
-        std::lock_guard lock(session_->mtx);
-        session_->pending_logs = logs;
+        session_->state.updateLogs(logs);
         session_->cv.notify_all();
     }
 };
@@ -69,7 +66,9 @@ std::optional<std::filesystem::path> findWebRoot() {
 
 void storeRunResult(const std::shared_ptr<core::RunSession>& session, json result) {
     std::lock_guard lock(session->mtx);
-    if (!session->running) return;
+    if (!session->running) {
+        return;
+    }
     session->results = std::move(result);
     session->running = false;
     session->complete = true;
@@ -291,14 +290,19 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& response) 
 
     std::shared_ptr<RunSession> session;
     bool wasCompleteAtConnect = false;
+    uint64_t lastSeq = 0;
     {
         std::lock_guard lock(session_mutex_);
         session = session_;
         wasCompleteAtConnect = session ? session->complete : false;
+        if (session) {
+            lastSeq = session->state.sequence();
+        }
     }
 
     response.set_chunked_content_provider(
-        "text/event-stream", [this, session, wasCompleteAtConnect](size_t /*offset*/, httplib::DataSink const& sink) {
+        "text/event-stream",
+        [this, session, wasCompleteAtConnect, lastSeq](size_t /*offset*/, httplib::DataSink const& sink) mutable {
             if (!session || wasCompleteAtConnect) {
                 if (!sink.write("event: error\ndata: {\"error\":\"No active run\"}\n\n", 47)) {
                     return false;
@@ -309,16 +313,15 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& response) 
 
             std::unique_lock lock(session->mtx);
             session->cv.wait_for(lock, std::chrono::milliseconds(100),
-                                 [session]() { return session->latest.has_value() || session->complete; });
+                                 [&]() { return session->state.sequence() != lastSeq || session->complete; });
 
-            if (session->latest.has_value()) {
-                if (!session->pending_logs.empty()) {
-                    session->latest->recent_logs = std::move(session->pending_logs);
-                    session->pending_logs.clear();
-                }
-                auto stateJson = stateToJson(*session->latest, session->phase, session->state.continuousFailures());
+            uint64_t newSeq = session->state.sequence();
+            if (newSeq != lastSeq && !session->complete) {
+                auto state = session->state.latestState();
+                state.recent_logs = session->state.latestLogs();
+                auto stateJson = stateToJson(state, session->state.phase(), session->state.continuousFailures());
                 writeSSEEvent(sink, stateJson);
-                session->latest.reset();
+                lastSeq = newSeq;
             }
 
             if (session->complete) {

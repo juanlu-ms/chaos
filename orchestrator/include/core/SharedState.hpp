@@ -74,6 +74,12 @@ public:
     void addContinuousFailure(std::string_view type);
 
     /**
+     * @brief Get the current sequence counter value.
+     * @return Monotonic counter incremented on every state/log/phase mutation.
+     */
+    [[nodiscard]] uint64_t sequence() const;
+
+    /**
      * @brief Get all recorded continuous expectation failures.
      * @return List of failed expectation types.
      */
@@ -85,6 +91,7 @@ private:
     std::vector<std::string> pending_logs_;
     std::string phase_;
     std::vector<std::string> continuous_failures_;
+    uint64_t sequence_{0};
 };
 
 // ── Inline implementation ──────────────────────────────────────────
@@ -92,11 +99,13 @@ private:
 inline void SharedState::updateState(const core::TargetState& state) {
     std::lock_guard lock(mtx_);
     latest_ = state;
+    ++sequence_;
 }
 
 inline void SharedState::updateNetworkLatency(std::optional<double> latency) {
     std::lock_guard lock(mtx_);
     latest_.network_latency_ms = latency;
+    ++sequence_;
 }
 
 inline core::TargetState SharedState::latestState() const {
@@ -107,6 +116,7 @@ inline core::TargetState SharedState::latestState() const {
 inline void SharedState::updateLogs(const std::vector<std::string>& logs) {
     std::lock_guard lock(mtx_);
     pending_logs_ = logs;
+    ++sequence_;
 }
 
 inline std::vector<std::string> SharedState::latestLogs() const {
@@ -117,11 +127,17 @@ inline std::vector<std::string> SharedState::latestLogs() const {
 inline void SharedState::setPhase(std::string_view phase) {
     std::lock_guard lock(mtx_);
     phase_ = std::string(phase);
+    ++sequence_;
 }
 
 inline std::string SharedState::phase() const {
     std::lock_guard lock(mtx_);
     return phase_;
+}
+
+inline uint64_t SharedState::sequence() const {
+    std::lock_guard lock(mtx_);
+    return sequence_;
 }
 
 inline void SharedState::addContinuousFailure(std::string_view type) {

@@ -173,7 +173,7 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
     uint64_t prevNetRx{0};
     uint64_t prevNetTx{0};
     auto prevNetTime = std::chrono::steady_clock::now();
-    bool firstNet{true};
+    bool prevNetValid{false};
 
     while (!internal_stop.stop_requested() && !external_stop.stop_requested()) {
         auto tick = std::chrono::steady_clock::now();
@@ -191,12 +191,18 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
                 if (cgroup_) {
                     auto cpu = cgroup_->getCpuUsagePercent(containerId_);
                     auto mem = cgroup_->getMemoryUsageMb(containerId_);
-                    if (cpu.has_value()) state.cpu_usage_percent = cpu;
-                    if (mem.has_value()) state.memory_usage_mb = mem;
+                    if (cpu.has_value()) {
+                        state.cpu_usage_percent = cpu;
+                    }
+                    if (mem.has_value()) {
+                        state.memory_usage_mb = mem;
+                    }
 
                     if (containerPid_ > 0) {
-                        auto net = detail::parseProcNetDev(containerPid_, prevNetRx, prevNetTx, prevNetTime, firstNet);
-                        if (!firstNet) {
+                        bool hadPrevious = prevNetValid;
+                        auto net =
+                            detail::parseProcNetDev(containerPid_, prevNetRx, prevNetTx, prevNetTime, prevNetValid);
+                        if (hadPrevious) {
                             state.network_rx_bps = net.rxBps;
                             state.network_tx_bps = net.txBps;
                         }

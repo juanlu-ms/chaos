@@ -202,3 +202,53 @@ TEST(SharedStateTest, UpdateStateOverwritesNetworkLatency) {
     EXPECT_EQ(state.container_id, "new");
     EXPECT_FALSE(state.network_latency_ms.has_value());
 }
+
+/**
+ * @test Verifies that updateMetrics preserves latency set by updateNetworkLatency.
+ */
+TEST(SharedStateTest, UpdateMetricsPreservesLatency) {
+    SharedState s;
+    s.updateNetworkLatency(42.0);
+
+    TargetState ts;
+    ts.container_id = "new";
+    ts.cpu_usage_percent = 50.0;
+    s.updateMetrics(ts);
+
+    auto state = s.latestState();
+    EXPECT_EQ(state.container_id, "new");
+    ASSERT_TRUE(state.cpu_usage_percent.has_value());
+    EXPECT_DOUBLE_EQ(*state.cpu_usage_percent, 50.0);
+    ASSERT_TRUE(state.network_latency_ms.has_value());
+    EXPECT_DOUBLE_EQ(*state.network_latency_ms, 42.0);
+}
+
+/**
+ * @test Verifies that updateMetrics preserves logs set by updateLogs.
+ */
+TEST(SharedStateTest, UpdateMetricsPreservesLogs) {
+    SharedState s;
+    s.updateLogs({"log1", "log2"});
+
+    TargetState ts;
+    ts.container_id = "new";
+    s.updateMetrics(ts);
+
+    auto logs = s.latestLogs();
+    ASSERT_EQ(logs.size(), 2u);
+    EXPECT_EQ(logs[0], "log1");
+}
+
+/**
+ * @test Verifies that updateMetrics preserves phase set by setPhase.
+ */
+TEST(SharedStateTest, UpdateMetricsPreservesPhase) {
+    SharedState s;
+    s.setPhase("chaos");
+
+    TargetState ts;
+    ts.container_id = "new";
+    s.updateMetrics(ts);
+
+    EXPECT_EQ(s.phase(), "chaos");
+}

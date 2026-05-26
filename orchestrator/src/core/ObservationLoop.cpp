@@ -220,9 +220,7 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
                 }
             }
 
-            state.network_latency_ms = state_.latestState().network_latency_ms;
-
-            state_.updateState(state);
+            state_.updateMetrics(state);
             observer_.onStateUpdate(state);
 
             if (auto timeSinceLastCheck = tick - lastContinuousCheck;
@@ -288,6 +286,7 @@ void ObservationLoop::latencyThreadFn(std::stop_token internal_stop, std::stop_t
         }
 
         state_.updateNetworkLatency(latency);
+        observer_.onNetworkLatencyUpdate(latency);
 
         detail::interruptibleSleep(1s, internal_stop);
     }

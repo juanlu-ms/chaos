@@ -31,7 +31,7 @@ public:
     explicit WebRunObserver(std::shared_ptr<core::RunSession> session) : session_(std::move(session)) {}
 
     void onStateUpdate(const core::TargetState& state) override {
-        session_->state.updateState(state);
+        session_->state.updateMetrics(state);
         session_->cv.notify_all();
     }
 
@@ -42,6 +42,11 @@ public:
 
     void onLogsUpdate(const std::vector<std::string>& logs) override {
         session_->state.updateLogs(logs);
+        session_->cv.notify_all();
+    }
+
+    void onNetworkLatencyUpdate(std::optional<double> latency) override {
+        session_->state.updateNetworkLatency(latency);
         session_->cv.notify_all();
     }
 };

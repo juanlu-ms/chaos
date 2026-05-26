@@ -41,6 +41,12 @@ public:
      */
     virtual void onLogsUpdate(const std::vector<std::string>& /*logs*/) {}
 
+    /**
+     * @brief Called when network latency is measured.
+     * @param latency RTT in milliseconds, or std::nullopt if unavailable.
+     */
+    virtual void onNetworkLatencyUpdate(std::optional<double> /*latency*/) {}
+
     virtual ~IRunObserver() = default;
 };
 

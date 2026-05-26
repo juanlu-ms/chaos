@@ -32,6 +32,14 @@ public:
     void updateState(const core::TargetState& state);
 
     /**
+     * @brief Update only metrics fields (CPU, memory, network I/O, container IP).
+     *
+     * Leaves network_latency_ms, logs, and phase untouched — those have
+     * dedicated writers (latency thread, logs thread, RunOrchestrator).
+     */
+    void updateMetrics(const core::TargetState& state);
+
+    /**
      * @brief Patch only the network latency field on the latest state.
      * @param latency RTT in milliseconds, or std::nullopt if unavailable.
      */
@@ -99,6 +107,18 @@ private:
 inline void SharedState::updateState(const core::TargetState& state) {
     std::lock_guard lock(mtx_);
     latest_ = state;
+    ++sequence_;
+}
+
+inline void SharedState::updateMetrics(const core::TargetState& state) {
+    std::lock_guard lock(mtx_);
+    latest_.container_id = state.container_id;
+    latest_.status = state.status;
+    if (state.cpu_usage_percent.has_value()) latest_.cpu_usage_percent = state.cpu_usage_percent;
+    if (state.memory_usage_mb.has_value()) latest_.memory_usage_mb = state.memory_usage_mb;
+    if (state.network_rx_bps.has_value()) latest_.network_rx_bps = state.network_rx_bps;
+    if (state.network_tx_bps.has_value()) latest_.network_tx_bps = state.network_tx_bps;
+    if (state.container_ip.has_value()) latest_.container_ip = state.container_ip;
     ++sequence_;
 }
 

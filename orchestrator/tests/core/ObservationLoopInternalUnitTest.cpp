@@ -46,7 +46,7 @@ TEST(ObservationLoopInternalTest, ParseProcNetDevSecondCallWithValidPrev) {
     auto first = parseProcNetDev(getpid(), prevRx, prevTx, prevTime, prevValid);
     EXPECT_EQ(first.rxBps, 0.0);
     EXPECT_EQ(first.txBps, 0.0);
-    EXPECT_TRUE(prevValid);
+    ASSERT_TRUE(prevValid);
 
     auto second = parseProcNetDev(getpid(), prevRx, prevTx, prevTime, prevValid);
     EXPECT_TRUE(prevValid);

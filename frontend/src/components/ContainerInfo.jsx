@@ -12,6 +12,8 @@ export default function ContainerInfo({ state, target }) {
         <dd title={id || '—'}>{shortId(id)}</dd>
         <dt>Status</dt>
         <dd>{state?.status || '—'}</dd>
+        <dt>IP</dt>
+        <dd>{state?.container_ip || '—'}</dd>
         <dt>Phase</dt>
         <dd>{state?.phase || '—'}</dd>
         <dt>CPU</dt>

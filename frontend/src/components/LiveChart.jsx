@@ -2,7 +2,9 @@ import ChartBase from './ChartBase.jsx';
 
 export function formatLatency(ms) {
   if (ms == null) return '\u2014';
-  return `${Number(ms).toFixed(1)} ms`;
+  if (ms < 1) return `${Number(ms).toFixed(3)} ms`;
+  if (ms < 100) return `${Number(ms).toFixed(1)} ms`;
+  return `${Math.round(ms)} ms`;
 }
 
 export function formatBytesPerSec(v) {

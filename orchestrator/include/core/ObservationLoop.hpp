@@ -39,20 +39,24 @@ public:
      * @brief Configuration for observation intervals and continuous expectations.
      */
     struct Config {
-        Config() : metricsInterval(100), logsInterval(1500), continuousValidationInterval(500) {}
+        Config(std::chrono::milliseconds metricsInterval, std::chrono::milliseconds logsInterval,
+               std::chrono::milliseconds continuousValidationInterval)
+            : metricsInterval(metricsInterval),
+              logsInterval(logsInterval),
+              continuousValidationInterval(continuousValidationInterval) {}
 
         /** @brief Interval between metrics collection ticks. Default 100ms. */
-        std::chrono::milliseconds metricsInterval;
+        std::chrono::milliseconds metricsInterval{100};
 
         /** @brief Interval between log collection ticks. Default 1500ms. */
-        std::chrono::milliseconds logsInterval;
+        std::chrono::milliseconds logsInterval{1500};
 
         /**
          * @brief Interval for continuous-expectation validation.
          *        Default 500ms matches the current hardcoded behaviour
          *        (every ~5th tick at 100ms metrics interval).
          */
-        std::chrono::milliseconds continuousValidationInterval;
+        std::chrono::milliseconds continuousValidationInterval{500};
 
         /**
          * @brief Expectations whose `continuous` flag is true are
@@ -72,7 +76,7 @@ public:
      * @param config Interval and expectation configuration.
      */
     ObservationLoop(std::shared_ptr<containers::IContainerEngine> engine, std::string containerId, SharedState& state,
-                    IRunObserver& observer, Config config = {});
+                    IRunObserver& observer, Config config);
 
     ~ObservationLoop();
 
@@ -89,17 +93,13 @@ public:
     void start(std::stop_token external_stop = {});
 
 private:
-    /**
-     * @brief Background loop for metrics collection and continuous validation.
-     */
+    // Background loop for metrics collection and continuous validation.
     void metricsThreadFn(std::stop_token internal_stop, std::stop_token external_stop);
-    /**
-     * @brief Background loop for log collection.
-     */
+
+    // Background loop for log collection.
     void logsThreadFn(std::stop_token internal_stop, std::stop_token external_stop);
-    /**
-     * @brief Background loop for network latency measurement (ICMP ping).
-     */
+
+    // Background loop for network latency measurement (ICMP ping).
     void latencyThreadFn(std::stop_token internal_stop, std::stop_token external_stop);
 
     std::shared_ptr<containers::IContainerEngine> engine_;

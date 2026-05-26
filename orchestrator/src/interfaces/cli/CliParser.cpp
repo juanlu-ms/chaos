@@ -35,6 +35,10 @@ public:
 
     void onPhaseChange(std::string_view phase) override { SPDLOG_INFO("Entering phase: {}", phase); }
 
+    // Latency is already written to SharedState by the latency thread;
+    // the broadcaster only forwards full TargetState snapshots.
+    void onNetworkLatencyUpdate(std::optional<double> /*latency*/) override {}
+
 private:
     core::StateBroadcaster broadcaster_;
 };

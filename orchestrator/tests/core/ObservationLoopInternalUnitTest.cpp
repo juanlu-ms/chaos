@@ -36,6 +36,25 @@ TEST(ObservationLoopInternalTest, ParseProcNetDevFirstCallReturnsZeros) {
 }
 
 /**
+ * @test parseProcNetDev with valid previous snapshot computes rate deltas on second call.
+ */
+TEST(ObservationLoopInternalTest, ParseProcNetDevSecondCallWithValidPrev) {
+    uint64_t prevRx = 0, prevTx = 0;
+    auto prevTime = std::chrono::steady_clock::time_point{};
+    bool prevValid = false;
+
+    auto first = parseProcNetDev(getpid(), prevRx, prevTx, prevTime, prevValid);
+    EXPECT_EQ(first.rxBps, 0.0);
+    EXPECT_EQ(first.txBps, 0.0);
+    EXPECT_TRUE(prevValid);
+
+    auto second = parseProcNetDev(getpid(), prevRx, prevTx, prevTime, prevValid);
+    EXPECT_TRUE(prevValid);
+    EXPECT_GE(second.rxBps, 0.0);
+    EXPECT_GE(second.txBps, 0.0);
+}
+
+/**
  * @test executePing returns a positive RTT against localhost.
  */
 TEST(ObservationLoopInternalTest, ExecutePingLocalhostReturnsPositiveRtt) {

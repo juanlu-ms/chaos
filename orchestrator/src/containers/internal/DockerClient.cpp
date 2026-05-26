@@ -753,12 +753,13 @@ std::string DockerClient::getContainerIp(const std::string_view containerId) con
         jsonResponse.contains("NetworkSettings") && jsonResponse["NetworkSettings"].contains("Networks")) {
         auto& networks = jsonResponse["NetworkSettings"]["Networks"];
         if (networks.is_object() && !networks.empty()) {
-            auto firstNetwork = networks.begin().value();
-            if (firstNetwork.contains("IPAddress") && firstNetwork["IPAddress"].is_string()) {
-                std::string ip = firstNetwork["IPAddress"].get<std::string>();
-                if (!ip.empty()) {
-                    SPDLOG_INFO("Fetched IP {} for container '{}'", ip, containerId);
-                    return ip;
+            for (const auto& [name, net] : networks.items()) {
+                if (net.contains("IPAddress") && net["IPAddress"].is_string()) {
+                    std::string ip = net["IPAddress"].get<std::string>();
+                    if (!ip.empty()) {
+                        SPDLOG_INFO("Fetched IP {} for container '{}' from network '{}'", ip, containerId, name);
+                        return ip;
+                    }
                 }
             }
         }

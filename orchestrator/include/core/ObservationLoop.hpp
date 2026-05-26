@@ -39,6 +39,7 @@ public:
      * @brief Configuration for observation intervals and continuous expectations.
      */
     struct Config {
+        Config() = default;
         Config(std::chrono::milliseconds metricsInterval, std::chrono::milliseconds logsInterval,
                std::chrono::milliseconds continuousValidationInterval)
             : metricsInterval(metricsInterval),

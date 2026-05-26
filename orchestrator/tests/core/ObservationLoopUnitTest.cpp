@@ -40,7 +40,7 @@ TEST(ObservationLoopTest, StartAndDestroyWithoutExternalStop) {
     NullRunObserver observer;
 
     {
-        ObservationLoop loop(engine, "test-id", state, observer);
+        ObservationLoop loop(engine, "test-id", state, observer, ObservationLoop::Config{});
         loop.start();
         std::this_thread::sleep_for(50ms);
     }
@@ -55,7 +55,7 @@ TEST(ObservationLoopTest, StartAndStopWithExternalToken) {
     SharedState state;
     NullRunObserver observer;
 
-    ObservationLoop loop(engine, "test-id", state, observer);
+    ObservationLoop loop(engine, "test-id", state, observer, ObservationLoop::Config{});
 
     std::stop_source src;
     loop.start(src.get_token());
@@ -74,7 +74,7 @@ TEST(ObservationLoopTest, DoubleStartIsFatal) {
     SharedState state;
     NullRunObserver observer;
 
-    ObservationLoop loop(engine, "test-id", state, observer);
+    ObservationLoop loop(engine, "test-id", state, observer, ObservationLoop::Config{});
     loop.start();
     SUCCEED();
 }

@@ -102,8 +102,6 @@ private:
     uint64_t sequence_{0};
 };
 
-// ── Inline implementation ──────────────────────────────────────────
-
 inline void SharedState::updateState(const core::TargetState& state) {
     std::lock_guard lock(mtx_);
     latest_ = state;

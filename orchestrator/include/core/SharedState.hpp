@@ -96,7 +96,6 @@ public:
 private:
     mutable std::mutex mtx_;
     core::TargetState latest_;
-    std::vector<std::string> pending_logs_;
     std::string phase_;
     std::vector<std::string> continuous_failures_;
     uint64_t sequence_{0};
@@ -133,13 +132,13 @@ inline core::TargetState SharedState::latestState() const {
 
 inline void SharedState::updateLogs(const std::vector<std::string>& logs) {
     std::lock_guard lock(mtx_);
-    pending_logs_ = logs;
+    latest_.recent_logs = logs;
     ++sequence_;
 }
 
 inline std::vector<std::string> SharedState::latestLogs() const {
     std::lock_guard lock(mtx_);
-    return pending_logs_;
+    return latest_.recent_logs;
 }
 
 inline void SharedState::setPhase(std::string_view phase) {

@@ -240,6 +240,19 @@ TEST(SharedStateTest, UpdateMetricsPreservesLogs) {
 }
 
 /**
+ * @test Verifies that updateLogs populates latestState().recent_logs.
+ */
+TEST(SharedStateTest, UpdateLogsPopulatesLatestState) {
+    SharedState s;
+    s.updateLogs({"log_a", "log_b"});
+
+    auto state = s.latestState();
+    ASSERT_EQ(state.recent_logs.size(), 2u);
+    EXPECT_EQ(state.recent_logs[0], "log_a");
+    EXPECT_EQ(state.recent_logs[1], "log_b");
+}
+
+/**
  * @test Verifies that updateMetrics preserves phase set by setPhase.
  */
 TEST(SharedStateTest, UpdateMetricsPreservesPhase) {

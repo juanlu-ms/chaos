@@ -232,7 +232,7 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
                                      [](const auto& e) { return e.continuous; });
 
                 if (!continuous.empty()) {
-                    auto results = validation::validate(state, continuous);
+                    auto results = validation::validate(state_.latestState(), continuous);
                     for (const auto& r : results) {
                         if (!r.passed) {
                             state_.addContinuousFailure(r.expectationType);

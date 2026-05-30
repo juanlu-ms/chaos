@@ -317,12 +317,12 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& response) 
             }
 
             std::unique_lock lock(session->mtx);
-            session->cv.wait_for(lock, std::chrono::milliseconds(100),
-                                 [&]() { return session->state.sequence() != lastSeq || session->complete; });
+            session->cv.wait_for(lock, std::chrono::milliseconds(100), [&session, &lastSeq]() {
+                return session->state.sequence() != lastSeq || session->complete;
+            });
 
             if (uint64_t newSeq = session->state.sequence(); newSeq != lastSeq && !session->complete) {
                 auto state = session->state.latestState();
-                state.recent_logs = session->state.latestLogs();
                 auto stateJson = stateToJson(state, session->state.phase(), session->state.continuousFailures());
                 writeSSEEvent(sink, stateJson);
                 lastSeq = newSeq;

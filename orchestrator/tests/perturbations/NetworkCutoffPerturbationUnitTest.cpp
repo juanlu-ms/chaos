@@ -51,6 +51,19 @@ TEST(NetworkCutoffPerturbationTest, RevertDoesNotClearAppliedFlagOnFailure) {
 }
 
 /**
+ * @test Verifies revert is a no-op when apply has not been called.
+ */
+TEST(NetworkCutoffPerturbationTest, RevertIsNoOpBeforeApply) {
+    auto engine = std::make_shared<tests::MockContainerEngine>();
+    manifests::Perturbation spec{"network_cutoff", {}};
+
+    EXPECT_CALL(*engine, execInNetNs(_, _)).Times(0);
+
+    NetworkCutoffPerturbation p(engine, "target", spec);
+    EXPECT_NO_THROW(p.revert());
+}
+
+/**
  * @test Verifies apply is idempotent (second call is a no-op after first apply).
  */
 TEST(NetworkCutoffPerturbationTest, ApplyIsIdempotent) {

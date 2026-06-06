@@ -66,6 +66,7 @@ void NetworkCutoffPerturbation::apply() {
 
     } catch (const containers::ContainerEngineError& e) {
         hasBeenApplied_ = false;
+        revertCommands_.clear();
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
                                 std::string("Failed to apply iptables rules inside container: ") + e.what());
     }

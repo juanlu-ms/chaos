@@ -28,11 +28,13 @@ void CpuCapPerturbation::apply() {
     }
 
     if (target_id_.empty()) {
+        hasBeenApplied_ = false;
         throw std::invalid_argument("Target ID is empty");
     }
 
     auto limit_it = params_.find("cpu_cores");
     if (limit_it == params_.end()) {
+        hasBeenApplied_ = false;
         throw std::invalid_argument("Missing cpu_cores parameter");
     }
 
@@ -40,10 +42,12 @@ void CpuCapPerturbation::apply() {
     try {
         cpu_limit = std::stod(limit_it->second);
     } catch (const std::exception&) {
+        hasBeenApplied_ = false;
         throw std::invalid_argument("cpu_cores must be a valid number");
     }
 
     if (cpu_limit <= 0.0) {
+        hasBeenApplied_ = false;
         throw std::invalid_argument("cpu_cores must be greater than 0");
     }
 
@@ -53,6 +57,7 @@ void CpuCapPerturbation::apply() {
         engine_->updateCpuQuota(target_id_, cpu_quota, kCpuPeriod);
         SPDLOG_INFO("CPU Cap Perturbation applied: quota={}us/{}us on target {}", cpu_quota, kCpuPeriod, target_id_);
     } catch (const containers::ContainerEngineError& e) {
+        hasBeenApplied_ = false;
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
                                 std::string("Failed to apply CPU cap: ") + e.what());
     }
@@ -65,6 +70,7 @@ void CpuCapPerturbation::revert() {
     }
 
     if (target_id_.empty()) {
+        hasBeenApplied_ = true;
         throw std::invalid_argument("Target ID is empty");
     }
 
@@ -73,6 +79,7 @@ void CpuCapPerturbation::revert() {
         engine_->updateCpuQuota(target_id_, kDefaultCpuQuota, kCpuPeriod);
         SPDLOG_INFO("CPU Cap Perturbation reverted on target {}", target_id_);
     } catch (const containers::ContainerEngineError& e) {
+        hasBeenApplied_ = true;
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
                                 std::string("Failed to revert CPU cap: ") + e.what());
     }

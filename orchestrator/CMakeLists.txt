@@ -73,29 +73,39 @@ set_target_properties(orchestrator_app PROPERTIES OUTPUT_NAME chaos)
 
 add_executable(orchestrator_unit_tests 
     tests/containers/ContainerEngineFactoryUnitTest.cpp
+    tests/containers/internal/CgroupMetricsGathererUnitTest.cpp
     tests/containers/internal/CgroupMetricsInternalUnitTest.cpp
     tests/containers/internal/DockerClientInternalUnitTest.cpp
     tests/containers/internal/DockerClientUnitTest.cpp
+    tests/core/ChaosRunnerUnitTest.cpp
+    tests/core/ObservationLoopInternalUnitTest.cpp
+    tests/core/ObservationLoopUnitTest.cpp
+    tests/core/RunOrchestratorUnitTest.cpp
+    tests/core/SharedStateUnitTest.cpp
+    tests/core/StateBroadcasterUnitTest.cpp
     tests/interfaces/cli/CliParserUnitTest.cpp
     tests/manifests/ManifestParserUnitTest.cpp
     tests/observability/ObservabilityEngineUnitTest.cpp
     tests/observability/OtlpExporterUnitTest.cpp
-    tests/validation/ValidationEngineUnitTest.cpp
-    tests/perturbations/PerturbationEngineUnitTest.cpp
+    tests/perturbations/CpuCapPerturbationUnitTest.cpp
+    tests/perturbations/KillPerturbationUnitTest.cpp
     tests/perturbations/MemoryCapPerturbationUnitTest.cpp
+    tests/perturbations/NetworkCutoffPerturbationUnitTest.cpp
     tests/perturbations/NetworkDelayPerturbationUnitTest.cpp
-    tests/perturbations/TrafficCorruptionPerturbationUnitTest.cpp
+    tests/perturbations/PacketFloodPerturbationUnitTest.cpp
+    tests/perturbations/PerturbationEngineUnitTest.cpp
     tests/perturbations/PerturbationTests.cpp
+    tests/perturbations/TrafficCorruptionPerturbationUnitTest.cpp
     tests/perturbations/internal/PacketFloodInternalUnitTest.cpp
-    tests/core/StateBroadcasterUnitTest.cpp
     tests/signals/SignalHandlerGuardUnitTest.cpp
+    tests/validation/ValidationEngineUnitTest.cpp
+    tests/validation/ValidationFactoryUnitTest.cpp
+    tests/validation/internal/ContainerStateValidationUnitTest.cpp
+    tests/validation/internal/HttpValidationUnitTest.cpp
     tests/validation/internal/HttpValidatorBaseUnitTest.cpp
-    tests/core/ChaosRunnerUnitTest.cpp
-    tests/core/SharedStateUnitTest.cpp
-    tests/core/ObservationLoopInternalUnitTest.cpp
-    tests/core/ObservationLoopUnitTest.cpp
-    tests/core/RunOrchestratorUnitTest.cpp
+    tests/validation/internal/LogValidationUnitTest.cpp
     tests/web/JsonSerializerUnitTest.cpp
+    tests/web/ServerUnitTest.cpp
 )
 
 target_include_directories(orchestrator_unit_tests PRIVATE

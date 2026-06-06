@@ -17,6 +17,7 @@ void KillPerturbation::apply() {
     }
 
     if (target_id_.empty()) {
+        hasBeenApplied_ = false;
         throw std::invalid_argument("Target ID is empty");
     }
 
@@ -24,6 +25,7 @@ void KillPerturbation::apply() {
         engine_->killContainer(target_id_);
         SPDLOG_INFO("Kill Perturbation applied successfully to target {}", target_id_);
     } catch (const std::exception& e) {
+        hasBeenApplied_ = false;
         throw std::system_error(std::make_error_code(std::errc::operation_canceled), e.what());
     }
 }
@@ -35,6 +37,7 @@ void KillPerturbation::revert() {
     }
 
     if (target_id_.empty()) {
+        hasBeenApplied_ = true;
         throw std::invalid_argument("Target ID is empty");
     }
 
@@ -42,6 +45,7 @@ void KillPerturbation::revert() {
         engine_->startContainer(target_id_);
         SPDLOG_INFO("Kill Perturbation reverted successfully for target {}", target_id_);
     } catch (const std::exception& e) {
+        hasBeenApplied_ = true;
         throw std::system_error(std::make_error_code(std::errc::operation_canceled), e.what());
     }
 }

@@ -66,6 +66,13 @@ void NetworkCutoffPerturbation::apply() {
 
     } catch (const containers::ContainerEngineError& e) {
         hasBeenApplied_ = false;
+        for (const auto& cmd : revertCommands_) {
+            try {
+                engine_->execInNetNs(target_id_, cmd);
+            } catch (...) {
+                SPDLOG_ERROR("Failed to roll back iptables rule '{}' after apply failure", cmd);
+            }
+        }
         revertCommands_.clear();
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
                                 std::string("Failed to apply iptables rules inside container: ") + e.what());

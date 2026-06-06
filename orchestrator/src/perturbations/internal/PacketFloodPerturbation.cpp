@@ -179,6 +179,10 @@ PacketFloodPerturbation::PacketFloodPerturbation(std::shared_ptr<containers::ICo
 }
 
 void PacketFloodPerturbation::setupSocketInNetns() {
+    int containerPid = engine_->getContainerPid(target_id_);
+    if (containerPid <= 0) {
+        throw std::system_error(EINVAL, std::generic_category(), "Invalid container PID");
+    }
     UniqueFd netnsFd(engine_->getContainerNetnsFd(target_id_));
     detail::ScopedNamespaceGuard nsGuard(getpid());
 

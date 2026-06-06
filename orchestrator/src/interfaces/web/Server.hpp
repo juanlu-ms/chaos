@@ -26,13 +26,20 @@ public:
      * @param engine shared container engine implementation
      */
     explicit Server(std::shared_ptr<containers::IContainerEngine> engine);
-    ~Server() = default;
+    ~Server();
 
     /**
      * @brief Start listening on the given port (blocking call).
      * @param port TCP port number
      */
     void listen(int port);
+
+    /**
+     * @brief Stop the underlying HTTP server.
+     *
+     * Causes listen() to return, allowing graceful shutdown.
+     */
+    void stop();
 
 private:
     httplib::Server server_;

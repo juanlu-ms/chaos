@@ -94,12 +94,16 @@ Server::Server(std::shared_ptr<containers::IContainerEngine> engine) : engine_(s
     setupRoutes();
 }
 
+Server::~Server() { server_.stop(); }
+
 void Server::listen(int port) {
     SPDLOG_INFO("chaos listening to http://127.0.0.1:{}", port);
     if (!server_.listen("127.0.0.1", port)) {
         throw std::system_error(errno, std::generic_category(), "Failed to bind to port " + std::to_string(port));
     }
 }
+
+void Server::stop() { server_.stop(); }
 
 void Server::setupRoutes() {
     if (auto webRoot = findWebRoot(); webRoot.has_value()) {
@@ -387,16 +391,22 @@ void Server::handleAbort(const httplib::Request&, httplib::Response& response) {
     std::shared_ptr<RunSession> session;
     {
         std::lock_guard lock(session_mutex_);
-        if (!session_ || !session_->running) {
+        session = session_;
+    }
+    if (!session) {
+        json error = {{"error", "No active run to abort"}};
+        response.status = 409;
+        response.set_content(error.dump(4), "application/json");
+        return;
+    }
+    {
+        std::lock_guard lock(session->mtx);
+        if (!session->running) {
             json error = {{"error", "No active run to abort"}};
             response.status = 409;
             response.set_content(error.dump(4), "application/json");
             return;
         }
-        session = session_;
-    }
-    {
-        std::lock_guard lock(session->mtx);
         session->error = "Aborted by user";
         session->complete = true;
         session->running = false;

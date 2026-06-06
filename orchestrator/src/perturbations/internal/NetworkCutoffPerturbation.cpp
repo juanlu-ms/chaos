@@ -22,6 +22,7 @@ void NetworkCutoffPerturbation::apply() {
     }
 
     if (target_id_.empty()) {
+        hasBeenApplied_ = false;
         throw std::invalid_argument("Target ID is empty");
     }
 
@@ -57,7 +58,6 @@ void NetworkCutoffPerturbation::apply() {
         }
 
         if (!hasFilter) {
-            // No filters: block all egress and ingress
             addRule("-A OUTPUT -j DROP", "-D OUTPUT -j DROP");
             addRule("-A INPUT -j DROP", "-D INPUT -j DROP");
         }
@@ -65,6 +65,7 @@ void NetworkCutoffPerturbation::apply() {
         SPDLOG_INFO("Network Cutoff Perturbation applied on target {}", target_id_);
 
     } catch (const containers::ContainerEngineError& e) {
+        hasBeenApplied_ = false;
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
                                 std::string("Failed to apply iptables rules inside container: ") + e.what());
     }
@@ -77,6 +78,7 @@ void NetworkCutoffPerturbation::revert() {
     }
 
     if (target_id_.empty()) {
+        hasBeenApplied_ = true;
         throw std::invalid_argument("Target ID is empty");
     }
 
@@ -92,6 +94,7 @@ void NetworkCutoffPerturbation::revert() {
         SPDLOG_INFO("Network Cutoff Perturbation reverted on target {}", target_id_);
 
     } catch (const containers::ContainerEngineError& e) {
+        hasBeenApplied_ = true;
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
                                 std::string("Failed to revert iptables rules inside container: ") + e.what());
     }

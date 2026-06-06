@@ -31,7 +31,7 @@ protected:
     int port_ = 0;
 
     void SetUp() override {
-        engine_ = std::make_shared<tests::MockContainerEngine>();
+        engine_ = std::make_shared<NiceMock<tests::MockContainerEngine>>();
         server_ = std::make_unique<Server>(engine_);
     }
 
@@ -51,7 +51,8 @@ protected:
 
     void startServer() {
         for (int attempt = 0; attempt < 5; ++attempt) {
-            port_ = 10000 + (std::rand() % 50000);
+            static int offset = 0;
+            port_ = 15000 + ((offset++) % 50000);
             serverThread_ = std::jthread([this]() {
                 try {
                     server_->listen(port_);
@@ -67,7 +68,8 @@ protected:
                 return;
             }
             if (serverThread_.joinable()) {
-                serverThread_.detach();
+                server_->stop();
+                serverThread_.join();
             }
         }
         FAIL() << "Could not bind server to an ephemeral port";

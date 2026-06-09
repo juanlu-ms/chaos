@@ -12,7 +12,7 @@
 #include <thread>
 #include <vector>
 
-#include "perturbations/IPerturbation.hpp"
+#include "IPerturbation.hpp"
 
 namespace chaos::orchestrator::perturbations {
 

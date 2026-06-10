@@ -68,7 +68,10 @@ void NetworkCutoffPerturbation::apply() {
         hasBeenApplied_ = false;
         for (const auto& cmd : revertCommands_) {
             try {
-                engine_->execInNetNs(target_id_, cmd);
+                const auto execOut = engine_->execInNetNs(target_id_, cmd);
+                if (!execOut.empty()) {
+                    SPDLOG_DEBUG("iptables output: {}", execOut);
+                }
             } catch (...) {
                 SPDLOG_ERROR("Failed to roll back iptables rule '{}' after apply failure", cmd);
             }

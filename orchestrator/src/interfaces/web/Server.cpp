@@ -99,7 +99,7 @@ Server::~Server() { server_.stop(); }
 void Server::listen(int port) {
     SPDLOG_INFO("chaos listening to http://127.0.0.1:{}", port);
     if (!server_.listen("127.0.0.1", port)) {
-        throw std::system_error(errno, std::generic_category(), "Failed to bind to port " + std::to_string(port));
+        throw std::system_error(errno, std::generic_category(), fmt::format("Failed to bind to port {}", port));
     }
 }
 

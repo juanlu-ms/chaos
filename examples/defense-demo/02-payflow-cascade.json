@@ -27,7 +27,7 @@
       "parameters": {
         "port": "8000",
         "path": "/call-downstream",
-        "latency_ms": "500"
+        "max_latency_ms": "500"
       }
     }
   ]

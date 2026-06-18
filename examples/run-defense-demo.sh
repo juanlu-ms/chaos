@@ -6,6 +6,15 @@ cd "$(dirname "$0")"
 CHAOS_BIN="${CHAOS_BIN:-../build/dev-linux-clang/orchestrator/chaos}"
 NETWORK="chaos-defense-net"
 
+cleanup() {
+  echo ""
+  echo "Limpiando..."
+  docker rm -f chaos-demo-api chaos-demo-downstream 2>/dev/null || true
+  docker network rm "$NETWORK" 2>/dev/null || true
+  echo "Hecho."
+}
+trap cleanup EXIT
+
 echo "=================================================="
 echo " CHAOS - Demo de Defensa del TFG"
 echo "=================================================="
@@ -35,7 +44,7 @@ echo "    Esperando que downstream este listo..."
 sleep 2
 
 echo ""
-echo "[3/5] Lanzando contenedor API (chaos-demo-api)..."
+echo "[4/6] Lanzando contenedor API (chaos-demo-api)..."
 docker rm -f chaos-demo-api 2>/dev/null || true
 docker run -d \
   --name chaos-demo-api \
@@ -51,7 +60,7 @@ echo "    Esperando que API este listo..."
 sleep 2
 
 echo ""
-echo "[4/5] Verificando conectividad..."
+echo "[5/6] Verificando conectividad..."
 echo -n "    API /ping: "
 curl -s http://127.0.0.1:8000/ping | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])"
 echo -n "    Downstream /ping: "
@@ -60,7 +69,7 @@ echo -n "    API /call-downstream: "
 curl -s http://127.0.0.1:8000/call-downstream | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])"
 
 echo ""
-echo "[5/5] Pre-fugando memoria en el API (50MB)..."
+echo "[6/6] Pre-fugando memoria en el API (50MB)..."
 for i in $(seq 1 5); do
   curl -s http://127.0.0.1:8000/allocate > /dev/null
   echo "    +10MB (total: ${i}0MB)"

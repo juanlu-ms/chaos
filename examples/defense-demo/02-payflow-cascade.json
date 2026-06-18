@@ -14,7 +14,7 @@
     {
       "type": "cpu_cap",
       "parameters": {
-        "cpu_cores": "50000"
+        "cpu_cores": "0.5"
       }
     }
   ],

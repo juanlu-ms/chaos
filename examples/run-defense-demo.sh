@@ -20,16 +20,16 @@ echo " CHAOS - Demo de Defensa del TFG"
 echo "=================================================="
 
 echo ""
-echo "[1/5] Construyendo imagen de los contenedores demo..."
+echo "[1/6] Construyendo imagen de los contenedores demo..."
 docker build -t chaos-defense-target ./demo-target
 
 echo ""
-echo "[2/5] Creando red Docker personalizada..."
+echo "[2/6] Creando red Docker personalizada..."
 docker network rm -f "$NETWORK" 2>/dev/null || true
 docker network create "$NETWORK"
 
 echo ""
-echo "[3/5] Lanzando contenedor downstream (chaos-demo-downstream)..."
+echo "[3/6] Lanzando contenedor downstream (chaos-demo-downstream)..."
 docker rm -f chaos-demo-downstream 2>/dev/null || true
 docker run -d \
   --name chaos-demo-downstream \

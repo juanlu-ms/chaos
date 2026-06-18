@@ -20,6 +20,7 @@ RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedS
 
     // ── Normal phase ──────────────────────────────────────────────
     observer.onPhaseChange("normal");
+    SPDLOG_INFO("Entering normal phase");
     state.setPhase("normal");
 
     if (duration.count() > 0) {
@@ -46,6 +47,7 @@ RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedS
 
     // ── Recovery phase ────────────────────────────────────────────
     observer.onPhaseChange("recovery");
+    SPDLOG_INFO("Entering recovery phase");
     state.setPhase("recovery");
 
     if (duration.count() > 0) {
@@ -55,6 +57,7 @@ RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedS
     // ── Validation ────────────────────────────────────────────────
     auto finalState = state.latestState();
     auto failures = state.continuousFailures();
+    SPDLOG_INFO("Running final validation");
     return runner_.finalize(manifest, finalState, failures);
 }
 

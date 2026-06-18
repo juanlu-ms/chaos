@@ -7,6 +7,7 @@ import json
 import datetime
 import math
 import os
+import urllib.request
 from urllib.parse import urlparse, parse_qs
 
 PORT = 8000
@@ -149,6 +150,26 @@ class DemoHandler(http.server.SimpleHTTPRequestHandler):
             "active_cpu_hogs": active_cpu_hogs()
         })
 
+    def _handle_call_downstream(self):
+        downstream_url = os.getenv("DOWNSTREAM_URL", "http://127.0.0.1:8001/data")
+        timeout_s = float(os.getenv("DOWNSTREAM_TIMEOUT", "5.0"))
+        try:
+            req = urllib.request.Request(downstream_url)
+            with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+                body = resp.read().decode("utf-8")
+            self._send_json({
+                "status": "ok",
+                "action": "call_downstream",
+                "downstream_status": resp.status,
+                "downstream_response": body[:200]
+            })
+        except Exception as e:
+            self._send_json({
+                "status": "error",
+                "action": "call_downstream",
+                "error": str(e)
+            })
+
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
@@ -164,6 +185,8 @@ class DemoHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_cpu_stop()
         elif path == '/ping':
             self._handle_ping()
+        elif path == '/call-downstream':
+            self._handle_call_downstream()
         else:
             self._send_text(b"Chaos Target Running")
 

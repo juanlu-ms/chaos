@@ -87,9 +87,10 @@ TEST(SharedStateTest, AddContinuousFailureDeduplicates) {
     s.addContinuousFailure("http_status");
     s.addContinuousFailure("http_status");  // duplicate
     s.addContinuousFailure("container_running");
+    s.addContinuousFailure("http_latency");
 
     auto failures = s.continuousFailures();
-    EXPECT_EQ(failures.size(), 2u);
+    EXPECT_EQ(failures.size(), 3u);
 }
 
 /**

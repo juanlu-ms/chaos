@@ -373,4 +373,71 @@ TEST_F(ManifestParserUnitTest, DurationOmissionParses) {
     EXPECT_FALSE(manifest.duration_s.has_value());
 }
 
+/**
+ * @test Verifies http_latency with "continuous": true is parsed correctly.
+ */
+TEST_F(ManifestParserUnitTest, HttpLatencyContinuousTrueIsParsed) {
+    const auto file = createTempManifest(R"json(
+{
+  "test_name": "http-latency-continuous",
+  "target": { "id": "test-container" },
+  "perturbations": [],
+  "expectations": [
+    { "type": "http_latency", "continuous": true,
+      "parameters": { "port": "8080", "path": "/ping", "max_latency_ms": "500" } }
+  ]
+}
+)json");
+
+    const auto manifest = ManifestParser::parseFromFile(file);
+    ASSERT_EQ(manifest.expectations.size(), 1u);
+    EXPECT_EQ(manifest.expectations[0].type, "http_latency");
+    EXPECT_TRUE(manifest.expectations[0].continuous);
+}
+
+/**
+ * @test Verifies http_latency without "continuous" defaults to true
+ *        (is in kContinuousTypes).
+ */
+TEST_F(ManifestParserUnitTest, HttpLatencyWithoutContinuousDefaultsToTrue) {
+    const auto file = createTempManifest(R"json(
+{
+  "test_name": "http-latency-no-continuous",
+  "target": { "id": "test-container" },
+  "perturbations": [],
+  "expectations": [
+    { "type": "http_latency",
+      "parameters": { "port": "8080", "path": "/ping", "max_latency_ms": "500" } }
+  ]
+}
+)json");
+
+    const auto manifest = ManifestParser::parseFromFile(file);
+    ASSERT_EQ(manifest.expectations.size(), 1u);
+    EXPECT_EQ(manifest.expectations[0].type, "http_latency");
+    EXPECT_TRUE(manifest.expectations[0].continuous);
+}
+
+/**
+ * @test Verifies http_latency with "continuous": false overrides the default.
+ */
+TEST_F(ManifestParserUnitTest, HttpLatencyExplicitContinuousFalseOverridesDefault) {
+    const auto file = createTempManifest(R"json(
+{
+  "test_name": "http-latency-continuous-false",
+  "target": { "id": "test-container" },
+  "perturbations": [],
+  "expectations": [
+    { "type": "http_latency", "continuous": false,
+      "parameters": { "port": "8080", "path": "/ping", "max_latency_ms": "500" } }
+  ]
+}
+)json");
+
+    const auto manifest = ManifestParser::parseFromFile(file);
+    ASSERT_EQ(manifest.expectations.size(), 1u);
+    EXPECT_EQ(manifest.expectations[0].type, "http_latency");
+    EXPECT_FALSE(manifest.expectations[0].continuous);
+}
+
 }  // namespace UnitTest

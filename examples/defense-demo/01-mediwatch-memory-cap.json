@@ -8,7 +8,7 @@
     {
       "type": "memory_cap",
       "parameters": {
-        "limit_bytes": "134217728"
+        "limit_bytes": "33554432"
       }
     }
   ],

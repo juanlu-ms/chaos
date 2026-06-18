@@ -69,8 +69,8 @@ echo -n "    API /call-downstream: "
 curl -s http://127.0.0.1:8000/call-downstream | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])"
 
 echo ""
-echo "[6/6] Pre-fugando memoria en el API (50MB)..."
-for i in $(seq 1 5); do
+echo "[6/6] Pre-fugando memoria en el API (30MB)..."
+for i in $(seq 1 3); do
   curl -s http://127.0.0.1:8000/allocate > /dev/null
   echo "    +10MB (total: ${i}0MB)"
 done

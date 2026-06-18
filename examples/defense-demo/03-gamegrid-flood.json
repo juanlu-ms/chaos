@@ -1,0 +1,37 @@
+{
+  "test_name": "GameGrid — Ataque DDoS (packet_flood + traffic_corruption)",
+  "target": {
+    "id": "chaos-demo-api"
+  },
+  "duration_s": 12,
+  "perturbations": [
+    {
+      "type": "packet_flood",
+      "parameters": {
+        "rate": "2000",
+        "packet_size": "256"
+      }
+    },
+    {
+      "type": "traffic_corruption",
+      "parameters": {
+        "corrupt_pct": "10%",
+        "loss_pct": "5%",
+        "duplicate_pct": "1%"
+      }
+    }
+  ],
+  "expectations": [
+    {
+      "type": "container_running"
+    },
+    {
+      "type": "http_status",
+      "parameters": {
+        "port": "8000",
+        "path": "/ping",
+        "expected_status": "200"
+      }
+    }
+  ]
+}

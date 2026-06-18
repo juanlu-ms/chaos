@@ -1,0 +1,34 @@
+{
+  "test_name": "PayFlow — Latencia en Cascada (network_delay + cpu_cap)",
+  "target": {
+    "id": "chaos-demo-api"
+  },
+  "duration_s": 15,
+  "perturbations": [
+    {
+      "type": "network_delay",
+      "parameters": {
+        "delay_ms": "1200"
+      }
+    },
+    {
+      "type": "cpu_cap",
+      "parameters": {
+        "cpu_cores": "50000"
+      }
+    }
+  ],
+  "expectations": [
+    {
+      "type": "container_running"
+    },
+    {
+      "type": "http_latency",
+      "parameters": {
+        "port": "8000",
+        "path": "/call-downstream",
+        "latency_ms": "500"
+      }
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "test_name": "MediWatch — Memory Cap (Fuga de Memoria)",
+  "target": {
+    "id": "chaos-demo-api"
+  },
+  "duration_s": 12,
+  "perturbations": [
+    {
+      "type": "memory_cap",
+      "parameters": {
+        "limit_bytes": "134217728"
+      }
+    }
+  ],
+  "expectations": [
+    {
+      "type": "container_not_running"
+    },
+    {
+      "type": "http_status",
+      "parameters": {
+        "port": "8000",
+        "path": "/ping",
+        "expected_status": "200"
+      }
+    }
+  ]
+}

@@ -3,6 +3,7 @@
  * @brief Entry point for the chaos orchestrator.
  */
 
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
 #include <charconv>
@@ -28,7 +29,7 @@ int parsePort(std::span<char*> args) {
         if (std::string_view(args[i]) == "--port") {
             auto [ptr, ec] = std::from_chars(args[i + 1], args[i + 1] + std::strlen(args[i + 1]), port);
             if (ec != std::errc{}) {
-                SPDLOG_ERROR("Invalid port number: {}", args[i + 1]);
+                fmt::print(stderr, "Invalid port number: {}\n", args[i + 1]);
                 return -1;
             }
         }

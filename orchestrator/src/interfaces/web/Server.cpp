@@ -312,7 +312,9 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& response) 
     response.set_chunked_content_provider(
         "text/event-stream",
         [this, session, wasCompleteAtConnect, lastSeq](size_t /*offset*/, httplib::DataSink const& sink) mutable {
+            SPDLOG_DEBUG("SSE event stream connected");
             if (!session || wasCompleteAtConnect) {
+                SPDLOG_DEBUG("SSE event stream: no active session, closing");
                 if (!sink.write("event: error\ndata: {\"error\":\"No active run\"}\n\n", 47)) {
                     return false;
                 }

@@ -467,6 +467,7 @@ int DockerClient::getContainerNetnsFd(const std::string_view containerId) const 
     if (containerId.empty()) {
         throw std::invalid_argument("Container ID cannot be empty");
     }
+    SPDLOG_DEBUG("DockerClient: getting netns fd for container {}", containerId);
 
     const auto inspectResponse = request_(HttpMethod::GET, fmt::format("/containers/{}/json", containerId), "");
     if (inspectResponse.status != 200) {
@@ -492,6 +493,7 @@ int DockerClient::getContainerNetnsFd(const std::string_view containerId) const 
         throw containers::ContainerEngineError(
             fmt::format("Failed to open network namespace for container '{}': {}", containerId, std::strerror(errno)));
     }
+    SPDLOG_DEBUG("DockerClient: obtained netns fd {} for container {}", fd, containerId);
 
     return fd;
 }

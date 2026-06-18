@@ -54,7 +54,7 @@ void TrafficCorruptionPerturbation::apply() {
             const auto execOut =
                 engine_->execInNetNs(target_id_, fmt::format("tc qdisc replace dev {} root netem{}", iface, opts));
             if (!execOut.empty()) {
-                SPDLOG_DEBUG("tc output: {}", execOut);
+                SPDLOG_TRACE("tc output: {}", execOut);
             }
         }
         SPDLOG_INFO("Traffic Corruption applied on target {} iface={}: {}", target_id_, iface, opts);
@@ -84,7 +84,7 @@ void TrafficCorruptionPerturbation::revert() {
         {
             const auto execOut = engine_->execInNetNs(target_id_, "tc qdisc del dev " + iface + " root netem");
             if (!execOut.empty()) {
-                SPDLOG_DEBUG("tc output: {}", execOut);
+                SPDLOG_TRACE("tc output: {}", execOut);
             }
         }
         SPDLOG_INFO("Traffic Corruption reverted on target {}", target_id_);

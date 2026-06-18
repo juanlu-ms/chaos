@@ -33,7 +33,7 @@ void NetworkCutoffPerturbation::apply() {
             {
                 const auto execOut = engine_->execInNetNs(target_id_, "iptables " + applyArgs);
                 if (!execOut.empty()) {
-                    SPDLOG_DEBUG("iptables output: {}", execOut);
+                    SPDLOG_TRACE("iptables output: {}", execOut);
                 }
             }
             revertCommands_.push_back("iptables " + revertArgs);
@@ -70,7 +70,7 @@ void NetworkCutoffPerturbation::apply() {
             try {
                 const auto execOut = engine_->execInNetNs(target_id_, cmd);
                 if (!execOut.empty()) {
-                    SPDLOG_DEBUG("iptables output: {}", execOut);
+                    SPDLOG_TRACE("iptables output: {}", execOut);
                 }
             } catch (...) {
                 SPDLOG_ERROR("Failed to roll back iptables rule '{}' after apply failure", cmd);
@@ -97,7 +97,7 @@ void NetworkCutoffPerturbation::revert() {
         for (const auto& command : revertCommands_) {
             const auto execOut = engine_->execInNetNs(target_id_, command);
             if (!execOut.empty()) {
-                SPDLOG_DEBUG("iptables output: {}", execOut);
+                SPDLOG_TRACE("iptables output: {}", execOut);
             }
         }
 

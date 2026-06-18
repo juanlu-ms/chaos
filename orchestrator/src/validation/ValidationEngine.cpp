@@ -1,7 +1,5 @@
 #include "validation/ValidationEngine.hpp"
 
-#include <spdlog/spdlog.h>
-
 #include <vector>
 
 #include "validation/ValidationFactory.hpp"
@@ -16,12 +14,6 @@ std::vector<ValidationResult> validate(const core::TargetState& targetState,
     for (const auto& expectation : expectations) {
         auto validator = createValidator(expectation);
         ValidationResult result = validator->validate(targetState, expectation);
-
-        if (result.passed) {
-            SPDLOG_INFO("[PASS] {}: {}", result.expectationType, result.message);
-        } else {
-            SPDLOG_ERROR("[FAIL] {}: {}", result.expectationType, result.message);
-        }
 
         results.push_back(std::move(result));
     }

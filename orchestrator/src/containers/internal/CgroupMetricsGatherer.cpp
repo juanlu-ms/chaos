@@ -76,9 +76,12 @@ std::optional<std::filesystem::path> CgroupMetricsGatherer::resolveCgroupPath(co
         }
         const auto name = entry.path().filename().string();
         if (name.contains(idStr)) {
+            SPDLOG_DEBUG("CgroupMetricsGatherer: cgroup v2 path resolved for '{}' -> {}", containerId,
+                         entry.path().string());
             return entry.path();
         }
     }
+    SPDLOG_DEBUG("CgroupMetricsGatherer: cgroup v2 path not found for '{}'", containerId);
     return std::nullopt;
 }
 

@@ -56,9 +56,9 @@ int runServer(std::shared_ptr<chaos::orchestrator::containers::IContainerEngine>
 }  // namespace
 
 int main(int argc, char* argv[]) {
-    spdlog::set_level(spdlog::level::debug);
-
     auto engine = createContainerEngine();
+
+    SPDLOG_INFO("chaos starting");
 
     std::span<char*> args{argv, static_cast<std::size_t>(argc)};
 

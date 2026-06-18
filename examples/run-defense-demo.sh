@@ -13,7 +13,7 @@ cleanup() {
   docker network rm "$NETWORK" 2>/dev/null || true
   echo "Hecho."
 }
-trap cleanup EXIT
+trap cleanup ERR
 
 echo "=================================================="
 echo " CHAOS - Demo de Defensa del TFG"
@@ -89,8 +89,8 @@ echo ""
 echo " O usa la Web UI:"
 echo "   sudo $CHAOS_BIN serve --port 8080"
 echo "   # Abre http://127.0.0.1:8080"
-echo " Limpieza automatica al salir del script (trap EXIT)."
-echo " Para limpiar manualmente si cancelaste con Ctrl+C:"
+echo " NOTA: Los contenedores se limpian automaticamente si el script falla."
+echo " Para limpiar manualmente tras la demo:"
 echo "   docker rm -f chaos-demo-api chaos-demo-downstream"
 echo "   docker network rm $NETWORK"
 echo "=================================================="

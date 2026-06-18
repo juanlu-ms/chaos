@@ -60,20 +60,22 @@ echo "    Esperando que API este listo..."
 sleep 2
 
 echo ""
-echo "[5/6] Verificando conectividad..."
+echo "[5/6] Verificando conectividad (via Docker exec)..."
 echo -n "    API /ping: "
-curl -s http://127.0.0.1:8000/ping | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])"
+docker exec chaos-demo-api python3 -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/ping',timeout=3).read().decode())" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])" 2>/dev/null || echo "(inaccesible via localhost, usando API interna)"
 echo -n "    Downstream /ping: "
-curl -s http://127.0.0.1:8001/ping | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])"
+docker exec chaos-demo-downstream python3 -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8001/ping',timeout=3).read().decode())" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])" 2>/dev/null || echo "(inaccesible via localhost, usando API interna)"
 echo -n "    API /call-downstream: "
-curl -s http://127.0.0.1:8000/call-downstream | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])"
+docker exec chaos-demo-api python3 -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/call-downstream',timeout=5).read().decode())" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])" 2>/dev/null || echo "(inaccesible via localhost, usando API interna)"
 
 echo ""
 echo "[6/6] Pre-fugando memoria en el API (30MB)..."
-for i in $(seq 1 3); do
-  curl -s http://127.0.0.1:8000/allocate > /dev/null
-  echo "    +10MB (total: ${i}0MB)"
-done
+docker exec chaos-demo-api python3 -c "
+import urllib.request
+for i in range(3):
+    urllib.request.urlopen('http://127.0.0.1:8000/allocate', timeout=3)
+    print(f'    +10MB (total: {(i+1)*10}MB)')
+"
 
 echo ""
 echo "=================================================="
@@ -87,8 +89,8 @@ echo ""
 echo " O usa la Web UI:"
 echo "   sudo $CHAOS_BIN serve --port 8080"
 echo "   # Abre http://127.0.0.1:8080"
-echo ""
-echo " Para limpiar:"
+echo " Limpieza automatica al salir del script (trap EXIT)."
+echo " Para limpiar manualmente si cancelaste con Ctrl+C:"
 echo "   docker rm -f chaos-demo-api chaos-demo-downstream"
 echo "   docker network rm $NETWORK"
 echo "=================================================="

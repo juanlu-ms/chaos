@@ -64,13 +64,13 @@ std::string createTarArchive(const std::string_view dockerfilePath) {
     for (const auto& entry : std::filesystem::recursive_directory_iterator(
              contextDir, std::filesystem::directory_options::skip_permission_denied)) {
         if (entry.is_symlink()) {
-            SPDLOG_WARN("Skipping symlink in build context: {}", entry.path().string());
+            SPDLOG_INFO("Skipping symlink in build context: {}", entry.path().string());
             continue;
         }
 
         const auto& path = entry.path();
         if (!chaos::orchestrator::containers::detail::isWithinBuildContext(path, canonicalContext)) {
-            SPDLOG_WARN("Path escapes build context, skipping: {}", path.string());
+            SPDLOG_INFO("Path escapes build context, skipping: {}", path.string());
             continue;
         }
 

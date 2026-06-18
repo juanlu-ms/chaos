@@ -43,7 +43,7 @@ bool OtlpExporter::exportLogs(const json& payload) {
         client.set_read_timeout(10);
         auto res = client.Post("/v1/logs", payload.dump(), "application/json");
         if (!res) {
-            SPDLOG_WARN("OTLP export request failed: no response");
+            SPDLOG_ERROR("OTLP export request failed: no response");
             return false;
         }
         if (res->status != 200) {

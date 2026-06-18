@@ -27,6 +27,7 @@ void PerturbationEngine::scheduleAllAsync(std::vector<std::unique_ptr<IPerturbat
         auto internal_token = stop_source_.get_token();
         active_threads_.emplace_back(
             [this, duration, perturbation = std::move(perturbation), internal_token, external_stop]() mutable {
+                SPDLOG_DEBUG("Perturbation task starting");
                 try {
                     perturbation->apply();
 

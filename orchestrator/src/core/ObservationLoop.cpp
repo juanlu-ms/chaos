@@ -278,6 +278,10 @@ void ObservationLoop::logsThreadFn(std::stop_token internal_stop, std::stop_toke
 }
 
 void ObservationLoop::latencyThreadFn(std::stop_token internal_stop, std::stop_token external_stop) {
+    if (containerIp_.has_value() && !containerIp_->empty()) {
+        SPDLOG_DEBUG("Latency monitoring started for {}", *containerIp_);
+    }
+
     while (!internal_stop.stop_requested() && !external_stop.stop_requested()) {
         std::optional<double> latency;
 

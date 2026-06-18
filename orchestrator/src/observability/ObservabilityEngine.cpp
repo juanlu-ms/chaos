@@ -50,12 +50,10 @@ containers::ContainerStatus ObservabilityEngine::getStatus(const std::string_vie
 }
 
 std::string ObservabilityEngine::getLogs(const std::string_view containerId) const {
-    SPDLOG_DEBUG("ObservabilityEngine: getting logs for container '{}'", containerId);
     return engine_->getLogs(containerId);
 }
 
 containers::ContainerStats ObservabilityEngine::getStats(const std::string_view containerId) {
-    SPDLOG_DEBUG("ObservabilityEngine: getting stats for container '{}'", containerId);
     return engine_->getStats(containerId);
 }
 
@@ -73,7 +71,6 @@ void parseLogLines(const std::string_view raw, std::vector<std::string>& out) {
 }
 
 std::optional<std::string> ObservabilityEngine::getContainerIp(const std::string_view containerId) const {
-    SPDLOG_DEBUG("ObservabilityEngine: getting IP for container '{}'", containerId);
     try {
         return engine_->getContainerIp(containerId);
     } catch (const containers::ContainerEngineError& e) {

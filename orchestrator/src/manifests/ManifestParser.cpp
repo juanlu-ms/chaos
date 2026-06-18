@@ -21,8 +21,8 @@ using StringSet = std::unordered_set<std::string, TransparentStringHash, std::eq
 using RuleMap =
     std::unordered_map<std::string, std::vector<RequiredParameterRule>, TransparentStringHash, std::equal_to<>>;
 
-const StringSet kSupportedPerturbations = {"kill",          "memory_cap",     "cpu_cap",
-                                           "network_delay", "network_cutoff", "garbage_packet"};
+const StringSet kSupportedPerturbations = {"kill",           "memory_cap",   "cpu_cap",           "network_delay",
+                                           "network_cutoff", "packet_flood", "traffic_corruption"};
 
 const RuleMap kPerturbationRequiredParams = {
     {"memory_cap", {{"limit_bytes", "Missing 'limit_bytes' parameter for memory_cap perturbation"}}},

@@ -32,7 +32,12 @@ export const PERTURBATION_PARAMS = {
     { key: 'dst_port', label: 'Dest Port', placeholder: 'target port' },
     { key: 'src_port', label: 'Source Port', placeholder: 'source port' },
   ],
-  garbage_packet: [
+  packet_flood: [
+    { key: 'rate', label: 'Rate (pps)', placeholder: 'e.g. 1000', default: '1000' },
+    { key: 'packet_size', label: 'Packet Size (bytes)', placeholder: 'e.g. 128', default: '128' },
+    { key: 'iface', label: 'Interface', placeholder: 'eth0', default: 'eth0' },
+  ],
+  traffic_corruption: [
     { key: 'corrupt_pct', label: 'Corrupt %', placeholder: 'e.g. 25' },
     { key: 'loss_pct', label: 'Loss %', placeholder: 'e.g. 10' },
     { key: 'duplicate_pct', label: 'Duplicate %', placeholder: 'e.g. 5' },

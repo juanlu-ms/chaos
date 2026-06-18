@@ -1,5 +1,6 @@
 #include "interfaces/cli/CliParser.hpp"
 
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
 #include <chrono>
@@ -85,7 +86,7 @@ int CliParser::dispatchCommand(const std::vector<std::string>& args) const {
 
     if (command == "stop") {
         if (args.size() < 3) {
-            SPDLOG_ERROR("'stop' requires a container ID");
+            fmt::print(stderr, "'stop' requires a container ID\n");
             return 1;
         }
         return handleStop(args[2]);
@@ -93,7 +94,7 @@ int CliParser::dispatchCommand(const std::vector<std::string>& args) const {
 
     if (command == "kill") {
         if (args.size() < 3) {
-            SPDLOG_ERROR("'kill' requires a container ID");
+            fmt::print(stderr, "'kill' requires a container ID\n");
             return 1;
         }
         return handleKill(args[2]);
@@ -101,43 +102,43 @@ int CliParser::dispatchCommand(const std::vector<std::string>& args) const {
 
     if (command == "run") {
         if (args.size() < 3) {
-            SPDLOG_ERROR("'run' requires a path to a manifest JSON");
+            fmt::print(stderr, "'run' requires a path to a manifest JSON\n");
             return 1;
         }
         return handleRun(args[2]);
     }
 
-    SPDLOG_ERROR("Unknown command: '{}'", command);
+    fmt::print(stderr, "Unknown command: '{}'\n", command);
     printUsage();
     return 1;
 }
 
 void CliParser::printUsage() const {
-    SPDLOG_INFO(
-        "Usage: chaos <command> [options]\n"
-        "\n"
-        "Chaos - Resilience Tool for Docker Containers\n"
-        "\n"
-        "Commands:\n"
-        "  list                  List all containers\n"
-        "  stop  <container_id>  Stop a running container\n"
-        "  kill  <container_id>  Kill a running container\n"
-        "  run   <manifest.json> Execute a chaos manifest\n"
-        "  help                  Show this help message\n"
-        "\n"
-        "Options:\n"
-        "  -v, --verbose         Enable debug logging\n");
+    fmt::print(stdout,
+               "Usage: chaos <command> [options]\n"
+               "\n"
+               "Chaos - Resilience Tool for Docker Containers\n"
+               "\n"
+               "Commands:\n"
+               "  list                  List all containers\n"
+               "  stop  <container_id>  Stop a running container\n"
+               "  kill  <container_id>  Kill a running container\n"
+               "  run   <manifest.json> Execute a chaos manifest\n"
+               "  help                  Show this help message\n"
+               "\n"
+               "Options:\n"
+               "  -v, --verbose         Enable debug logging\n");
 }
 
 int CliParser::handleList() const {
     try {
         auto containers = engine_->listContainers();
         if (containers.empty()) {
-            SPDLOG_INFO("No containers found.");
+            fmt::print(stdout, "No containers found.\n");
             return 0;
         }
 
-        SPDLOG_INFO("{:<14} {:<30} {}", "CONTAINER ID", "NAME", "STATE");
+        fmt::print(stdout, "{:<14} {:<30} {}\n", "CONTAINER ID", "NAME", "STATE");
         for (const auto& container : containers) {
             std::string displayId = container.id;
             if (displayId.empty()) {
@@ -145,10 +146,10 @@ int CliParser::handleList() const {
             } else if (displayId.size() > 12) {
                 displayId = displayId.substr(0, 12);
             }
-            SPDLOG_INFO("{:<14} {:<30} {}", displayId, container.name, container.state);
+            fmt::print(stdout, "{:<14} {:<30} {}\n", displayId, container.name, container.state);
         }
     } catch (const containers::ContainerEngineError& ex) {
-        SPDLOG_ERROR("Failed to list containers: {}", ex.what());
+        fmt::print(stderr, "Failed to list containers: {}\n", ex.what());
         return 1;
     }
 
@@ -158,12 +159,12 @@ int CliParser::handleList() const {
 int CliParser::handleStop(const std::string& containerId) const {
     try {
         engine_->stopContainer(containerId);
-        SPDLOG_INFO("Container {} stopped.", containerId);
+        fmt::print(stdout, "Container {} stopped.\n", containerId);
     } catch (const std::invalid_argument& ex) {
-        SPDLOG_ERROR("Failed to stop container {}: {}", containerId, ex.what());
+        fmt::print(stderr, "Failed to stop container {}: {}\n", containerId, ex.what());
         return 1;
     } catch (const containers::ContainerEngineError& ex) {
-        SPDLOG_ERROR("Failed to stop container {}: {}", containerId, ex.what());
+        fmt::print(stderr, "Failed to stop container {}: {}\n", containerId, ex.what());
         return 1;
     }
 
@@ -173,12 +174,12 @@ int CliParser::handleStop(const std::string& containerId) const {
 int CliParser::handleKill(const std::string& containerId) const {
     try {
         engine_->killContainer(containerId);
-        SPDLOG_INFO("Container {} killed.", containerId);
+        fmt::print(stdout, "Container {} killed.\n", containerId);
     } catch (const std::invalid_argument& ex) {
-        SPDLOG_ERROR("Failed to kill container {}: {}", containerId, ex.what());
+        fmt::print(stderr, "Failed to kill container {}: {}\n", containerId, ex.what());
         return 1;
     } catch (const containers::ContainerEngineError& ex) {
-        SPDLOG_ERROR("Failed to kill container {}: {}", containerId, ex.what());
+        fmt::print(stderr, "Failed to kill container {}: {}\n", containerId, ex.what());
         return 1;
     }
 
@@ -214,16 +215,16 @@ int CliParser::handleRun(const std::string& manifestPath) const {
             return 1;
         }
     } catch (const manifests::ManifestParserError& ex) {
-        SPDLOG_ERROR("Failed to run manifest: {}", ex.what());
+        fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;
     } catch (const std::invalid_argument& ex) {
-        SPDLOG_ERROR("Failed to run manifest: {}", ex.what());
+        fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;
     } catch (const containers::ContainerEngineError& ex) {
-        SPDLOG_ERROR("Failed to run manifest: {}", ex.what());
+        fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;
     } catch (const std::system_error& ex) {
-        SPDLOG_ERROR("Failed to run manifest: {}", ex.what());
+        fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;
     }
     return 0;
@@ -232,9 +233,9 @@ int CliParser::handleRun(const std::string& manifestPath) const {
 void CliParser::printRunResults(const core::RunResult& runResult) const {
     for (const auto& result : runResult.results) {
         if (result.passed) {
-            SPDLOG_INFO("  ✓ {}: {}", result.expectationType, result.message);
+            fmt::print(stdout, "  ✓ {}: {}\n", result.expectationType, result.message);
         } else {
-            SPDLOG_ERROR("  ✗ {}: {}", result.expectationType, result.message);
+            fmt::print(stderr, "  ✗ {}: {}\n", result.expectationType, result.message);
         }
     }
 }

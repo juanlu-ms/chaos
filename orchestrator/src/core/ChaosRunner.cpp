@@ -25,6 +25,7 @@ std::vector<std::unique_ptr<perturbations::IPerturbation>> ChaosRunner::buildPer
     perturbations::PerturbationFactory factory;
     std::vector<std::unique_ptr<perturbations::IPerturbation>> instances;
     instances.reserve(manifest.perturbations.size());
+    SPDLOG_DEBUG("Building {} perturbation(s)", manifest.perturbations.size());
     for (const auto& spec : manifest.perturbations) {
         instances.push_back(factory.create(engine_, manifest.target, spec));
     }
@@ -33,6 +34,7 @@ std::vector<std::unique_ptr<perturbations::IPerturbation>> ChaosRunner::buildPer
 
 RunResult ChaosRunner::finalize(const manifests::ChaosManifest& manifest, const core::TargetState& finalState,
                                 const std::vector<std::string>& continuousFailures) const {
+    SPDLOG_DEBUG("Finalizing run with {} expectation(s)", manifest.expectations.size());
     if (manifest.expectations.empty()) {
         return {true, {}};
     }
@@ -55,6 +57,7 @@ RunResult ChaosRunner::finalize(const manifests::ChaosManifest& manifest, const 
 }
 
 manifests::ChaosManifest ChaosRunner::parseManifest(const std::string& path) const {
+    SPDLOG_DEBUG("Parsing manifest from '{}'", path);
     return manifests::ManifestParser::parseFromFile(path);
 }
 

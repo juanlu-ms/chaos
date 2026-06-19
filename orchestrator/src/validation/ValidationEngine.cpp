@@ -1,7 +1,7 @@
 #include "validation/ValidationEngine.hpp"
 
-#include <vector>
 #include <utility>
+#include <vector>
 
 #include "validation/ValidationFactory.hpp"
 

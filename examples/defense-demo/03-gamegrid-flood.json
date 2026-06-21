@@ -8,16 +8,16 @@
     {
       "type": "packet_flood",
       "parameters": {
-        "rate": "2000",
-        "packet_size": "256"
+        "rate": "5000",
+        "packet_size": "512"
       }
     },
     {
       "type": "traffic_corruption",
       "parameters": {
         "corrupt_pct": "10%",
-        "loss_pct": "5%",
-        "duplicate_pct": "1%"
+        "loss_pct": "10%",
+        "duplicate_pct": "5%"
       }
     }
   ],
@@ -31,6 +31,14 @@
         "port": "8000",
         "path": "/ping",
         "expected_status": "200"
+      }
+    },
+    {
+      "type": "http_latency",
+      "parameters": {
+        "port": "8000",
+        "path": "/ping",
+        "max_latency_ms": "100"
       }
     }
   ]

@@ -30,11 +30,11 @@ The system is designed using SOLID principles, enforcing strict separation of co
     * **ObservationLoop:** Runs background jthreads that collect metrics and logs at configurable intervals, publishing results to `SharedState` and notifying `IRunObserver`. Performs continuous-expectation validation on a separate cadence. Owns its own `std::stop_source` for safe thread teardown.
     * **SharedState:** Thread-safe bucket holding the latest observed state, logs, phase, and continuous failures. Written by `ObservationLoop`, read by `RunOrchestrator` at finalization.
     * **ChaosRunner (core module):** Provides three operations: `buildPerturbations` (delegates to `PerturbationFactory`), `finalize` (delegates to the `validation::validate` namespace-level free function; receives continuous-failure data collected by `ObservationLoop`), and `parseManifest` (delegates to `ManifestParser`). Both `CliParser` and `Server` use `RunOrchestrator` which delegates to `ChaosRunner`.
-    * **IRunObserver:** Observer interface with `onStateUpdate`, `onPhaseChange`, and `onLogsUpdate` callbacks. Implemented by `CliRunObserver` (CLI) and `WebRunObserver` (Server SSE).
+    * **IRunObserver:** Observer interface with `onStateUpdate`, `onPhaseChange`, and `onLogsUpdate` callbacks. Implemented by `CliRunObserver` (CLI — drives live progress rendering) and `WebRunObserver` (Server SSE). Phase-change *logging* is owned by `RunOrchestrator`.
     * **RunSession:** Binds `SharedState` with SSE-consumable fields (`latest`, `pending_logs`, `phase`) for the web server, plus `stop_source` for abort propagation.
 * **Real-Time Observability & Event Bus:**
     * **ObservabilityEngine:** Stateless wrapper around `IContainerEngine` that provides snapshot-taking methods (`observe`, `getLogs`, `getStats`). Active polling is done by `ObservationLoop`.
-    * **StateBroadcaster:** Thread-safe publish/subscribe event bus used by `CliRunObserver` (CLI path) for printing state to the terminal. The Web UI path bypasses it entirely, using `WebRunObserver` → `RunSession` → SSE. The primary state holder across both paths is `SharedState`.
+    * **ProgressRenderer / Observer coordination:** The `IRunObserver` callbacks feed into `ProgressRenderer`, which runs a dedicated `std::jthread` (100 ms tick) to animate a braille spinner on the terminal. A `ProgressAwareSink` wraps the spdlog stderr sink so that every log line atomically clears the spinner line first — logs scroll above, the spinner stays pinned at the bottom. The Web UI path uses `WebRunObserver` → `RunSession` → SSE instead. The primary state holder across both paths is `SharedState`.
     * **Validation:** The `validation::validate` namespace-level free function evaluates the container's state against the expectations defined in the manifest (e.g., verifying if the container correctly logged an `OOMKilled` exit code 137). **Continuous validation** (expectations with `"continuous": true`) is handled by `ObservationLoop::metricsThreadFn()` every ~500ms during the run; failures are tracked in `SharedState` via `addContinuousFailure()`. Final validation runs on the state captured during chaos, **before** perturbations are reverted, so fault effects are visible in the results.
 
 ---
@@ -59,6 +59,36 @@ The backend is hardened for production, handling parallel execution and emergenc
 * **Condition Variables (`std::condition_variable`):** Background threads use conditional waits. If an emergency abort is triggered, a `notify_all()` signal instantly wakes all threads, allowing them to revert their specific faults in milliseconds.
 * **POSIX Signal Handling (SIGINT):** The CLI safely catches `CTRL+C` interrupts using `volatile std::sig_atomic_t` to guarantee hardware-level thread safety, and a `SignalHandlerGuard` (RAII) to ensure the terminal's default behavior is restored.
 * **Exception Isolation:** During teardown, if reverting one fault fails, the system catches the exception, flags the test as having errors, and proceeds to clean up the remaining faults, preventing host corruption.
+
+---
+
+## CLI Output & Logging
+
+The CLI uses **spdlog** under a centralized setup (`observability::LoggerSetup`) that configures a concise pattern and wires the requested log level / color mode exactly once at startup (before the first log line).
+
+- **Default log level:** `info`. Per-tick polling logs (container status, stats, logs) are emitted at `debug` so they only appear under `-v`.
+- **Milestone events** (phase transitions, perturbation apply/revert, manifest execution) remain at `info` and appear in every run.
+- **Log-level flags:** `-v`/`--verbose` (debug), `-q`/`--quiet` (warn), or `--log-level <level>` allow fine-grained control.
+- **`--no-color`** disables ANSI color codes on the log sink.
+
+### Final Report
+
+The CLI prints a tabular validation report to stdout:
+
+```
+Manifest: <test_name>  Target: <target.id>
+
+  ✓ container_not_running  Container is not running
+  ✗ http_status            HTTP GET 172.18.0.3:8000 /ping failed
+
+Result: FAIL  (1 passed, 1 failed)  in 16.1s
+```
+
+### Machine-readable output
+
+The `--json` flag reuses `web::runResultToJson` (see `JsonSerializer`) to emit a single JSON object to stdout. `--output PATH` writes the same JSON to a file while still printing the human report; `--output -` is equivalent to `--json`.
+
+The `RunResult` struct carries `manifest_name`, `target_id`, `duration_s`, and `started_at` (ISO‑8601 UTC) in addition to per-expectation results, making the JSON self‑describing for CI pipelines.
 
 ---
 

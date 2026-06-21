@@ -29,7 +29,7 @@ The `validation::validate` namespace-level free function evaluates JSON manifest
 Perturbations execute asynchronously using `std::jthread` with `std::stop_token` for concurrent fault injection. The `PerturbationEngine` manages their lifecycle, scheduling apply/revert cycles and providing thread-safe cancellation with built-in RAII join on destruction.
 
 ### Real-Time State Streaming
-During perturbation runs, the system polls target state and broadcasts updates via `IRunObserver` (Web: `WebRunObserver` → `RunSession` → SSE; CLI: `CliRunObserver` → `StateBroadcaster`). The Web UI receives live updates via **SSE** (`GET /events`).
+During perturbation runs, the system polls target state and broadcasts updates via `IRunObserver` (Web: `WebRunObserver` → `RunSession` → SSE; CLI: `CliRunObserver` relays events to `ProgressRenderer`, which animates a live spinner on the terminal). The Web UI receives live updates via **SSE** (`GET /events`).
 
 ### Graceful Interruption
 SIGINT (Ctrl+C) triggers immediate cancellation of running perturbations, with automatic rollback/reversion of all applied faults before the tool exits.
@@ -46,13 +46,13 @@ CHAOS centralises duplicated orchestration logic via `core::ChaosRunner`:
     - **`finalize`** — evaluates container state against manifest expectations using `validation::validate()`. Receives continuous-failure data collected by `ObservationLoop` background threads every ~500ms during the run (failures tracked in `SharedState` but the run continues). Final validation runs on the state captured during chaos (before perturbations are reverted).
 - **`parseManifest`** — reads and parses JSON manifest files via `ManifestParser`.
 
-Both the CLI parser (`CliParser`) and Web Server (`Server`) are independent entry points that delegate to `RunOrchestrator` (lifecycle: normal → chaos → recovery → validate) and `ObservationLoop` (background metrics/logs collection), which in turn use `ChaosRunner` for validation and perturbation construction. `main.cpp` routes `serve` to the Server and all other commands to `CliParser`; neither adapter depends on the other. `SharedState` bridges observations to final validation. Tested with 15 unit tests and 1 E2E test.
+Both the CLI parser (`CliParser`) and Web Server (`Server`) are independent entry points that delegate to `RunOrchestrator` (lifecycle: normal → chaos → recovery → validate) and `ObservationLoop` (background metrics/logs collection), which in turn use `ChaosRunner` for validation and perturbation construction. `main.cpp` routes `serve` to the Server and all other commands to `CliParser`; neither adapter depends on the other. `SharedState` bridges observations to final validation. Unit-tested; E2E-tested.
 
 ### Signal Handling
-The `signals::SignalHandlerGuard` RAII class (extracted from `CliParser.cpp`) manages POSIX signal handlers via a self-pipe trick. SIGINT writes to the pipe; the event loop reads from `readEnd()` and calls `request_stop()`. Tested with 5 unit tests.
+The `signals::SignalHandlerGuard` RAII class (extracted from `CliParser.cpp`) manages POSIX signal handlers via a self-pipe trick. SIGINT writes to the pipe; the event loop reads from `readEnd()` and calls `request_stop()`. Unit-tested.
 
 ### JSON Serialization
-The `web::JsonSerializer` module (extracted from `Server.cpp`) provides `stateToJson`, `limitsToJson`, and `parseLogLines` helpers. These convert internal data types to JSON for SSE streaming. Tested with 7 unit tests.
+The `web::JsonSerializer` module (extracted from `Server.cpp`) provides `stateToJson`, `limitsToJson`, and `parseLogLines` helpers. These convert internal data types to JSON for SSE streaming. Unit-tested.
 
 ### OpenTelemetry Export
 CHAOS can export run events to OTLP-compatible backends (Grafana, Datadog, etc.) via the `OtlpExporter`, which sends JSON-encoded OTLP Logs over HTTP. Configure via `CHAOS_OTLP_ENDPOINT` environment variable.
@@ -164,6 +164,43 @@ After building:
 - `sudo ./build/dev-linux-clang/orchestrator/chaos list`
 - `sudo ./build/dev-linux-clang/orchestrator/chaos stop <container_id>`
 - `sudo ./build/dev-linux-clang/orchestrator/chaos kill <container_id>`
+- `sudo ./build/dev-linux-clang/orchestrator/chaos run <manifest.json>`
+
+### Logging & Output
+
+**Log level flags** (apply to all commands):
+| Flag | Effect |
+|------|--------|
+| `-v`, `--verbose` | Enable debug logging |
+| `-q`, `--quiet` | Suppress non-warning logs |
+| `--log-level LEVEL` | Set log level (trace\|debug\|info\|warn\|error\|critical\|off) |
+| `--no-color` | Disable colored output |
+
+**Run options:**
+| Flag | Effect |
+|------|--------|
+| `--json` | Emit machine-readable JSON to stdout instead of the human report |
+| `--output PATH` | Write the JSON report to PATH (use `-` for stdout) |
+
+### CI & JSON Output
+
+The `--json` flag produces a single JSON object containing the full run result:
+
+```json
+{
+  "passed": false,
+  "manifest_name": "MediWatch — Memory Cap",
+  "target_id": "chaos-demo-api",
+  "duration_s": 16.1,
+  "started_at": "2026-06-20T22:35:19Z",
+  "results": [
+    {"type": "container_not_running", "passed": true, "message": "Container is not running"},
+    {"type": "http_status", "passed": false, "message": "HTTP GET ... failed: Connection timed out"}
+  ]
+}
+```
+
+**Exit codes:** `0` = all expectations passed; `1` = any expectation failed or run error. Use `chaos run --json manifest.json | jq .passed` for CI integration.
 
 ## Build the Web UI
 
@@ -215,7 +252,6 @@ Switch themes (Amber / Dark / Cyber) from the topbar dropdown. Your preference i
 - `orchestrator/tests/interfaces/cli`: CLI parser unit tests.
 - `orchestrator/tests/manifests`: manifest parsing unit tests.
 - `orchestrator/tests/observability`: observability, validation engine, and OTLP exporter unit tests.
-- `orchestrator/tests/shared`: StateBroadcaster unit tests (subscribe/unsubscribe, concurrency, exception safety).
 - `orchestrator/tests/perturbations`: perturbation engine and factory unit tests.
 - `orchestrator/tests/core`: `ChaosRunner` unit tests (build perturbations, validate expectations, parse manifest).
 - `orchestrator/tests/signals`: `SignalHandlerGuard` unit tests (RAII, pipe, self-signal).

@@ -84,7 +84,6 @@ add_executable(orchestrator_unit_tests
     tests/core/ObservationLoopUnitTest.cpp
     tests/core/RunOrchestratorUnitTest.cpp
     tests/core/SharedStateUnitTest.cpp
-    tests/core/StateBroadcasterUnitTest.cpp
     tests/interfaces/cli/CliParserUnitTest.cpp
     tests/manifests/ManifestParserUnitTest.cpp
     tests/observability/ObservabilityEngineUnitTest.cpp

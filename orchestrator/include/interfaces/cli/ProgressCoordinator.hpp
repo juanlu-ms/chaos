@@ -1,14 +1,14 @@
 #pragma once
 
+#include <spdlog/sinks/sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 #include <atomic>
 #include <cstdio>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
-
-#include <spdlog/sinks/sink.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace chaos::orchestrator::interfaces::cli {
 

@@ -593,7 +593,7 @@ containers::ContainerStatus DockerClient::getStatus(const std::string_view conta
         jsonResponse.contains("State") && jsonResponse["State"].is_object() &&
         jsonResponse["State"].contains("Status") && jsonResponse["State"]["Status"].is_string()) {
         std::string stateStr = jsonResponse["State"]["Status"].get<std::string>();
-        SPDLOG_INFO("DockerClient: container {} status is {}", containerId, stateStr);
+        SPDLOG_DEBUG("DockerClient: container {} status is {}", containerId, stateStr);
         return parseContainerStatus(stateStr);
     }
 
@@ -621,7 +621,7 @@ std::string DockerClient::getLogs(const std::string_view containerId) const {
             fmt::format("Failed to get logs for container '{}': HTTP {}", containerId, response.status));
     }
 
-    SPDLOG_INFO("Fetched logs for container '{}'", containerId);
+    SPDLOG_DEBUG("Fetched logs for container '{}'", containerId);
 
     // The Docker Engine logs API returns a multiplexed stream where each log
     // entry is prefixed by an 8-byte frame header:
@@ -671,8 +671,8 @@ containers::ContainerStats DockerClient::getStats(const std::string_view contain
     stats.network_rx_bps = rx;
     stats.network_tx_bps = tx;
 
-    SPDLOG_INFO("Fetched stats for container '{}': CPU={}% Mem={:.0f}MB", containerId,
-                stats.cpu_percent ? *stats.cpu_percent : -1.0, stats.memory_mb ? *stats.memory_mb : -1.0);
+    SPDLOG_DEBUG("Fetched stats for container '{}': CPU={}% Mem={:.0f}MB", containerId,
+                 stats.cpu_percent ? *stats.cpu_percent : -1.0, stats.memory_mb ? *stats.memory_mb : -1.0);
     return stats;
 }
 

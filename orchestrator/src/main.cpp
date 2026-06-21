@@ -15,7 +15,9 @@
 
 #include "containers/ContainerEngineFactory.hpp"
 #include "interfaces/cli/CliParser.hpp"
+#include "interfaces/cli/ProgressCoordinator.hpp"
 #include "interfaces/web/Server.hpp"
+#include "observability/LoggerSetup.hpp"
 
 using chaos::orchestrator::containers::createContainerEngine;
 
@@ -56,18 +58,27 @@ int runServer(std::shared_ptr<chaos::orchestrator::containers::IContainerEngine>
 }  // namespace
 
 int main(int argc, char* argv[]) {
+    // Parse global logging/color flags before emitting any log lines.
+    auto parsed =
+        chaos::orchestrator::interfaces::cli::parseGlobalFlags(std::span<char*>{argv, static_cast<std::size_t>(argc)});
+    if (parsed.error.has_value()) {
+        fmt::print(stderr, "Error: {}\n", parsed.error.value());
+        return 1;
+    }
+    chaos::orchestrator::observability::initLogger(parsed.options.logLevel, parsed.options.colorize);
+
     auto engine = createContainerEngine();
 
     SPDLOG_INFO("chaos starting");
 
-    std::span<char*> args{argv, static_cast<std::size_t>(argc)};
-
     // Route "serve" directly to the web server, bypassing CLI parser
-    if (argc >= 2 && isServeCommand(argv[1])) {
-        return runServer(engine, args.subspan(2));
+    if (parsed.args.size() >= 2 && isServeCommand(parsed.args[1])) {
+        return runServer(engine, std::span<char*>{parsed.args.data() + 2, parsed.args.size() - 2});
     }
+
+    chaos::orchestrator::interfaces::cli::installProgressAwareSink();
 
     // All other commands go through the CLI parser
     chaos::orchestrator::interfaces::cli::CliParser cli(engine);
-    return cli.run(args);
+    return cli.run(std::span<char*>{parsed.args.data(), parsed.args.size()});
 }

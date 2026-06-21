@@ -65,6 +65,9 @@ vcpkg_installed/
 # debug information files
 *.dwo
 
+# LLVM profiling data
+*.profraw
+
 # test output & cache
 Testing/
 .cache/

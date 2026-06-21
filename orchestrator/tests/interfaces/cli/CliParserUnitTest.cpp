@@ -27,6 +27,17 @@ int runCli(interfaces::cli::CliParser& cli, std::initializer_list<const char*> a
     return cli.run(std::span<char*>(argv.data(), argv.size()));
 }
 
+interfaces::cli::ParsedGlobalFlags parseGlobalFlags(std::initializer_list<const char*> args) {
+    std::vector<char*> argv;
+    argv.reserve(args.size());
+    for (const char* arg : args) {
+        argv.push_back(const_cast<char*>(arg));
+    }
+    return interfaces::cli::parseGlobalFlags(std::span<char*>(argv.data(), argv.size()));
+}
+
+std::vector<std::string_view> toViews(const std::vector<char*>& args) { return {args.begin(), args.end()}; }
+
 }  // namespace
 
 /**
@@ -159,4 +170,98 @@ TEST(CliParserUnitTest, UnknownCommandReturnsError) {
     interfaces::cli::CliParser cli(mockEngine);
 
     EXPECT_NE(runCli(cli, {"chaos", "unknown"}), 0);
+}
+
+/**
+ * @test Verifies -v is stripped and sets log level to debug.
+ */
+TEST(ParseGlobalFlagsTest, StripsVerboseFlag) {
+    const auto result = parseGlobalFlags({"chaos", "-v", "run", "manifest.json"});
+
+    EXPECT_FALSE(result.error.has_value());
+    EXPECT_EQ(result.options.logLevel, spdlog::level::debug);
+    EXPECT_EQ(toViews(result.args), (std::vector<std::string_view>{"chaos", "run", "manifest.json"}));
+}
+
+/**
+ * @test Verifies --quiet is stripped and sets log level to warn.
+ */
+TEST(ParseGlobalFlagsTest, StripsQuietFlag) {
+    const auto result = parseGlobalFlags({"chaos", "--quiet", "list"});
+
+    EXPECT_FALSE(result.error.has_value());
+    EXPECT_EQ(result.options.logLevel, spdlog::level::warn);
+    EXPECT_EQ(toViews(result.args), (std::vector<std::string_view>{"chaos", "list"}));
+}
+
+/**
+ * @test Verifies --no-color is stripped and disables color output.
+ */
+TEST(ParseGlobalFlagsTest, StripsNoColorFlag) {
+    const auto result = parseGlobalFlags({"chaos", "--no-color", "list"});
+
+    EXPECT_FALSE(result.error.has_value());
+    EXPECT_FALSE(result.options.colorize);
+    EXPECT_EQ(toViews(result.args), (std::vector<std::string_view>{"chaos", "list"}));
+}
+
+/**
+ * @test Verifies --log-level consumes its value and sets the log level.
+ */
+TEST(ParseGlobalFlagsTest, LogLevelConsumesValue) {
+    const auto result = parseGlobalFlags({"chaos", "run", "--log-level", "trace", "manifest.json"});
+
+    EXPECT_FALSE(result.error.has_value());
+    EXPECT_EQ(result.options.logLevel, spdlog::level::trace);
+    EXPECT_EQ(toViews(result.args), (std::vector<std::string_view>{"chaos", "run", "manifest.json"}));
+}
+
+/**
+ * @test Verifies --log-level without a value produces an error.
+ */
+TEST(ParseGlobalFlagsTest, ErrorOnMissingLogLevelValue) {
+    const auto result = parseGlobalFlags({"chaos", "--log-level"});
+
+    EXPECT_TRUE(result.error.has_value());
+    EXPECT_EQ(toViews(result.args), (std::vector<std::string_view>{"chaos"}));
+}
+
+/**
+ * @test Verifies an invalid --log-level value produces an error.
+ */
+TEST(ParseGlobalFlagsTest, ErrorOnInvalidLogLevel) {
+    const auto result = parseGlobalFlags({"chaos", "--log-level", "banana"});
+
+    EXPECT_TRUE(result.error.has_value());
+}
+
+/**
+ * @test Verifies the program name is preserved when no flags are present.
+ */
+TEST(ParseGlobalFlagsTest, PreservesProgramName) {
+    const auto result = parseGlobalFlags({"chaos"});
+
+    EXPECT_FALSE(result.error.has_value());
+    EXPECT_EQ(toViews(result.args), (std::vector<std::string_view>{"chaos"}));
+}
+
+/**
+ * @test Verifies an empty argv produces an empty args vector.
+ */
+TEST(ParseGlobalFlagsTest, EmptyArgv) {
+    const auto result = parseGlobalFlags({});
+
+    EXPECT_FALSE(result.error.has_value());
+    EXPECT_TRUE(result.args.empty());
+}
+
+/**
+ * @test Verifies global flags are recognized regardless of position.
+ */
+TEST(ParseGlobalFlagsTest, FlagsCanAppearAnywhere) {
+    const auto result = parseGlobalFlags({"chaos", "run", "manifest.json", "-v"});
+
+    EXPECT_FALSE(result.error.has_value());
+    EXPECT_EQ(result.options.logLevel, spdlog::level::debug);
+    EXPECT_EQ(toViews(result.args), (std::vector<std::string_view>{"chaos", "run", "manifest.json"}));
 }

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "core/ChaosRunner.hpp"
+#include "core/ResultSerializer.hpp"
 #include "interfaces/web/JsonSerializer.hpp"
 #include "observability/ObservabilityEngine.hpp"
 
@@ -110,12 +111,20 @@ TEST(JsonSerializerTest, ParseLogLinesSkipsEmptyLines) {
 TEST(JsonSerializerTest, SerializeRunResult) {
     chaos::orchestrator::core::RunResult runResult;
     runResult.passed = true;
+    runResult.manifest_name = "serializer-test";
+    runResult.target_id = "target-1";
+    runResult.duration_s = 12.5;
+    runResult.started_at = "2026-06-20T22:35:19Z";
     runResult.results.push_back(
         chaos::orchestrator::validation::ValidationResult{true, "container_running", "Container is running"});
 
-    auto j = runResultToJson(runResult);
+    auto j = chaos::orchestrator::core::runResultToJson(runResult);
 
     EXPECT_EQ(j["passed"], true);
+    EXPECT_EQ(j["manifest_name"], "serializer-test");
+    EXPECT_EQ(j["target_id"], "target-1");
+    EXPECT_DOUBLE_EQ(j["duration_s"].get<double>(), 12.5);
+    EXPECT_EQ(j["started_at"], "2026-06-20T22:35:19Z");
     EXPECT_EQ(j["results"].size(), 1);
     EXPECT_EQ(j["results"][0]["type"], "container_running");
     EXPECT_EQ(j["results"][0]["passed"], true);

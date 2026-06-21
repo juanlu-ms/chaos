@@ -9,7 +9,6 @@
 #include <thread>
 #include <vector>
 
-#include "core/ChaosRunner.hpp"
 #include "validation/ValidationResult.hpp"
 
 namespace chaos::orchestrator::interfaces::web {
@@ -57,16 +56,6 @@ json limitsToJson(const containers::SystemInfo& info) {
         {"memory_cap", {{"min_mb", 1}, {"max_mb", memoryTotalMb}}},
         {"network_delay", {{"min_ms", 0}, {"max_ms", 30000}}},
     };
-    return result;
-}
-
-json runResultToJson(const core::RunResult& runResult) {
-    json result;
-    result["passed"] = runResult.passed;
-    result["results"] = json::array();
-    for (const auto& vr : runResult.results) {
-        result["results"].push_back({{"type", vr.expectationType}, {"passed", vr.passed}, {"message", vr.message}});
-    }
     return result;
 }
 

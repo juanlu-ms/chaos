@@ -31,6 +31,7 @@ set(ORCHESTRATOR_SOURCES
     src/perturbations/internal/TrafficCorruptionPerturbation.cpp
     src/observability/ObservabilityEngine.cpp
     src/observability/OtlpExporter.cpp
+    src/observability/LoggerSetup.cpp
     src/validation/ValidationFactory.cpp
     src/validation/ValidationEngine.cpp
     src/validation/internal/ContainerStateValidation.cpp
@@ -39,6 +40,7 @@ set(ORCHESTRATOR_SOURCES
     src/signals/SignalHandlerGuard.cpp
     src/core/ChaosRunner.cpp
     src/core/ObservationLoop.cpp
+    src/core/ResultSerializer.cpp
     src/core/RunOrchestrator.cpp
     src/interfaces/web/JsonSerializer.cpp
 )

@@ -148,3 +148,27 @@ TEST(RunOrchestratorTest, ReadsContinuousFailuresFromSharedState) {
 
     EXPECT_FALSE(result.passed);
 }
+
+/**
+ * @test RunResult carries manifest metadata copied from the manifest.
+ */
+TEST(RunOrchestratorTest, PopulatesRunMetadata) {
+    auto engine = std::make_shared<tests::MockContainerEngine>();
+    ChaosRunner runner(engine);
+    RunOrchestrator orchestrator(runner);
+
+    manifests::ChaosManifest manifest;
+    manifest.test_name = "meta-test";
+    manifest.target.id = "meta-container";
+    manifest.duration_s = std::nullopt;
+
+    SharedState state;
+    MockRunObserver observer;
+
+    auto result = orchestrator.run(manifest, state, observer, {});
+
+    EXPECT_EQ(result.manifest_name, "meta-test");
+    EXPECT_EQ(result.target_id, "meta-container");
+    EXPECT_FALSE(result.started_at.empty());
+    EXPECT_GE(result.duration_s, 0.0);
+}

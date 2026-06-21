@@ -36,7 +36,9 @@ RunResult ChaosRunner::finalize(const manifests::ChaosManifest& manifest, const 
                                 const std::vector<std::string>& continuousFailures) const {
     SPDLOG_DEBUG("Finalizing run with {} expectation(s)", manifest.expectations.size());
     if (manifest.expectations.empty()) {
-        return {true, {}};
+        RunResult result;
+        result.passed = true;
+        return result;
     }
 
     auto results = validation::validate(finalState, manifest.expectations);
@@ -53,7 +55,10 @@ RunResult ChaosRunner::finalize(const manifests::ChaosManifest& manifest, const 
         }
     }
 
-    return {passed, std::move(results)};
+    RunResult result;
+    result.passed = passed;
+    result.results = std::move(results);
+    return result;
 }
 
 manifests::ChaosManifest ChaosRunner::parseManifest(const std::string& path) const {

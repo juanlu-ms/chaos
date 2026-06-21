@@ -14,6 +14,7 @@
 
 #include "core/IRunObserver.hpp"
 #include "core/ObservationLoop.hpp"
+#include "core/ResultSerializer.hpp"
 #include "core/RunOrchestrator.hpp"
 #include "interfaces/web/JsonSerializer.hpp"
 #include "manifests/ManifestParser.hpp"
@@ -233,7 +234,7 @@ void Server::executeRunAsync(manifests::ChaosManifest manifest, std::shared_ptr<
                 auto runResult =
                     orchestrator.run(manifest, session->state, observer, std::move(perturbation_instances), token);
 
-                auto result = runResultToJson(runResult);
+                auto result = core::runResultToJson(runResult);
                 storeRunResult(session, std::move(result));
                 session->cv.notify_all();
             } catch (const std::exception& ex) {

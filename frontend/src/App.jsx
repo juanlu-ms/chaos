@@ -8,6 +8,7 @@ import { useSSEStream } from './hooks/useSSEStream.js';
 import { useStreamData } from './hooks/useStreamData.js';
 import { DEFAULT_THEME } from './theme.js';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import HistoryView from './components/HistoryView.jsx';
 
 export default function App() {
   const [theme, setTheme] = useState(
@@ -18,6 +19,7 @@ export default function App() {
   const [testStartTime, setTestStartTime] = useState(0);
   const [result, setResult] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [view, setView] = useState('workflow'); // 'workflow' | 'history'
 
   const { startStream } = useSSEStream();
   const {
@@ -68,6 +70,15 @@ export default function App() {
       });
   }, [startStream, resetData, handleState, handleConnectionError, handleConnectionRestored, finishWith]);
 
+  const goToStep = (n) => { setView('workflow'); setStep(n); };
+
+  const handleOpenHistoryRun = useCallback((m, r) => {
+    setManifest(m);
+    setResult(r);
+    setView('workflow');
+    setStep(3);
+  }, []);
+
   const handleRun = (m) => startRun(m);
 
   const handleRunAgain = () => {
@@ -86,39 +97,50 @@ export default function App() {
     <div className="app">
       <Topbar
         currentStep={step}
-        setStep={setStep}
+        setStep={goToStep}
         theme={theme}
         setTheme={setTheme}
         runActive={isRunning}
+        onOpenHistory={() => setView('history')}
+        historyActive={view === 'history'}
       />
       <main>
-        <ErrorBoundary onReset={() => setStep(1)} key={step}>
-        {step === 1 && (
-          <Step1Config initial={manifest} onRun={handleRun} />
-        )}
-        {step === 2 && (
-          <Step2Monitor
-            manifest={manifest}
-            testStartTime={testStartTime}
-            theme={theme}
-            data={data}
-            logs={logs}
-            lastState={lastState}
-            conn={conn}
-            continuousFailures={continuousFailures}
-            isRunning={isRunning}
-            onAbort={handleAbort}
-            onBack={handleBackToStep1}
+        <ErrorBoundary onReset={() => setStep(1)} key={view === 'history' ? 'history' : step}>
+        {view === 'history' ? (
+          <HistoryView
+            onOpenRun={handleOpenHistoryRun}
+            onBack={() => setView('workflow')}
           />
-        )}
-        {step === 3 && (
-          <Step3Results
-            manifest={manifest}
-            result={result}
-            theme={theme}
-            onRunAgain={handleRunAgain}
-            onModify={handleModify}
-          />
+        ) : (
+          <>
+            {step === 1 && (
+              <Step1Config initial={manifest} onRun={handleRun} />
+            )}
+            {step === 2 && (
+              <Step2Monitor
+                manifest={manifest}
+                testStartTime={testStartTime}
+                theme={theme}
+                data={data}
+                logs={logs}
+                lastState={lastState}
+                conn={conn}
+                continuousFailures={continuousFailures}
+                isRunning={isRunning}
+                onAbort={handleAbort}
+                onBack={handleBackToStep1}
+              />
+            )}
+            {step === 3 && (
+              <Step3Results
+                manifest={manifest}
+                result={result}
+                theme={theme}
+                onRunAgain={handleRunAgain}
+                onModify={handleModify}
+              />
+            )}
+          </>
         )}
         </ErrorBoundary>
       </main>

@@ -55,6 +55,11 @@ export const killContainer = (id) =>
 export const getContainerLogs = (id) =>
   fetch(`/api/containers/${id}/logs`).then(jsonOrThrow);
 
+export const getHistory       = () => fetch('/api/history').then(jsonOrThrow);
+export const getHistoryRun    = (id) => fetch(`/api/history/${encodeURIComponent(id)}`).then(jsonOrThrow);
+export const deleteHistoryRun = (id) => fetch(`/api/history/${encodeURIComponent(id)}`, {method:'DELETE'}).then(jsonOrThrow);
+export const clearHistory     = () => fetch('/api/history', {method:'DELETE'}).then(jsonOrThrow);
+
 /**
  * Open the SSE event stream and dispatch typed callbacks.
  * Distinguishes server-sent `event: error` (named) from transport

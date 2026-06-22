@@ -7,6 +7,8 @@ export default function Topbar({
   theme,
   setTheme,
   runActive,
+  onOpenHistory,
+  historyActive,
 }) {
   const tabs = [
     { n: 1, label: 'Configure' },
@@ -17,6 +19,15 @@ export default function Topbar({
   return (
     <div className="topbar">
       <Logo />
+
+      <button
+        className={`history-btn ${historyActive ? 'active' : ''}`}
+        onClick={onOpenHistory}
+        disabled={runActive}
+        aria-label="Run history"
+      >
+        History
+      </button>
 
       <div className="steps" role="tablist" aria-label="Workflow steps">
         {tabs.map((t) => {

@@ -30,6 +30,7 @@
 #include "history/RunRecorder.hpp"
 #include "interfaces/cli/ProgressCoordinator.hpp"
 #include "manifests/ManifestParser.hpp"
+#include "observability/OtlpRunObserver.hpp"
 #include "signals/SignalHandlerGuard.hpp"
 
 namespace chaos::orchestrator::interfaces::cli {
@@ -187,8 +188,11 @@ ParsedGlobalFlags parseGlobalFlags(std::span<char*> argv) {
 }
 
 CliParser::CliParser(std::shared_ptr<containers::IContainerEngine> engine,
-                     std::shared_ptr<history::IRunHistory> history)
-    : engine_(std::move(engine)), history_(std::move(history)), runner_(engine_) {}
+                     std::shared_ptr<history::IRunHistory> history, std::optional<std::string> otlpEndpoint)
+    : engine_(std::move(engine)),
+      history_(std::move(history)),
+      runner_(engine_),
+      otlpEndpoint_(std::move(otlpEndpoint)) {}
 
 int CliParser::run(std::span<char*> argv) const {
     if (argv.size() < 2) {
@@ -348,6 +352,7 @@ int CliParser::handleKill(const std::string& containerId) const {
 
 int CliParser::handleRun(const std::string& manifestPath, const RunOptions& options) const {
     std::optional<history::RunRecorder> recorder;
+    std::optional<observability::OtlpRunObserver> otlpObserver;
     try {
         auto manifest = runner_.parseManifest(manifestPath);
         SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.id);
@@ -361,7 +366,14 @@ int CliParser::handleRun(const std::string& manifestPath, const RunOptions& opti
         ProgressRenderer renderer{!jsonMode};
         CliRunObserver observer(renderer);
         recorder.emplace(manifest);
-        core::CompositeRunObserver composite({&observer, &*recorder});
+        if (otlpEndpoint_.has_value()) {
+            otlpObserver.emplace(observability::OtlpExporter(*otlpEndpoint_));
+        }
+        std::vector<core::IRunObserver*> observer_list = {&observer, &*recorder};
+        if (otlpObserver.has_value()) {
+            observer_list.push_back(&*otlpObserver);
+        }
+        core::CompositeRunObserver composite(observer_list);
 
         core::ObservationLoop::Config loopConfig;
         loopConfig.metricsInterval = std::chrono::milliseconds(200);
@@ -379,6 +391,9 @@ int CliParser::handleRun(const std::string& manifestPath, const RunOptions& opti
         renderer.finish();
         if (history_) {
             history_->save(recorder->finalize(runResult, "completed", ""));
+        }
+        if (otlpObserver.has_value()) {
+            (void)otlpObserver->finalize(runResult);
         }
         const auto elapsed = std::chrono::duration<double>(runResult.duration_s);
 
@@ -411,11 +426,17 @@ int CliParser::handleRun(const std::string& manifestPath, const RunOptions& opti
         if (history_ && recorder.has_value()) {
             history_->save(recorder->finalize({}, "error", ex.what()));
         }
+        if (otlpObserver.has_value()) {
+            (void)otlpObserver->finalize({});
+        }
         fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;
     } catch (const std::invalid_argument& ex) {
         if (history_ && recorder.has_value()) {
             history_->save(recorder->finalize({}, "error", ex.what()));
+        }
+        if (otlpObserver.has_value()) {
+            (void)otlpObserver->finalize({});
         }
         fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;
@@ -423,11 +444,17 @@ int CliParser::handleRun(const std::string& manifestPath, const RunOptions& opti
         if (history_ && recorder.has_value()) {
             history_->save(recorder->finalize({}, "error", ex.what()));
         }
+        if (otlpObserver.has_value()) {
+            (void)otlpObserver->finalize({});
+        }
         fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;
     } catch (const std::system_error& ex) {
         if (history_ && recorder.has_value()) {
             history_->save(recorder->finalize({}, "error", ex.what()));
+        }
+        if (otlpObserver.has_value()) {
+            (void)otlpObserver->finalize({});
         }
         fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;

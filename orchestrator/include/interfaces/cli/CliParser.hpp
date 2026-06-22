@@ -72,9 +72,11 @@ public:
      * @brief Construct the CLI adapter with a container engine and optional run history.
      * @param engine Non-owning reference to the container engine port.
      * @param history Optional run history for storing and querying past runs.
+     * @param otlpEndpoint Optional OTLP HTTP endpoint for exporting run events.
      */
     explicit CliParser(std::shared_ptr<containers::IContainerEngine> engine,
-                       std::shared_ptr<history::IRunHistory> history = nullptr);
+                       std::shared_ptr<history::IRunHistory> history = nullptr,
+                       std::optional<std::string> otlpEndpoint = std::nullopt);
     ~CliParser() = default;
 
     CliParser(const CliParser&) = delete;
@@ -91,6 +93,7 @@ private:
     std::shared_ptr<containers::IContainerEngine> engine_;
     std::shared_ptr<history::IRunHistory> history_;
     core::ChaosRunner runner_;
+    std::optional<std::string> otlpEndpoint_;
 
     void printUsage() const;
     int handleList() const;

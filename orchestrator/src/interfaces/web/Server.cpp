@@ -22,6 +22,7 @@
 #include "history/RunRecorder.hpp"
 #include "interfaces/web/JsonSerializer.hpp"
 #include "manifests/ManifestParser.hpp"
+#include "observability/OtlpRunObserver.hpp"
 
 using json = nlohmann::json;
 
@@ -87,8 +88,12 @@ void finalizeSession(const std::shared_ptr<core::RunSession>& session, json resu
 }
 }  // namespace
 
-Server::Server(std::shared_ptr<containers::IContainerEngine> engine, std::shared_ptr<history::IRunHistory> history)
-    : engine_(std::move(engine)), history_(std::move(history)), runner_(engine_) {
+Server::Server(std::shared_ptr<containers::IContainerEngine> engine, std::shared_ptr<history::IRunHistory> history,
+               std::optional<std::string> otlpEndpoint)
+    : engine_(std::move(engine)),
+      history_(std::move(history)),
+      runner_(engine_),
+      otlpEndpoint_(std::move(otlpEndpoint)) {
     setupRoutes();
 }
 
@@ -222,47 +227,61 @@ void Server::handleContainerAction(const httplib::Request& req, httplib::Respons
 }
 
 void Server::executeRunAsync(manifests::ChaosManifest manifest, std::shared_ptr<core::RunSession> session) {
-    run_thread_ = std::jthread(
-        [this, engine = engine_, session, manifest = std::move(manifest)](const std::stop_token& token) mutable {
-            if (token.stop_requested()) {
-                return;
+    run_thread_ = std::jthread([this, engine = engine_, session, manifest = std::move(manifest),
+                                otlpEndpoint = otlpEndpoint_](const std::stop_token& token) mutable {
+        if (token.stop_requested()) {
+            return;
+        }
+        history::RunRecorder recorder(manifest);
+        std::optional<observability::OtlpRunObserver> otlpObserver;
+        try {
+            WebRunObserver observer(session);
+            if (otlpEndpoint.has_value()) {
+                otlpObserver.emplace(observability::OtlpExporter(*otlpEndpoint));
             }
-            history::RunRecorder recorder(manifest);
-            try {
-                WebRunObserver observer(session);
-                core::CompositeRunObserver composite({&observer, &recorder});
-
-                core::ObservationLoop::Config loopConfig;
-                loopConfig.metricsInterval = std::chrono::milliseconds(100);
-                loopConfig.logsInterval = std::chrono::milliseconds(1500);
-                loopConfig.continuousExpectations = manifest.expectations;
-
-                core::ObservationLoop obsLoop(engine, manifest.target.id, session->state, composite, loopConfig);
-                obsLoop.start(token);
-
-                core::RunOrchestrator orchestrator(runner_);
-                auto perturbation_instances = runner_.buildPerturbations(manifest);
-                auto runResult =
-                    orchestrator.run(manifest, session->state, composite, std::move(perturbation_instances), token);
-
-                auto result = core::runResultToJson(runResult);
-
-                std::string status = session->abortRequested.load() ? "aborted" : "completed";
-                if (history_) {
-                    history_->save(recorder.finalize(runResult, status, ""));
-                }
-
-                finalizeSession(session, std::move(result), {});
-                session->cv.notify_all();
-            } catch (const std::exception& ex) {
-                if (history_) {
-                    history_->save(recorder.finalize({}, "error", ex.what()));
-                }
-                finalizeSession(session, {}, std::string{ex.what()});
-                session->cv.notify_all();
-                SPDLOG_ERROR("/api/run async failed: {}", ex.what());
+            std::vector<core::IRunObserver*> observer_list = {&observer, &recorder};
+            if (otlpObserver.has_value()) {
+                observer_list.push_back(&*otlpObserver);
             }
-        });
+            core::CompositeRunObserver composite(observer_list);
+
+            core::ObservationLoop::Config loopConfig;
+            loopConfig.metricsInterval = std::chrono::milliseconds(100);
+            loopConfig.logsInterval = std::chrono::milliseconds(1500);
+            loopConfig.continuousExpectations = manifest.expectations;
+
+            core::ObservationLoop obsLoop(engine, manifest.target.id, session->state, composite, loopConfig);
+            obsLoop.start(token);
+
+            core::RunOrchestrator orchestrator(runner_);
+            auto perturbation_instances = runner_.buildPerturbations(manifest);
+            auto runResult =
+                orchestrator.run(manifest, session->state, composite, std::move(perturbation_instances), token);
+
+            auto result = core::runResultToJson(runResult);
+
+            std::string status = session->abortRequested.load() ? "aborted" : "completed";
+            if (history_) {
+                history_->save(recorder.finalize(runResult, status, ""));
+            }
+            if (otlpObserver.has_value()) {
+                (void)otlpObserver->finalize(runResult);
+            }
+
+            finalizeSession(session, std::move(result), {});
+            session->cv.notify_all();
+        } catch (const std::exception& ex) {
+            if (history_) {
+                history_->save(recorder.finalize({}, "error", ex.what()));
+            }
+            if (otlpObserver.has_value()) {
+                (void)otlpObserver->finalize({});
+            }
+            finalizeSession(session, {}, std::string{ex.what()});
+            session->cv.notify_all();
+            SPDLOG_ERROR("/api/run async failed: {}", ex.what());
+        }
+    });
 }
 
 void Server::handleRun(const httplib::Request& request, httplib::Response& response) {

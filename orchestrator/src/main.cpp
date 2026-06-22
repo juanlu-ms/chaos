@@ -11,7 +11,9 @@
 #include <cstring>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <system_error>
 
@@ -22,6 +24,7 @@
 #include "interfaces/cli/ProgressCoordinator.hpp"
 #include "interfaces/web/Server.hpp"
 #include "observability/LoggerSetup.hpp"
+#include "observability/OtlpRunObserver.hpp"
 
 using chaos::orchestrator::containers::createContainerEngine;
 
@@ -62,14 +65,16 @@ int parsePort(std::span<char*> args) {
 }
 
 int runServer(std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> engine,
-              std::shared_ptr<chaos::orchestrator::history::IRunHistory> history, std::span<char*> args) {
+              std::shared_ptr<chaos::orchestrator::history::IRunHistory> history, std::span<char*> args,
+              std::optional<std::string> otlpEndpoint) {
     int port = parsePort(args);
     if (port < 0) {
         return 1;
     }
 
     try {
-        chaos::orchestrator::interfaces::web::Server server(std::move(engine), std::move(history));
+        chaos::orchestrator::interfaces::web::Server server(std::move(engine), std::move(history),
+                                                            std::move(otlpEndpoint));
         server.listen(port);
     } catch (const std::system_error& ex) {
         SPDLOG_ERROR("Server error: {}", ex.what());
@@ -93,17 +98,19 @@ int main(int argc, char* argv[]) {
     auto engine = createContainerEngine();
     auto history =
         std::make_shared<chaos::orchestrator::history::FileRunHistory>(resolveHistoryDir(), resolveHistoryMax());
+    auto otlpEndpoint = chaos::orchestrator::observability::resolveOtlpEndpoint();
 
     SPDLOG_INFO("chaos starting");
 
     // Route "serve" directly to the web server, bypassing CLI parser
     if (parsed.args.size() >= 2 && isServeCommand(parsed.args[1])) {
-        return runServer(engine, history, std::span<char*>{parsed.args.data() + 2, parsed.args.size() - 2});
+        return runServer(engine, history, std::span<char*>{parsed.args.data() + 2, parsed.args.size() - 2},
+                         otlpEndpoint);
     }
 
     chaos::orchestrator::interfaces::cli::installProgressAwareSink();
 
     // All other commands go through the CLI parser
-    chaos::orchestrator::interfaces::cli::CliParser cli(engine, history);
+    chaos::orchestrator::interfaces::cli::CliParser cli(engine, history, otlpEndpoint);
     return cli.run(std::span<char*>{parsed.args.data(), parsed.args.size()});
 }

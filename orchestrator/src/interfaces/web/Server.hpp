@@ -5,6 +5,7 @@
 #include <memory>
 #include <mutex>
 #include <nlohmann/json_fwd.hpp>
+#include <optional>
 #include <string_view>
 #include <thread>
 
@@ -25,9 +26,12 @@ public:
     /**
      * @brief Construct a Server backed by the given container engine.
      * @param engine shared container engine implementation
+     * @param history Optional run history for storing and querying past runs.
+     * @param otlpEndpoint Optional OTLP HTTP endpoint for exporting run events.
      */
     explicit Server(std::shared_ptr<containers::IContainerEngine> engine,
-                    std::shared_ptr<history::IRunHistory> history = nullptr);
+                    std::shared_ptr<history::IRunHistory> history = nullptr,
+                    std::optional<std::string> otlpEndpoint = std::nullopt);
     ~Server();
 
     /**
@@ -48,6 +52,7 @@ private:
     std::shared_ptr<containers::IContainerEngine> engine_;
     std::shared_ptr<history::IRunHistory> history_;
     core::ChaosRunner runner_;
+    std::optional<std::string> otlpEndpoint_;
 
     mutable std::mutex session_mutex_;
     std::shared_ptr<RunSession> session_;

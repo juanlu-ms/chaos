@@ -31,6 +31,7 @@ set(ORCHESTRATOR_SOURCES
     src/perturbations/internal/TrafficCorruptionPerturbation.cpp
     src/observability/ObservabilityEngine.cpp
     src/observability/OtlpExporter.cpp
+    src/observability/OtlpRunObserver.cpp
     src/observability/LoggerSetup.cpp
     src/validation/ValidationFactory.cpp
     src/validation/ValidationEngine.cpp
@@ -96,6 +97,7 @@ add_executable(orchestrator_unit_tests
     tests/manifests/ManifestParserUnitTest.cpp
     tests/observability/ObservabilityEngineUnitTest.cpp
     tests/observability/OtlpExporterUnitTest.cpp
+    tests/observability/OtlpRunObserverUnitTest.cpp
     tests/perturbations/CpuCapPerturbationUnitTest.cpp
     tests/perturbations/KillPerturbationUnitTest.cpp
     tests/perturbations/MemoryCapPerturbationUnitTest.cpp

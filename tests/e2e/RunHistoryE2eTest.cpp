@@ -1,3 +1,8 @@
+/**
+ * @file RunHistoryE2eTest.cpp
+ * @brief End-to-end test for run history persistence and retrieval.
+ */
+
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -52,6 +57,8 @@ protected:
     }
 };
 
+/** @test Runs a chaos test end-to-end with observation, saves to file history, and verifies the record is retrievable
+ * with correct fields. */
 TEST_F(RunHistoryE2eTest, FullRunSavesToHistory) {
     std::string json = R"({
         "test_name": "e2e-history-test",
@@ -69,7 +76,7 @@ TEST_F(RunHistoryE2eTest, FullRunSavesToHistory) {
     core::SharedState state;
     E2eRunObserver observer;
     history::RunRecorder recorder(manifest);
-    core::CompositeRunObserver composite({&observer, &recorder});
+    core::CompositeRunObserver composite(std::vector<core::IRunObserver*>{&observer, &recorder});
 
     core::ObservationLoop::Config loopConfig;
     loopConfig.metricsInterval = std::chrono::milliseconds(200);

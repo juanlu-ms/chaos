@@ -46,6 +46,9 @@ public:
      */
     virtual void onNetworkLatencyUpdate(std::optional<double> /*latency*/) {}
 
+    /**
+     * @brief Virtual destructor (defaulted).
+     */
     virtual ~IRunObserver() = default;
 };
 

@@ -1,3 +1,9 @@
+/**
+ * @file ContainerStatus.hpp
+ * @brief Enumeration of container lifecycle states and associated conversion
+ * functions.
+ */
+
 #pragma once
 
 #include <cstdint>
@@ -8,14 +14,23 @@ namespace chaos::orchestrator::containers {
  * @brief Possible states of a container.
  */
 enum class ContainerStatus : uint8_t {
+    /** @brief Container is currently running. */
     Running,
+    /** @brief Container has exited (stopped normally). */
     Exited,
+    /** @brief Container is paused. */
     Paused,
+    /** @brief Container is in a dead state and cannot be restarted. */
     Dead,
+    /** @brief Container status could not be determined. */
     Unknown,
 };
 
-// From string to enum
+/**
+ * @brief Parse a container status string into its enum representation.
+ * @param status_str The status string (e.g. "running", "exited").
+ * @return The corresponding ContainerStatus enum value, or Unknown if unrecognised.
+ */
 inline ContainerStatus parseContainerStatus(std::string_view status_str) {
     using enum chaos::orchestrator::containers::ContainerStatus;
     if (status_str == "running") {
@@ -33,7 +48,11 @@ inline ContainerStatus parseContainerStatus(std::string_view status_str) {
     return Unknown;
 }
 
-// From enum to string
+/**
+ * @brief Convert a ContainerStatus enum value to its string representation.
+ * @param status The ContainerStatus enum value.
+ * @return The corresponding string (e.g. "running", "unknown").
+ */
 constexpr std::string_view toString(ContainerStatus status) {
     switch (status) {
         using enum chaos::orchestrator::containers::ContainerStatus;

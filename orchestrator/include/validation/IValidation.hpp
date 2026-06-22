@@ -16,10 +16,14 @@ namespace chaos::orchestrator::validation {
  */
 class IValidation {
 public:
+    /** @brief Virtual destructor. */
     virtual ~IValidation() = default;
 
     /**
      * @brief Evaluate the given expectation using the provided context.
+     * @param targetState The current state of the target container.
+     * @param expectation The expectation to validate against.
+     * @return A ValidationResult indicating pass/fail and diagnostic info.
      */
     virtual ValidationResult validate(const core::TargetState& targetState,
                                       const manifests::Expectation& expectation) const = 0;

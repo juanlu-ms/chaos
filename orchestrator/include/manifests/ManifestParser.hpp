@@ -15,6 +15,7 @@ namespace chaos::orchestrator::manifests {
 /** @brief Exception thrown when manifest parsing fails. */
 class ManifestParserError : public std::runtime_error {
 public:
+    /** @brief Inherit constructors from std::runtime_error. */
     using std::runtime_error::runtime_error;
 };
 

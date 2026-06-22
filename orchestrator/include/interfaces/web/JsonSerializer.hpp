@@ -21,12 +21,15 @@ using json = nlohmann::json;
  * @param state The observed container state.
  * @param phase Optional phase label (e.g. "normal", "chaos", "recovery").
  * @param continuous_failures Optional list of continuous expectation failures.
+ * @return JSON object representing the target state.
  */
 json stateToJson(const core::TargetState& state, const std::string& phase = "",
                  const std::vector<std::string>& continuous_failures = {});
 
 /**
  * @brief Serialize system limits to JSON for the /api/limits endpoint.
+ * @param info System information containing resource limits.
+ * @return JSON object representing system limits.
  */
 json limitsToJson(const containers::SystemInfo& info);
 

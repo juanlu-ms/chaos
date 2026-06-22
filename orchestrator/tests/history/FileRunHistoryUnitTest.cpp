@@ -14,6 +14,7 @@
 
 using namespace chaos::orchestrator::history;
 
+/** @brief Test fixture for FileRunHistory file-system-backed run history storage. */
 class FileRunHistoryTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -32,6 +33,7 @@ static RunRecord makeRecord(const std::string& id, int64_t started_at) {
     return r;
 }
 
+/** @test Saves a record and verifies it appears in the list. */
 TEST_F(FileRunHistoryTest, SaveAndList) {
     FileRunHistory history(tempDir_);
     auto record = makeRecord("run-1000000", 1000000);
@@ -42,6 +44,7 @@ TEST_F(FileRunHistoryTest, SaveAndList) {
     EXPECT_EQ(results[0].id, "run-1000000");
 }
 
+/** @test Saves a record with full details and verifies retrieval returns all fields intact. */
 TEST_F(FileRunHistoryTest, SaveAndGet) {
     FileRunHistory history(tempDir_);
     auto record = makeRecord("run-1000000", 1000000);
@@ -59,6 +62,7 @@ TEST_F(FileRunHistoryTest, SaveAndGet) {
     EXPECT_EQ(retrieved->logs[0], "log line");
 }
 
+/** @test Saves three records out of order and verifies list returns them sorted by started_at descending. */
 TEST_F(FileRunHistoryTest, SaveMultipleAndListSorted) {
     FileRunHistory history(tempDir_);
     history.save(makeRecord("run-1000", 1000));
@@ -72,6 +76,7 @@ TEST_F(FileRunHistoryTest, SaveMultipleAndListSorted) {
     EXPECT_EQ(results[2].started_at_unix, 1000);
 }
 
+/** @test Saves two records, removes one, and verifies only the other remains. */
 TEST_F(FileRunHistoryTest, Remove) {
     FileRunHistory history(tempDir_);
     history.save(makeRecord("run-1000000", 1000000));
@@ -85,12 +90,14 @@ TEST_F(FileRunHistoryTest, Remove) {
     EXPECT_EQ(results[0].id, "run-2000000");
 }
 
+/** @test Attempts to remove a nonexistent record and verifies it returns false. */
 TEST_F(FileRunHistoryTest, RemoveNonexistentReturnsFalse) {
     FileRunHistory history(tempDir_);
     bool removed = history.remove("run-nonexistent");
     EXPECT_FALSE(removed);
 }
 
+/** @test Saves two records, clears all, and verifies the storage is empty. */
 TEST_F(FileRunHistoryTest, Clear) {
     FileRunHistory history(tempDir_);
     history.save(makeRecord("run-1000000", 1000000));
@@ -101,6 +108,7 @@ TEST_F(FileRunHistoryTest, Clear) {
     EXPECT_TRUE(results.empty());
 }
 
+/** @test Creates history with retention=2, saves 3 records, and verifies only the 2 newest are kept. */
 TEST_F(FileRunHistoryTest, RetentionPruning) {
     FileRunHistory history(tempDir_, 2);
     history.save(makeRecord("run-1000", 1000));
@@ -113,6 +121,7 @@ TEST_F(FileRunHistoryTest, RetentionPruning) {
     EXPECT_EQ(results[1].started_at_unix, 2000);
 }
 
+/** @test Uses a nonexistent subdirectory path and verifies it is auto-created on save. */
 TEST_F(FileRunHistoryTest, DirAutoCreate) {
     auto nonexistent = tempDir_ / "subdir";
     FileRunHistory history(nonexistent);
@@ -124,18 +133,21 @@ TEST_F(FileRunHistoryTest, DirAutoCreate) {
     EXPECT_EQ(results[0].id, "run-1000000");
 }
 
+/** @test Retrieves a nonexistent record and verifies it returns nullopt. */
 TEST_F(FileRunHistoryTest, GetNonexistentReturnsNullopt) {
     FileRunHistory history(tempDir_);
     auto result = history.get("run-nonexistent");
     EXPECT_FALSE(result.has_value());
 }
 
+/** @test Lists an empty history and verifies it returns an empty vector. */
 TEST_F(FileRunHistoryTest, ListEmptyReturnsEmpty) {
     FileRunHistory history(tempDir_);
     auto results = history.list();
     EXPECT_TRUE(results.empty());
 }
 
+/** @test Runs concurrent writer (50 saves) and reader (50 lists) threads and verifies all records are persisted. */
 TEST_F(FileRunHistoryTest, ConcurrentSaveAndList) {
     FileRunHistory history(tempDir_);
 

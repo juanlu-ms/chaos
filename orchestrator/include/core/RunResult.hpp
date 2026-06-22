@@ -16,7 +16,9 @@ namespace chaos::orchestrator::core {
  * @brief Result of running and validating a chaos test.
  */
 struct RunResult {
+    /** @brief Whether the run passed all validations. */
     bool passed{false};
+    /** @brief Individual validation results for each target. */
     std::vector<validation::ValidationResult> results;
     /** @brief Manifest test name, copied for reporting. */
     std::string manifest_name;

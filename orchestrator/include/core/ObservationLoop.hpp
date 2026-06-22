@@ -39,7 +39,14 @@ public:
      * @brief Configuration for observation intervals and continuous expectations.
      */
     struct Config {
+        /** @brief Default configuration with standard interval values. */
         Config() = default;
+        /**
+         * @brief Construct a Config with custom interval values.
+         * @param metricsInterval Interval between metrics collection ticks.
+         * @param logsInterval Interval between log collection ticks.
+         * @param continuousValidationInterval Interval between continuous validation checks.
+         */
         Config(std::chrono::milliseconds metricsInterval, std::chrono::milliseconds logsInterval,
                std::chrono::milliseconds continuousValidationInterval)
             : metricsInterval(metricsInterval),
@@ -79,6 +86,7 @@ public:
     ObservationLoop(std::shared_ptr<containers::IContainerEngine> engine, std::string containerId, SharedState& state,
                     IRunObserver& observer, Config config);
 
+    /** @brief Stops all background threads and waits for them to join. */
     ~ObservationLoop();
 
     ObservationLoop(const ObservationLoop&) = delete;

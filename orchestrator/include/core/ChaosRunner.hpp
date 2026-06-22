@@ -30,6 +30,10 @@ namespace chaos::orchestrator::core {
  */
 class ChaosRunner {
 public:
+    /**
+     * @brief Construct a ChaosRunner with a container engine backend.
+     * @param engine Shared pointer to the container engine implementation.
+     */
     explicit ChaosRunner(std::shared_ptr<containers::IContainerEngine> engine);
     ~ChaosRunner() = default;
 
@@ -38,6 +42,8 @@ public:
 
     /**
      * @brief Build perturbation instances from a manifest.
+     * @param manifest The chaos manifest containing perturbation definitions.
+     * @return Vector of unique pointers to constructed perturbation objects.
      * @throws std::invalid_argument If a perturbation type is unknown.
      */
     [[nodiscard]] std::vector<std::unique_ptr<perturbations::IPerturbation>> buildPerturbations(
@@ -55,6 +61,8 @@ public:
 
     /**
      * @brief Parse a manifest from a JSON file.
+     * @param path Filesystem path to the JSON manifest file.
+     * @return The parsed ChaosManifest with perturbations and expectations.
      * @throws manifests::ManifestParserError If the file cannot be parsed.
      */
     [[nodiscard]] manifests::ChaosManifest parseManifest(const std::string& path) const;

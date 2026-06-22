@@ -9,17 +9,21 @@ namespace chaos::orchestrator::observability {
 using json = nlohmann::json;
 
 /**
- * Minimal OTLP Logs exporter using JSON over HTTP.
+ * @brief Minimal OTLP Logs exporter using JSON over HTTP.
  *
  * Builds payloads conforming to the OTLP Logs protocol (JSON variant)
  * and sends them to a configurable OTLP HTTP endpoint.
  */
 class OtlpExporter {
 public:
+    /**
+     * @brief Construct an OTLP exporter targeting the given endpoint.
+     * @param endpoint The OTLP HTTP logs endpoint URL.
+     */
     explicit OtlpExporter(std::string endpoint);
 
     /**
-     * Build an OTLP Logs payload for a CHAOS event.
+     * @brief Build an OTLP Logs payload for a CHAOS event.
      *
      * @param run_id      Unique run identifier.
      * @param severity    Severity/event type (e.g. "run_started", "state_changed", "run_complete").
@@ -31,12 +35,16 @@ public:
                                 const std::unordered_map<std::string, std::string>& attributes);
 
     /**
-     * Export a log payload to the OTLP endpoint.
+     * @brief Export a log payload to the OTLP endpoint.
+     * @param payload The OTLP JSON payload to send.
      * @return true on HTTP 200.
      */
     [[nodiscard]] bool exportLogs(const json& payload);
 
-    /** @return the full OTLP Logs URL. */
+    /**
+     * @brief Get the configured OTLP endpoint URL.
+     * @return the full OTLP Logs URL.
+     */
     std::string endpoint() const;
 
 private:

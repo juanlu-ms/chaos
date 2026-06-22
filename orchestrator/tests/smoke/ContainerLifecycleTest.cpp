@@ -11,6 +11,7 @@
 using chaos::orchestrator::containers::ContainerStatus;
 using namespace chaos::orchestrator::tests::smoke;
 
+/** @brief Test fixture for container create/start/stop/kill/remove lifecycle smoke tests. */
 class ContainerLifecycleTest : public ContainerSmokeTestBase {};
 
 /**

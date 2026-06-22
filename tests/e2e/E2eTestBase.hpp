@@ -1,3 +1,8 @@
+/**
+ * @file E2eTestBase.hpp
+ * @brief Shared test fixture base for end-to-end integration tests.
+ */
+
 #pragma once
 
 #include <gtest/gtest.h>
@@ -6,13 +11,16 @@
 #include <string>
 
 #include "containers/ContainerEngineFactory.hpp"
-#include "containers/IContainerEngine.hpp"
 #include "containers/ContainerStatus.hpp"
+#include "containers/IContainerEngine.hpp"
 
+using chaos::orchestrator::containers::ContainerStatus;
 using chaos::orchestrator::containers::createContainerEngine;
 using chaos::orchestrator::containers::IContainerEngine;
-using chaos::orchestrator::containers::ContainerStatus;
 
+/**
+ * @brief Base test fixture that provisions a running demo-target container for each E2E test case.
+ */
 class E2eTestBase : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -35,7 +43,9 @@ protected:
         }
     }
 
+    /** @brief Returns the container engine instance. @return Shared pointer to the engine. */
     std::shared_ptr<IContainerEngine> engine() const { return engine_; }
+    /** @brief Returns the running container's identifier. @return Const reference to the container ID string. */
     [[nodiscard]] const std::string& containerId() const { return containerId_; }
 
 private:

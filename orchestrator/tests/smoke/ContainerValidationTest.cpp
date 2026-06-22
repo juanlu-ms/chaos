@@ -10,6 +10,7 @@
 
 using chaos::orchestrator::containers::createContainerEngine;
 
+/** @brief Test fixture for input validation smoke tests of container engine methods. */
 class ContainerValidationTest : public ::testing::Test {
 protected:
     void SetUp() override { engine_ = createContainerEngine(); }

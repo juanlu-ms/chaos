@@ -34,6 +34,8 @@ public:
 
     /**
      * @brief Record a state sample.
+     * @param state The current target state snapshot.
+     *
      * Appends a RunSample with elapsed time since construction, current metrics,
      * last known latency, and the current phase.
      */
@@ -41,11 +43,14 @@ public:
 
     /**
      * @brief Store the latest latency value for the next sample.
+     * @param latency The measured network latency, or std::nullopt if unavailable.
      */
     void onNetworkLatencyUpdate(std::optional<double> latency) override;
 
     /**
      * @brief Record phase transitions and zone boundaries.
+     * @param phase The new phase name ("normal", "chaos", or "recovery").
+     *
      * On normal->chaos: records normal_end_t.
      * On chaos->recovery: records chaos_end_t.
      * Phase strings: "normal", "chaos", "recovery".
@@ -54,6 +59,7 @@ public:
 
     /**
      * @brief Replace the stored log tail with new logs (mirrors WebRunObserver).
+     * @param logs The latest log lines from the target.
      */
     void onLogsUpdate(const std::vector<std::string>& logs) override;
 

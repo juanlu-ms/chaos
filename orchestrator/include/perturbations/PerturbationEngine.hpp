@@ -22,6 +22,9 @@ namespace chaos::orchestrator::perturbations {
  */
 class PerturbationEngine {
 public:
+    /**
+     * @brief Construct an empty PerturbationEngine with no active perturbations.
+     */
     PerturbationEngine() = default;
 
     /**

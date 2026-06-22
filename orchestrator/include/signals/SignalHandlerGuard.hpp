@@ -21,7 +21,14 @@ namespace chaos::orchestrator::signals {
  */
 class SignalHandlerGuard {
 public:
+    /**
+     * @brief Install the SIGINT handler and create the self-pipe.
+     */
     SignalHandlerGuard();
+
+    /**
+     * @brief Restore the previous SIGINT handler and close the pipe on last instance.
+     */
     ~SignalHandlerGuard() noexcept;
 
     SignalHandlerGuard(const SignalHandlerGuard&) = delete;

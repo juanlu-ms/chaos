@@ -52,6 +52,9 @@ public:
      */
     virtual void clear() = 0;
 
+    /**
+     * @brief Virtual destructor (defaulted).
+     */
     virtual ~IRunHistory() = default;
 };
 

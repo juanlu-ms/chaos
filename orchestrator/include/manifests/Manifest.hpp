@@ -16,16 +16,32 @@ namespace chaos::orchestrator::manifests {
 
 /** @brief Helper struct for transparent string hashing. */
 struct TransparentStringHash {
+    /** @brief Enables heterogeneous lookup in unordered containers. */
     using is_transparent = void;
 
+    /**
+     * @brief Hash a string_view key.
+     * @param key The string view to hash.
+     * @return The hash value.
+     */
     [[nodiscard]] std::size_t operator()(std::string_view key) const noexcept {
         return std::hash<std::string_view>{}(key);
     }
 
+    /**
+     * @brief Hash a std::string key (delegates to string_view overload).
+     * @param key The string to hash.
+     * @return The hash value.
+     */
     [[nodiscard]] std::size_t operator()(const std::string& key) const noexcept {
         return (*this)(std::string_view{key});
     }
 
+    /**
+     * @brief Hash a C-string key (delegates to string_view overload).
+     * @param key The C-string to hash.
+     * @return The hash value.
+     */
     [[nodiscard]] std::size_t operator()(const char* key) const noexcept { return (*this)(std::string_view{key}); }
 };
 

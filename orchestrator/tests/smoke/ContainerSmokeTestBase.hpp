@@ -1,3 +1,8 @@
+/**
+ * @file ContainerSmokeTestBase.hpp
+ * @brief Shared test fixture base for container-related smoke tests.
+ */
+
 #pragma once
 
 #include <gtest/gtest.h>
@@ -10,8 +15,12 @@
 
 namespace chaos::orchestrator::tests::smoke {
 
+/** @brief Creates a real container engine instance for smoke testing. @return A shared pointer to the engine. */
 inline std::shared_ptr<containers::IContainerEngine> createTestEngine() { return containers::createContainerEngine(); }
 
+/**
+ * @brief Base test fixture that provisions a demo-target container for each test case.
+ */
 class ContainerSmokeTestBase : public ::testing::Test {
 protected:
     void SetUp() override {

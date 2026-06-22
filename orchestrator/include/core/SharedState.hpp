@@ -36,6 +36,8 @@ public:
      *
      * Leaves network_latency_ms, logs, and phase untouched — those have
      * dedicated writers (latency thread, logs thread, RunOrchestrator).
+     *
+     * @param state The target state containing new metrics values.
      */
     void updateMetrics(const core::TargetState& state);
 

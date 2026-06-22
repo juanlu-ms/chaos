@@ -45,9 +45,13 @@ public:
  * @brief Snapshot of container resource stats from a single API call.
  */
 struct ContainerStats {
+    /** @brief CPU usage as a percentage of allocated CPU, if available. */
     std::optional<double> cpu_percent;
+    /** @brief Memory usage in megabytes, if available. */
     std::optional<double> memory_mb;
+    /** @brief Network receive rate in bytes per second. */
     double network_rx_bps = 0;
+    /** @brief Network transmit rate in bytes per second. */
     double network_tx_bps = 0;
 };
 
@@ -184,6 +188,10 @@ public:
 
     /**
      * @brief Fetch CPU, memory and network stats in a single API call.
+     * @param containerId ID of the target container.
+     * @return ContainerStats snapshot with CPU, memory, and network rates.
+     * @throws ContainerEngineApiError On non-200 HTTP response.
+     * @throws ContainerEngineParseError On JSON parsing failures.
      */
     [[nodiscard]] virtual containers::ContainerStats getStats(const std::string_view containerId) = 0;
 
@@ -191,6 +199,8 @@ public:
      * @brief Fetch the primary IP address of a running container (call once at setup).
      * @param containerId Docker container ID.
      * @return IPv4 address as a string.
+     * @throws ContainerEngineApiError On non-200 HTTP response.
+     * @throws ContainerEngineParseError On JSON parsing failures.
      */
     [[nodiscard]] virtual std::string getContainerIp(const std::string_view containerId) const = 0;
 

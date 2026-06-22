@@ -20,6 +20,7 @@ using chaos::orchestrator::manifests::Perturbation;
 using chaos::orchestrator::manifests::Target;
 using chaos::orchestrator::perturbations::PerturbationFactory;
 
+/** @brief Test fixture for end-to-end perturbation type integration tests. */
 class PerturbationE2eTest : public E2eTestBase {};
 
 /**

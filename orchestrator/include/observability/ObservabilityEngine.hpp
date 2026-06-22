@@ -41,12 +41,32 @@ public:
 
     /**
      * @brief Fetch the IP. Called once at run setup, not on every observe tick.
+     * @param containerId Docker container ID or name.
+     * @return The container's IP address, or std::nullopt if not available.
      */
     std::optional<std::string> getContainerIp(const std::string_view containerId) const;
 
     // ── Data-source getters ─────────────────────────────────────────
+
+    /**
+     * @brief Get the current container status.
+     * @param containerId Docker container ID or name.
+     * @return The container's status.
+     */
     containers::ContainerStatus getStatus(const std::string_view containerId) const;
+
+    /**
+     * @brief Retrieve the full container log output.
+     * @param containerId Docker container ID or name.
+     * @return Raw log text from the container.
+     */
     std::string getLogs(const std::string_view containerId) const;
+
+    /**
+     * @brief Get current container resource statistics.
+     * @param containerId Docker container ID or name.
+     * @return CPU, memory, and I/O statistics for the container.
+     */
     containers::ContainerStats getStats(const std::string_view containerId);
 
 private:

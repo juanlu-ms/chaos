@@ -21,9 +21,28 @@ public:
      */
     explicit CompositeRunObserver(std::vector<IRunObserver*> observers);
 
+    /**
+     * @brief Forward a state update event to all observers.
+     * @param state The new target state.
+     */
     void onStateUpdate(const core::TargetState& state) override;
+
+    /**
+     * @brief Forward a phase change event to all observers.
+     * @param phase The new phase name.
+     */
     void onPhaseChange(std::string_view phase) override;
+
+    /**
+     * @brief Forward a logs update event to all observers.
+     * @param logs The new log lines.
+     */
     void onLogsUpdate(const std::vector<std::string>& logs) override;
+
+    /**
+     * @brief Forward a network latency update to all observers.
+     * @param latency The measured latency, or std::nullopt if unavailable.
+     */
     void onNetworkLatencyUpdate(std::optional<double> latency) override;
 
 private:

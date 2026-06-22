@@ -28,9 +28,9 @@ class RunRecorder : public core::IRunObserver {
 public:
     /**
      * @brief Construct with the manifest to record.
-     * @param manifest The chaos manifest (copied).
+     * @param manifest The chaos manifest (moved into the recorder).
      */
-    explicit RunRecorder(const manifests::ChaosManifest& manifest);
+    explicit RunRecorder(manifests::ChaosManifest manifest);
 
     /**
      * @brief Record a state sample.

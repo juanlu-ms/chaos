@@ -1,9 +1,13 @@
 #include "history/FileRunHistory.hpp"
 
+#include <spdlog/spdlog.h>
+
 #include <algorithm>
 #include <cctype>
 #include <fstream>
+#include <functional>
 #include <nlohmann/json.hpp>
+#include <shared_mutex>
 
 #include "history/HistoryJson.hpp"
 #include "history/RunRecord.hpp"
@@ -15,7 +19,7 @@ FileRunHistory::FileRunHistory(std::filesystem::path dir, size_t maxRuns) : dir_
 }
 
 void FileRunHistory::save(const RunRecord& record) {
-    std::lock_guard lock(mutex_);
+    std::unique_lock lock(mutex_);
 
     auto j = runRecordToJson(record);
     auto filepath = dir_ / (record.summary.id + ".json");
@@ -29,7 +33,7 @@ void FileRunHistory::save(const RunRecord& record) {
 }
 
 std::vector<RunSummary> FileRunHistory::list() {
-    std::lock_guard lock(mutex_);
+    std::unique_lock lock(mutex_);
 
     if (cache_.empty()) {
         refreshCache();
@@ -38,7 +42,7 @@ std::vector<RunSummary> FileRunHistory::list() {
 }
 
 std::optional<RunRecord> FileRunHistory::get(const std::string& id) {
-    std::lock_guard lock(mutex_);
+    std::shared_lock lock(mutex_);
 
     auto filepath = dir_ / (id + ".json");
     if (!std::filesystem::exists(filepath)) {
@@ -46,12 +50,12 @@ std::optional<RunRecord> FileRunHistory::get(const std::string& id) {
     }
 
     std::ifstream file(filepath);
-    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    std::string content{std::istreambuf_iterator<char>(file), {}};
     return runRecordFromJson(nlohmann::json::parse(content));
 }
 
 bool FileRunHistory::remove(const std::string& id) {
-    std::lock_guard lock(mutex_);
+    std::unique_lock lock(mutex_);
 
     auto filepath = dir_ / (id + ".json");
     bool existed = std::filesystem::exists(filepath);
@@ -69,7 +73,7 @@ bool FileRunHistory::remove(const std::string& id) {
 }
 
 void FileRunHistory::clear() {
-    std::lock_guard lock(mutex_);
+    std::unique_lock lock(mutex_);
 
     for (const auto& summary : cache_) {
         std::filesystem::remove(dir_ / (summary.id + ".json"));
@@ -89,7 +93,7 @@ void FileRunHistory::refreshCache() {
         }
 
         std::ifstream file(entry.path());
-        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        std::string content{std::istreambuf_iterator<char>(file), {}};
 
         try {
             auto j = nlohmann::json::parse(content);
@@ -97,18 +101,18 @@ void FileRunHistory::refreshCache() {
             if (summary.has_value()) {
                 cache_.push_back(std::move(*summary));
             }
-        } catch (...) {
+        } catch (const nlohmann::json::exception& e) {
+            SPDLOG_WARN("skipping corrupt history file: {}", e.what());
             continue;
         }
     }
 
-    std::ranges::sort(
-        cache_, [](const RunSummary& lhs, const RunSummary& rhs) { return lhs.started_at_unix > rhs.started_at_unix; });
+    std::ranges::sort(cache_, std::greater{}, &RunSummary::started_at_unix);
 }
 
 void FileRunHistory::prune() {
     while (cache_.size() > maxRuns_) {
-        auto const& oldest = cache_.back();
+        const auto& oldest = cache_.back();
         std::filesystem::remove(dir_ / (oldest.id + ".json"));
         cache_.pop_back();
     }

@@ -7,8 +7,8 @@
 
 #include <cstddef>
 #include <filesystem>
-#include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <string>
 #include <vector>
 
@@ -22,7 +22,8 @@ namespace chaos::orchestrator::history {
  *
  * Stores each run as <dir>/<id>.json. Maintains an in-memory summary cache
  * for fast listing. Retention capped at maxRuns (oldest by started_at_unix
- * pruned on each save). Thread-safe via internal mutex.
+ * pruned on each save). Thread-safe via internal shared_mutex (concurrent
+ * readers, exclusive writers).
  */
 class FileRunHistory : public IRunHistory {
 public:
@@ -83,7 +84,7 @@ private:
     std::filesystem::path dir_;
     size_t maxRuns_;
     std::vector<RunSummary> cache_;
-    mutable std::mutex mutex_;
+    mutable std::shared_mutex mutex_;
 };
 
 }  // namespace chaos::orchestrator::history

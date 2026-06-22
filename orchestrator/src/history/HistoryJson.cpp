@@ -1,5 +1,7 @@
 #include "history/HistoryJson.hpp"
 
+#include <spdlog/spdlog.h>
+
 #include <chrono>
 
 #include "core/ResultSerializer.hpp"
@@ -20,6 +22,12 @@ nlohmann::json runSummaryToJson(const RunSummary& summary) {
     j["chaos_end_t"] = summary.chaos_end_t;
     return j;
 }
+
+namespace {
+void putIfPresent(nlohmann::json& j, const char* key, const std::optional<double>& val) {
+    if (val) j[key] = *val;
+}
+}  // namespace
 
 nlohmann::json runRecordToJson(const RunRecord& record) {
     nlohmann::json j;
@@ -48,21 +56,11 @@ nlohmann::json runRecordToJson(const RunRecord& record) {
         nlohmann::json s;
         s["t"] = sample.t;
         s["phase"] = sample.phase;
-        if (sample.cpu_usage_percent.has_value()) {
-            s["cpu_usage_percent"] = *sample.cpu_usage_percent;
-        }
-        if (sample.memory_usage_mb.has_value()) {
-            s["memory_usage_mb"] = *sample.memory_usage_mb;
-        }
-        if (sample.network_rx_bps.has_value()) {
-            s["network_rx_bps"] = *sample.network_rx_bps;
-        }
-        if (sample.network_tx_bps.has_value()) {
-            s["network_tx_bps"] = *sample.network_tx_bps;
-        }
-        if (sample.network_latency_ms.has_value()) {
-            s["network_latency_ms"] = *sample.network_latency_ms;
-        }
+        putIfPresent(s, "cpu_usage_percent", sample.cpu_usage_percent);
+        putIfPresent(s, "memory_usage_mb", sample.memory_usage_mb);
+        putIfPresent(s, "network_rx_bps", sample.network_rx_bps);
+        putIfPresent(s, "network_tx_bps", sample.network_tx_bps);
+        putIfPresent(s, "network_latency_ms", sample.network_latency_ms);
         j["samples"].push_back(std::move(s));
     }
     j["logs"] = nlohmann::json(record.logs);
@@ -97,7 +95,8 @@ std::optional<RunSummary> runSummaryFromJson(const nlohmann::json& j) {
             }
         }
         return summary;
-    } catch (const nlohmann::json::exception&) {
+    } catch (const nlohmann::json::exception& e) {
+        SPDLOG_WARN("Failed to parse run summary: {}", e.what());
         return std::nullopt;
     }
 }
@@ -167,7 +166,8 @@ std::optional<RunRecord> runRecordFromJson(const nlohmann::json& j) {
             record.logs = j.at("logs").get<std::vector<std::string>>();
         }
         return record;
-    } catch (const nlohmann::json::exception&) {
+    } catch (const nlohmann::json::exception& e) {
+        SPDLOG_WARN("Failed to parse run record: {}", e.what());
         return std::nullopt;
     }
 }

@@ -39,8 +39,12 @@ set(ORCHESTRATOR_SOURCES
     src/validation/internal/HttpValidation.cpp
     src/signals/SignalHandlerGuard.cpp
     src/core/ChaosRunner.cpp
+    src/core/CompositeRunObserver.cpp
     src/core/ObservationLoop.cpp
     src/core/ResultSerializer.cpp
+    src/history/HistoryJson.cpp
+    src/history/FileRunHistory.cpp
+    src/history/RunRecorder.cpp
     src/core/RunOrchestrator.cpp
     src/interfaces/web/JsonSerializer.cpp
 )
@@ -80,10 +84,14 @@ add_executable(orchestrator_unit_tests
     tests/containers/internal/DockerClientInternalUnitTest.cpp
     tests/containers/internal/DockerClientUnitTest.cpp
     tests/core/ChaosRunnerUnitTest.cpp
+    tests/core/CompositeRunObserverUnitTest.cpp
     tests/core/ObservationLoopInternalUnitTest.cpp
     tests/core/ObservationLoopUnitTest.cpp
     tests/core/RunOrchestratorUnitTest.cpp
     tests/core/SharedStateUnitTest.cpp
+    tests/history/HistoryJsonUnitTest.cpp
+    tests/history/FileRunHistoryUnitTest.cpp
+    tests/history/RunRecorderUnitTest.cpp
     tests/interfaces/cli/CliParserUnitTest.cpp
     tests/manifests/ManifestParserUnitTest.cpp
     tests/observability/ObservabilityEngineUnitTest.cpp
@@ -112,6 +120,7 @@ add_executable(orchestrator_unit_tests
 target_include_directories(orchestrator_unit_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/perturbations
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/history
     ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
 target_link_libraries(orchestrator_unit_tests PRIVATE
@@ -127,6 +136,7 @@ add_executable(orchestrator_smoke_tests
     tests/smoke/ContainerResourceTest.cpp
     tests/smoke/ContainerNetworkTest.cpp
     tests/smoke/ContainerValidationTest.cpp
+    tests/smoke/RunHistorySmokeTest.cpp
 )
 
 target_include_directories(orchestrator_smoke_tests PRIVATE

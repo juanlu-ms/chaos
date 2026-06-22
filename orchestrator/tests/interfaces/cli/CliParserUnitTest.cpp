@@ -11,6 +11,8 @@
 #include <vector>
 
 #include "MockContainerEngine.hpp"
+#include "history/MockRunHistory.hpp"
+#include "history/RunRecord.hpp"
 #include "interfaces/cli/CliParser.hpp"
 
 using namespace testing;
@@ -264,4 +266,68 @@ TEST(ParseGlobalFlagsTest, FlagsCanAppearAnywhere) {
     EXPECT_FALSE(result.error.has_value());
     EXPECT_EQ(result.options.logLevel, spdlog::level::debug);
     EXPECT_EQ(toViews(result.args), (std::vector<std::string_view>{"chaos", "run", "manifest.json"}));
+}
+
+/**
+ * @test Verifies history command with no runs prints empty message.
+ */
+TEST(CliParserUnitTest, HistoryListEmpty) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    auto mockHistory = std::make_shared<tests::MockRunHistory>();
+    EXPECT_CALL(*mockHistory, list()).WillOnce(Return(std::vector<history::RunSummary>{}));
+
+    interfaces::cli::CliParser cli(mockEngine, mockHistory);
+    EXPECT_EQ(runCli(cli, {"chaos", "history"}), 0);
+}
+
+/**
+ * @test Verifies history command prints run id for a specific run.
+ */
+TEST(CliParserUnitTest, HistoryGetRun) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    auto mockHistory = std::make_shared<tests::MockRunHistory>();
+
+    history::RunRecord record;
+    record.summary.id = "run-1000";
+    record.summary.status = "completed";
+    record.summary.runResult.passed = true;
+
+    EXPECT_CALL(*mockHistory, get("run-1000")).WillOnce(Return(record));
+
+    interfaces::cli::CliParser cli(mockEngine, mockHistory);
+    EXPECT_EQ(runCli(cli, {"chaos", "history", "run-1000"}), 0);
+}
+
+/**
+ * @test Verifies history get for missing run returns error.
+ */
+TEST(CliParserUnitTest, HistoryGetMissingRun) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    auto mockHistory = std::make_shared<tests::MockRunHistory>();
+    EXPECT_CALL(*mockHistory, get("run-999")).WillOnce(Return(std::nullopt));
+
+    interfaces::cli::CliParser cli(mockEngine, mockHistory);
+    EXPECT_NE(runCli(cli, {"chaos", "history", "run-999"}), 0);
+}
+
+/**
+ * @test Verifies history clear delegates to mock.
+ */
+TEST(CliParserUnitTest, HistoryClear) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    auto mockHistory = std::make_shared<tests::MockRunHistory>();
+    EXPECT_CALL(*mockHistory, clear()).Times(1);
+
+    interfaces::cli::CliParser cli(mockEngine, mockHistory);
+    EXPECT_EQ(runCli(cli, {"chaos", "history", "clear"}), 0);
+}
+
+/**
+ * @test Verifies history command without history available prints error.
+ */
+TEST(CliParserUnitTest, HistoryNotAvailable) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    // Don't pass history (defaults to nullptr)
+    interfaces::cli::CliParser cli(mockEngine);
+    EXPECT_NE(runCli(cli, {"chaos", "history"}), 0);
 }

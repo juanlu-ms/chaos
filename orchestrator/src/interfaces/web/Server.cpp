@@ -9,13 +9,17 @@
 #include <optional>
 #include <stop_token>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
+#include "core/CompositeRunObserver.hpp"
 #include "core/IRunObserver.hpp"
 #include "core/ObservationLoop.hpp"
 #include "core/ResultSerializer.hpp"
 #include "core/RunOrchestrator.hpp"
+#include "history/HistoryJson.hpp"
+#include "history/RunRecorder.hpp"
 #include "interfaces/web/JsonSerializer.hpp"
 #include "manifests/ManifestParser.hpp"
 
@@ -70,28 +74,21 @@ std::optional<std::filesystem::path> findWebRoot() {
     return std::nullopt;
 }
 
-void storeRunResult(const std::shared_ptr<core::RunSession>& session, json result) {
+void finalizeSession(const std::shared_ptr<core::RunSession>& session, json result, std::string error) {
     std::lock_guard lock(session->mtx);
-    if (!session->running) {
-        return;
+    if (!result.is_null()) {
+        session->results = std::move(result);
     }
-    session->results = std::move(result);
-    session->running = false;
-    session->complete = true;
-}
-
-void storeRunError(const std::shared_ptr<core::RunSession>& session, const std::string& error) {
-    std::lock_guard lock(session->mtx);
-    if (!session->running) {
-        return;
+    if (!error.empty()) {
+        session->error = std::move(error);
     }
-    session->error = error;
     session->running = false;
     session->complete = true;
 }
 }  // namespace
 
-Server::Server(std::shared_ptr<containers::IContainerEngine> engine) : engine_(std::move(engine)), runner_(engine_) {
+Server::Server(std::shared_ptr<containers::IContainerEngine> engine, std::shared_ptr<history::IRunHistory> history)
+    : engine_(std::move(engine)), history_(std::move(history)), runner_(engine_) {
     setupRoutes();
 }
 
@@ -179,6 +176,18 @@ void Server::setupApiRoutes() {
     server_.Get("/api/events", [this](const httplib::Request& request, httplib::Response& response) {
         handleEvents(request, response);
     });
+
+    server_.Get("/api/history",
+                [this](const httplib::Request& req, httplib::Response& res) { handleHistoryList(req, res); });
+
+    server_.Get(R"(/api/history/([^/]+))",
+                [this](const httplib::Request& req, httplib::Response& res) { handleHistoryGet(req, res); });
+
+    server_.Delete(R"(/api/history/([^/]+))",
+                   [this](const httplib::Request& req, httplib::Response& res) { handleHistoryDelete(req, res); });
+
+    server_.Delete("/api/history",
+                   [this](const httplib::Request& req, httplib::Response& res) { handleHistoryClear(req, res); });
 }
 
 void Server::handleContainerAction(const httplib::Request& req, httplib::Response& res, std::string_view actionName) {
@@ -218,27 +227,38 @@ void Server::executeRunAsync(manifests::ChaosManifest manifest, std::shared_ptr<
             if (token.stop_requested()) {
                 return;
             }
+            history::RunRecorder recorder(manifest);
             try {
                 WebRunObserver observer(session);
+                core::CompositeRunObserver composite({&observer, &recorder});
 
                 core::ObservationLoop::Config loopConfig;
                 loopConfig.metricsInterval = std::chrono::milliseconds(100);
                 loopConfig.logsInterval = std::chrono::milliseconds(1500);
                 loopConfig.continuousExpectations = manifest.expectations;
 
-                core::ObservationLoop obsLoop(engine, manifest.target.id, session->state, observer, loopConfig);
+                core::ObservationLoop obsLoop(engine, manifest.target.id, session->state, composite, loopConfig);
                 obsLoop.start(token);
 
                 core::RunOrchestrator orchestrator(runner_);
                 auto perturbation_instances = runner_.buildPerturbations(manifest);
                 auto runResult =
-                    orchestrator.run(manifest, session->state, observer, std::move(perturbation_instances), token);
+                    orchestrator.run(manifest, session->state, composite, std::move(perturbation_instances), token);
 
                 auto result = core::runResultToJson(runResult);
-                storeRunResult(session, std::move(result));
+
+                std::string status = session->abortRequested.load() ? "aborted" : "completed";
+                if (history_) {
+                    history_->save(recorder.finalize(runResult, status, ""));
+                }
+
+                finalizeSession(session, std::move(result), {});
                 session->cv.notify_all();
             } catch (const std::exception& ex) {
-                storeRunError(session, ex.what());
+                if (history_) {
+                    history_->save(recorder.finalize({}, "error", ex.what()));
+                }
+                finalizeSession(session, {}, std::string{ex.what()});
                 session->cv.notify_all();
                 SPDLOG_ERROR("/api/run async failed: {}", ex.what());
             }
@@ -402,22 +422,86 @@ void Server::handleAbort(const httplib::Request&, httplib::Response& response) {
         response.set_content(error.dump(4), "application/json");
         return;
     }
-    {
-        std::lock_guard lock(session->mtx);
-        if (!session->running) {
-            json error = {{"error", "No active run to abort"}};
-            response.status = 409;
-            response.set_content(error.dump(4), "application/json");
-            return;
-        }
-        session->error = "Aborted by user";
-        session->complete = true;
-        session->running = false;
-    }
-    session->stop_source.request_stop();
+    session->abortRequested.store(true);
     run_thread_.request_stop();
     session->cv.notify_all();
     json result = {{"status", "aborted"}};
+    response.set_content(result.dump(4), "application/json");
+}
+
+void Server::handleHistoryList(const httplib::Request&, httplib::Response& response) {
+    if (!history_) {
+        response.status = 404;
+        json error = {{"error", "History not available"}};
+        response.set_content(error.dump(4), "application/json");
+        return;
+    }
+    auto summaries = history_->list();
+    json result = json::array();
+    for (const auto& s : summaries) {
+        result.push_back(history::runSummaryToJson(s));
+    }
+    response.set_content(result.dump(4), "application/json");
+}
+
+void Server::handleHistoryGet(const httplib::Request& request, httplib::Response& response) {
+    if (!history_) {
+        response.status = 404;
+        json error = {{"error", "History not available"}};
+        response.set_content(error.dump(4), "application/json");
+        return;
+    }
+    if (request.matches.size() < 2) {
+        response.status = 400;
+        json error = {{"error", "Missing run id"}};
+        response.set_content(error.dump(4), "application/json");
+        return;
+    }
+    const std::string id = request.matches[1];
+    auto record = history_->get(id);
+    if (!record.has_value()) {
+        response.status = 404;
+        json error = {{"error", "Run not found"}};
+        response.set_content(error.dump(4), "application/json");
+        return;
+    }
+    response.set_content(history::runRecordToJson(record.value()).dump(4), "application/json");
+}
+
+void Server::handleHistoryDelete(const httplib::Request& request, httplib::Response& response) {
+    if (!history_) {
+        response.status = 404;
+        json error = {{"error", "History not available"}};
+        response.set_content(error.dump(4), "application/json");
+        return;
+    }
+    if (request.matches.size() < 2) {
+        response.status = 400;
+        json error = {{"error", "Missing run id"}};
+        response.set_content(error.dump(4), "application/json");
+        return;
+    }
+    const std::string id = request.matches[1];
+    bool removed = history_->remove(id);
+    if (!removed) {
+        response.status = 404;
+        json error = {{"error", "Run not found"}};
+        response.set_content(error.dump(4), "application/json");
+        return;
+    }
+    json result = {{"status", "deleted"}};
+    response.set_content(result.dump(4), "application/json");
+}
+
+void Server::handleHistoryClear(const httplib::Request&, httplib::Response& response) {
+    if (!history_) {
+        response.status = 404;
+        json error = {{"error", "History not available"}};
+        response.set_content(error.dump(4), "application/json");
+        return;
+    }
+    history_->clear();
+    json result = {{"status", "cleared"}};
     response.set_content(result.dump(4), "application/json");
 }
 

@@ -7,9 +7,11 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <ctime>
 #include <fstream>
 #include <memory>
 #include <mutex>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <span>
 #include <string>
@@ -18,11 +20,14 @@
 #include <utility>
 #include <vector>
 
+#include "core/CompositeRunObserver.hpp"
 #include "core/IRunObserver.hpp"
 #include "core/ObservationLoop.hpp"
 #include "core/ResultSerializer.hpp"
 #include "core/RunOrchestrator.hpp"
 #include "core/SharedState.hpp"
+#include "history/HistoryJson.hpp"
+#include "history/RunRecorder.hpp"
 #include "interfaces/cli/ProgressCoordinator.hpp"
 #include "manifests/ManifestParser.hpp"
 #include "signals/SignalHandlerGuard.hpp"
@@ -181,8 +186,9 @@ ParsedGlobalFlags parseGlobalFlags(std::span<char*> argv) {
     return result;
 }
 
-CliParser::CliParser(std::shared_ptr<containers::IContainerEngine> engine)
-    : engine_(std::move(engine)), runner_(engine_) {}
+CliParser::CliParser(std::shared_ptr<containers::IContainerEngine> engine,
+                     std::shared_ptr<history::IRunHistory> history)
+    : engine_(std::move(engine)), history_(std::move(history)), runner_(engine_) {}
 
 int CliParser::run(std::span<char*> argv) const {
     if (argv.size() < 2) {
@@ -249,6 +255,10 @@ int CliParser::dispatchCommand(const std::vector<std::string>& args) const {
         return handleRun(manifestPath.value(), options);
     }
 
+    if (command == "history") {
+        return handleHistory(args);
+    }
+
     fmt::print(stderr, "Unknown command: '{}'\n", command);
     printUsage();
     return 1;
@@ -271,6 +281,8 @@ void CliParser::printUsage() const {
                "  stop  <container_id>  Stop a running container\n"
                "  kill  <container_id>  Kill a running container\n"
                "  run   <manifest.json> [options] Execute a chaos manifest\n"
+               "  history [id] [--json] View run history or details of a specific run\n"
+               "  history clear         Clear all run history\n"
                "  help                  Show this help message\n"
                "\n"
                "Run Options:\n"
@@ -335,6 +347,7 @@ int CliParser::handleKill(const std::string& containerId) const {
 }
 
 int CliParser::handleRun(const std::string& manifestPath, const RunOptions& options) const {
+    std::optional<history::RunRecorder> recorder;
     try {
         auto manifest = runner_.parseManifest(manifestPath);
         SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.id);
@@ -347,6 +360,8 @@ int CliParser::handleRun(const std::string& manifestPath, const RunOptions& opti
             options.jsonOutput || (options.outputPath.has_value() && options.outputPath.value() == "-");
         ProgressRenderer renderer{!jsonMode};
         CliRunObserver observer(renderer);
+        recorder.emplace(manifest);
+        core::CompositeRunObserver composite({&observer, &*recorder});
 
         core::ObservationLoop::Config loopConfig;
         loopConfig.metricsInterval = std::chrono::milliseconds(200);
@@ -355,13 +370,16 @@ int CliParser::handleRun(const std::string& manifestPath, const RunOptions& opti
 
         signals::SignalHandlerGuard signal_guard;
 
-        core::ObservationLoop obsLoop(engine_, manifest.target.id, state, observer, loopConfig);
+        core::ObservationLoop obsLoop(engine_, manifest.target.id, state, composite, loopConfig);
         obsLoop.start(signal_guard.token());
 
         core::RunOrchestrator orchestrator(runner_);
         auto runResult =
-            orchestrator.run(manifest, state, observer, std::move(perturbation_instances), signal_guard.token());
+            orchestrator.run(manifest, state, composite, std::move(perturbation_instances), signal_guard.token());
         renderer.finish();
+        if (history_) {
+            history_->save(recorder->finalize(runResult, "completed", ""));
+        }
         const auto elapsed = std::chrono::duration<double>(runResult.duration_s);
 
         const auto jsonReport = core::runResultToJson(runResult).dump(2);
@@ -390,18 +408,125 @@ int CliParser::handleRun(const std::string& manifestPath, const RunOptions& opti
             return 1;
         }
     } catch (const manifests::ManifestParserError& ex) {
+        if (history_ && recorder.has_value()) {
+            history_->save(recorder->finalize({}, "error", ex.what()));
+        }
         fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;
     } catch (const std::invalid_argument& ex) {
+        if (history_ && recorder.has_value()) {
+            history_->save(recorder->finalize({}, "error", ex.what()));
+        }
         fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;
     } catch (const containers::ContainerEngineError& ex) {
+        if (history_ && recorder.has_value()) {
+            history_->save(recorder->finalize({}, "error", ex.what()));
+        }
         fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;
     } catch (const std::system_error& ex) {
+        if (history_ && recorder.has_value()) {
+            history_->save(recorder->finalize({}, "error", ex.what()));
+        }
         fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;
     }
+    return 0;
+}
+
+int CliParser::handleHistory(const std::vector<std::string>& args) const {
+    if (!history_) {
+        fmt::print(stderr, "History is not available.\n");
+        return 1;
+    }
+
+    bool jsonMode = false;
+    std::optional<std::string> runId;
+
+    for (std::size_t i = 2; i < args.size(); ++i) {
+        const std::string& arg = args[i];
+        if (arg == "--json") {
+            jsonMode = true;
+        } else if (!runId.has_value()) {
+            runId = arg;
+        } else {
+            fmt::print(stderr, "Unexpected argument: {}\n", arg);
+            return 1;
+        }
+    }
+
+    if (runId.has_value()) {
+        if (runId.value() == "clear") {
+            history_->clear();
+            if (jsonMode) {
+                fmt::print(stdout, "{{\"status\":\"cleared\"}}\n");
+            } else {
+                fmt::print(stdout, "Run history cleared.\n");
+            }
+            return 0;
+        }
+
+        auto record = history_->get(runId.value());
+        if (!record.has_value()) {
+            fmt::print(stderr, "Run '{}' not found.\n", runId.value());
+            return 1;
+        }
+
+        if (jsonMode) {
+            fmt::print(stdout, "{}\n", history::runRecordToJson(record.value()).dump(2));
+        } else {
+            const auto& sum = record->summary;
+            fmt::print(stdout, "\nRun: {}\n", sum.id);
+            fmt::print(stdout, "Status: {}\n", sum.status);
+            fmt::print(stdout, "Test:   {}\n", sum.runResult.manifest_name);
+            fmt::print(stdout, "Target: {}\n", sum.runResult.target_id);
+            if (!sum.error.empty()) {
+                fmt::print(stdout, "Error:  {}\n", sum.error);
+            }
+            fmt::print(stdout, "Result: {}\n", sum.runResult.passed ? "PASS" : "FAIL");
+            if (!sum.runResult.results.empty()) {
+                fmt::print(stdout, "Expectations:\n");
+                for (const auto& res : sum.runResult.results) {
+                    const char* symbol = res.passed ? "✓" : "✗";
+                    fmt::print(stdout, "  {} {}: {}\n", symbol, res.expectationType, res.message);
+                }
+            }
+        }
+        return 0;
+    }
+
+    auto summaries = history_->list();
+    if (summaries.empty()) {
+        if (jsonMode) {
+            fmt::print(stdout, "[]\n");
+        } else {
+            fmt::print(stdout, "No runs yet.\n");
+        }
+        return 0;
+    }
+    if (jsonMode) {
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& summ : summaries) {
+            arr.push_back(history::runSummaryToJson(summ));
+        }
+        fmt::print(stdout, "{}\n", arr.dump(2));
+    } else {
+        fmt::print(stdout, "{:<18} {:<20} {:<12} {:<10} {}\n", "RUN ID", "DATE", "TEST", "STATUS", "RESULT");
+        for (const auto& summ : summaries) {
+            auto time_t_val = static_cast<std::time_t>(summ.started_at_unix / 1000);
+            std::tm tm_val{};
+            localtime_r(&time_t_val, &tm_val);
+            std::array<char, 20> dateBuf{};
+            std::strftime(dateBuf.data(), dateBuf.size(), "%Y-%m-%d %H:%M:%S", &tm_val);
+
+            fmt::print(stdout, "{:<18} {:<20} {:<12} {:<10} {}\n", summ.id, dateBuf.data(),
+                       summ.runResult.manifest_name.size() > 10 ? summ.runResult.manifest_name.substr(0, 10)
+                                                                : summ.runResult.manifest_name,
+                       summ.status, summ.runResult.passed ? "PASS" : "FAIL");
+        }
+    }
+
     return 0;
 }
 

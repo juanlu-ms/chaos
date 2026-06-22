@@ -7,13 +7,17 @@
 #include <spdlog/spdlog.h>
 
 #include <charconv>
+#include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <memory>
 #include <span>
 #include <string_view>
 #include <system_error>
 
 #include "containers/ContainerEngineFactory.hpp"
+#include "history/FileRunHistory.hpp"
+#include "history/IRunHistory.hpp"
 #include "interfaces/cli/CliParser.hpp"
 #include "interfaces/cli/ProgressCoordinator.hpp"
 #include "interfaces/web/Server.hpp"
@@ -22,6 +26,24 @@
 using chaos::orchestrator::containers::createContainerEngine;
 
 namespace {
+
+std::filesystem::path resolveHistoryDir() {
+    if (const char* env = std::getenv("CHAOS_HISTORY_DIR")) {
+        return std::filesystem::path(env);
+    }
+    if (const char* home = std::getenv("HOME")) {
+        return std::filesystem::path(home) / ".chaos" / "history";
+    }
+    return std::filesystem::temp_directory_path() / "chaos_history";
+}
+
+size_t resolveHistoryMax() {
+    if (const char* env = std::getenv("CHAOS_HISTORY_MAX")) {
+        int val = std::atoi(env);
+        if (val > 0) return static_cast<size_t>(val);
+    }
+    return 50;
+}
 
 [[nodiscard]] bool isServeCommand(std::string_view arg) { return arg == "serve"; }
 
@@ -39,14 +61,15 @@ int parsePort(std::span<char*> args) {
     return port;
 }
 
-int runServer(std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> engine, std::span<char*> args) {
+int runServer(std::shared_ptr<chaos::orchestrator::containers::IContainerEngine> engine,
+              std::shared_ptr<chaos::orchestrator::history::IRunHistory> history, std::span<char*> args) {
     int port = parsePort(args);
     if (port < 0) {
         return 1;
     }
 
     try {
-        chaos::orchestrator::interfaces::web::Server server(std::move(engine));
+        chaos::orchestrator::interfaces::web::Server server(std::move(engine), std::move(history));
         server.listen(port);
     } catch (const std::system_error& ex) {
         SPDLOG_ERROR("Server error: {}", ex.what());
@@ -68,17 +91,19 @@ int main(int argc, char* argv[]) {
     chaos::orchestrator::observability::initLogger(parsed.options.logLevel, parsed.options.colorize);
 
     auto engine = createContainerEngine();
+    auto history =
+        std::make_shared<chaos::orchestrator::history::FileRunHistory>(resolveHistoryDir(), resolveHistoryMax());
 
     SPDLOG_INFO("chaos starting");
 
     // Route "serve" directly to the web server, bypassing CLI parser
     if (parsed.args.size() >= 2 && isServeCommand(parsed.args[1])) {
-        return runServer(engine, std::span<char*>{parsed.args.data() + 2, parsed.args.size() - 2});
+        return runServer(engine, history, std::span<char*>{parsed.args.data() + 2, parsed.args.size() - 2});
     }
 
     chaos::orchestrator::interfaces::cli::installProgressAwareSink();
 
     // All other commands go through the CLI parser
-    chaos::orchestrator::interfaces::cli::CliParser cli(engine);
+    chaos::orchestrator::interfaces::cli::CliParser cli(engine, history);
     return cli.run(std::span<char*>{parsed.args.data(), parsed.args.size()});
 }

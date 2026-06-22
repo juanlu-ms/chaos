@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <mutex>
 #include <nlohmann/json.hpp>
@@ -30,6 +31,7 @@ struct RunSession {
     json results;
     std::string error;
     std::stop_source stop_source;
+    std::atomic<bool> abortRequested{false};
 };
 
 }  // namespace chaos::orchestrator::core

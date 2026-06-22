@@ -16,6 +16,7 @@
 
 #include "containers/IContainerEngine.hpp"
 #include "core/ChaosRunner.hpp"
+#include "history/IRunHistory.hpp"
 
 namespace chaos::orchestrator::interfaces::cli {
 
@@ -71,7 +72,8 @@ public:
      * @brief Construct the CLI adapter with a container engine.
      * @param engine Non-owning reference to the container engine port.
      */
-    explicit CliParser(std::shared_ptr<containers::IContainerEngine> engine);
+    explicit CliParser(std::shared_ptr<containers::IContainerEngine> engine,
+                       std::shared_ptr<history::IRunHistory> history = nullptr);
     ~CliParser() = default;
 
     CliParser(const CliParser&) = delete;
@@ -86,6 +88,7 @@ public:
 
 private:
     std::shared_ptr<containers::IContainerEngine> engine_;
+    std::shared_ptr<history::IRunHistory> history_;
     core::ChaosRunner runner_;
 
     void printUsage() const;
@@ -95,6 +98,7 @@ private:
     int handleRun(const std::string& manifestPath, const RunOptions& options) const;
     void printRunResults(const core::RunResult& results, const manifests::ChaosManifest& manifest,
                          std::chrono::duration<double> elapsed) const;
+    int handleHistory(const std::vector<std::string>& args) const;
     int dispatchCommand(const std::vector<std::string>& args) const;
 };
 

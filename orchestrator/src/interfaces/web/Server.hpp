@@ -11,6 +11,7 @@
 #include "containers/IContainerEngine.hpp"
 #include "core/ChaosRunner.hpp"
 #include "core/RunSession.hpp"
+#include "history/IRunHistory.hpp"
 
 namespace chaos::orchestrator::interfaces::web {
 
@@ -25,7 +26,8 @@ public:
      * @brief Construct a Server backed by the given container engine.
      * @param engine shared container engine implementation
      */
-    explicit Server(std::shared_ptr<containers::IContainerEngine> engine);
+    explicit Server(std::shared_ptr<containers::IContainerEngine> engine,
+                    std::shared_ptr<history::IRunHistory> history = nullptr);
     ~Server();
 
     /**
@@ -44,6 +46,7 @@ public:
 private:
     httplib::Server server_;
     std::shared_ptr<containers::IContainerEngine> engine_;
+    std::shared_ptr<history::IRunHistory> history_;
     core::ChaosRunner runner_;
 
     mutable std::mutex session_mutex_;
@@ -58,6 +61,10 @@ private:
     void handleTargets(const httplib::Request& req, httplib::Response& res);
     void handleLimits(const httplib::Request& req, httplib::Response& res);
     void handleAbort(const httplib::Request& req, httplib::Response& res);
+    void handleHistoryList(const httplib::Request& req, httplib::Response& res);
+    void handleHistoryGet(const httplib::Request& req, httplib::Response& res);
+    void handleHistoryDelete(const httplib::Request& req, httplib::Response& res);
+    void handleHistoryClear(const httplib::Request& req, httplib::Response& res);
 
     void executeRunAsync(manifests::ChaosManifest manifest, std::shared_ptr<RunSession> session);
     void handleContainerAction(const httplib::Request& req, httplib::Response& res, std::string_view actionName);

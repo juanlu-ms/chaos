@@ -14,6 +14,8 @@
 
 #include "MockContainerEngine.hpp"
 #include "containers/SystemInfo.hpp"
+#include "history/MockRunHistory.hpp"
+#include "history/RunRecord.hpp"
 #include "interfaces/web/Server.hpp"
 
 using namespace chaos::orchestrator;
@@ -224,4 +226,119 @@ TEST_F(ServerTest, AbortWithoutActiveRunReturns409) {
     auto res = client().Post("/api/run/abort");
     ASSERT_NE(res, nullptr);
     EXPECT_EQ(res->status, 409);
+}
+
+class ServerHistoryTest : public ServerTest {
+protected:
+    std::shared_ptr<tests::MockRunHistory> mockHistory_;
+
+    void SetUp() override {
+        ServerTest::SetUp();
+        mockHistory_ = std::make_shared<NiceMock<tests::MockRunHistory>>();
+        server_.reset();
+        server_ = std::make_unique<Server>(engine_, mockHistory_);
+    }
+};
+
+static history::RunSummary makeSummary(const std::string& id, int64_t started_at) {
+    history::RunSummary s;
+    s.id = id;
+    s.started_at_unix = started_at;
+    s.status = "completed";
+    return s;
+}
+
+TEST_F(ServerHistoryTest, HistoryListReturnsEmptyArray) {
+    EXPECT_CALL(*engine_, listContainers()).WillRepeatedly(Return(std::vector<containers::Container>{}));
+    EXPECT_CALL(*engine_, getSystemInfo()).WillRepeatedly(Return(containers::SystemInfo{8589934592}));
+    EXPECT_CALL(*mockHistory_, list()).WillOnce(Return(std::vector<history::RunSummary>{}));
+    startServer();
+
+    auto res = client().Get("/api/history");
+    ASSERT_NE(res, nullptr);
+    EXPECT_EQ(res->status, 200);
+
+    auto body = json::parse(res->body);
+    ASSERT_TRUE(body.is_array());
+    EXPECT_EQ(body.size(), 0u);
+}
+
+TEST_F(ServerHistoryTest, HistoryListReturnsSummaries) {
+    EXPECT_CALL(*engine_, listContainers()).WillRepeatedly(Return(std::vector<containers::Container>{}));
+    EXPECT_CALL(*engine_, getSystemInfo()).WillRepeatedly(Return(containers::SystemInfo{8589934592}));
+    EXPECT_CALL(*mockHistory_, list())
+        .WillOnce(Return(std::vector<history::RunSummary>{
+            makeSummary("run-001", 1000000),
+            makeSummary("run-002", 2000000),
+        }));
+    startServer();
+
+    auto res = client().Get("/api/history");
+    ASSERT_NE(res, nullptr);
+    EXPECT_EQ(res->status, 200);
+
+    auto body = json::parse(res->body);
+    ASSERT_TRUE(body.is_array());
+    EXPECT_EQ(body.size(), 2u);
+}
+
+TEST_F(ServerHistoryTest, HistoryGetReturns200) {
+    EXPECT_CALL(*engine_, listContainers()).WillRepeatedly(Return(std::vector<containers::Container>{}));
+    EXPECT_CALL(*engine_, getSystemInfo()).WillRepeatedly(Return(containers::SystemInfo{8589934592}));
+
+    history::RunRecord record;
+    record.summary.id = "run-123";
+    record.summary.status = "completed";
+
+    EXPECT_CALL(*mockHistory_, get("run-123")).WillOnce(Return(record));
+    startServer();
+
+    auto res = client().Get("/api/history/run-123");
+    ASSERT_NE(res, nullptr);
+    EXPECT_EQ(res->status, 200);
+
+    auto body = json::parse(res->body);
+    EXPECT_TRUE(body.contains("summary"));
+}
+
+TEST_F(ServerHistoryTest, HistoryGetReturns404) {
+    EXPECT_CALL(*engine_, listContainers()).WillRepeatedly(Return(std::vector<containers::Container>{}));
+    EXPECT_CALL(*engine_, getSystemInfo()).WillRepeatedly(Return(containers::SystemInfo{8589934592}));
+    EXPECT_CALL(*mockHistory_, get("run-999")).WillOnce(Return(std::nullopt));
+    startServer();
+
+    auto res = client().Get("/api/history/run-999");
+    ASSERT_NE(res, nullptr);
+    EXPECT_EQ(res->status, 404);
+
+    auto body = json::parse(res->body);
+    EXPECT_EQ(body["error"], "Run not found");
+}
+
+TEST_F(ServerHistoryTest, HistoryDeleteReturns200) {
+    EXPECT_CALL(*engine_, listContainers()).WillRepeatedly(Return(std::vector<containers::Container>{}));
+    EXPECT_CALL(*engine_, getSystemInfo()).WillRepeatedly(Return(containers::SystemInfo{8589934592}));
+    EXPECT_CALL(*mockHistory_, remove("run-123")).WillOnce(Return(true));
+    startServer();
+
+    auto res = client().Delete("/api/history/run-123");
+    ASSERT_NE(res, nullptr);
+    EXPECT_EQ(res->status, 200);
+
+    auto body = json::parse(res->body);
+    EXPECT_EQ(body["status"], "deleted");
+}
+
+TEST_F(ServerHistoryTest, HistoryClearReturns200) {
+    EXPECT_CALL(*engine_, listContainers()).WillRepeatedly(Return(std::vector<containers::Container>{}));
+    EXPECT_CALL(*engine_, getSystemInfo()).WillRepeatedly(Return(containers::SystemInfo{8589934592}));
+    EXPECT_CALL(*mockHistory_, clear()).Times(1);
+    startServer();
+
+    auto res = client().Delete("/api/history");
+    ASSERT_NE(res, nullptr);
+    EXPECT_EQ(res->status, 200);
+
+    auto body = json::parse(res->body);
+    EXPECT_EQ(body["status"], "cleared");
 }

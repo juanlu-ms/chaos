@@ -6,6 +6,7 @@ add_executable(chaos_e2e_tests
     ObserveValidateE2eTest.cpp
     ManifestE2eTest.cpp
     RunOrchestratorE2eTest.cpp
+    RunHistoryE2eTest.cpp
 )
 
 target_link_libraries(chaos_e2e_tests PRIVATE

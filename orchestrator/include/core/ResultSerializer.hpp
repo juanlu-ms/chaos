@@ -7,9 +7,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace chaos::orchestrator::core {
-struct RunResult;
-}
+#include "core/RunResult.hpp"
 
 namespace chaos::orchestrator::core {
 

@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "core/RunResult.hpp"
 #include "core/TargetState.hpp"
 #include "manifests/Manifest.hpp"
 #include "perturbations/IPerturbation.hpp"
@@ -20,22 +21,6 @@ class IContainerEngine;
 }
 
 namespace chaos::orchestrator::core {
-
-/**
- * @brief Result of running and validating a chaos test.
- */
-struct RunResult {
-    bool passed{false};
-    std::vector<validation::ValidationResult> results;
-    /** @brief Manifest test name, copied for reporting. */
-    std::string manifest_name;
-    /** @brief Target container identifier, copied for reporting. */
-    std::string target_id;
-    /** @brief Wall-clock run duration in seconds. */
-    double duration_s{0.0};
-    /** @brief ISO-8601 UTC timestamp of run start. */
-    std::string started_at;
-};
 
 /**
  * @brief Shared business logic for running chaos tests.

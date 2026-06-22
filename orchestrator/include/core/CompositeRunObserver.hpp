@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+#include <span>
 #include <vector>
 
 #include "core/IRunObserver.hpp"
@@ -10,16 +12,16 @@ namespace chaos::orchestrator::core {
  * @brief Multiplexer that forwards observer events to multiple IRunObserver implementations.
  *
  * Exception isolation: wraps each forward in try/catch; logs failures at warn level
- * via spdlog. Does not rethrow. Holds non-owning IRunObserver* pointers; callers
- * must ensure lifetimes outlive the composite.
+ * via spdlog. Does not rethrow. Holds non-owning references to observers.
+ * Callers must ensure lifetimes outlive the composite.
  */
 class CompositeRunObserver : public IRunObserver {
 public:
     /**
-     * @brief Construct with a list of non-owning observer pointers.
-     * @param observers The observers to forward events to.
+     * @brief Construct from a non-owning span of observer pointers.
+     * @param observers The observers to forward events to (must not contain nullptr).
      */
-    explicit CompositeRunObserver(std::vector<IRunObserver*> observers);
+    explicit CompositeRunObserver(std::span<IRunObserver* const> observers);
 
     /**
      * @brief Forward a state update event to all observers.
@@ -46,7 +48,7 @@ public:
     void onNetworkLatencyUpdate(std::optional<double> latency) override;
 
 private:
-    std::vector<IRunObserver*> observers_;
+    std::vector<std::reference_wrapper<IRunObserver>> observers_;
 };
 
 }  // namespace chaos::orchestrator::core

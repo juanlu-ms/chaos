@@ -80,3 +80,7 @@ While the current architecture brilliantly uses the Docker API to apply constrai
 * **Application-Level Resource Exhaustion:** The wrapper can maliciously allocate heap memory from inside the container or burn CPU cycles internally. This triggers the application's actual Garbage Collector or Out-Of-Memory (OOM) handler more authentically than an external cgroup limit.
 
 * **System Call Interception (Syscall Faults):** By using ptrace or eBPF within the wrapper, you can intercept the application's system calls. You can simulate a full disk by making the write() syscall return an ENOSPC error, or simulate file corruption by returning garbage data on read(), all without touching the host's actual hard drive.
+
+## 7. Run History ✅ IMPLEMENTED
+
+Run history persistence is implemented. Every completed or aborted run is saved to disk as a JSON file with full time-series data, manifest, and validation results. The Web UI has a History button for browsing and replaying past runs. The CLI has `chaos history` and `chaos history <id>` commands with `--json` output support.

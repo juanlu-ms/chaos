@@ -34,6 +34,9 @@ During perturbation runs, the system polls target state and broadcasts updates v
 ### Graceful Interruption
 SIGINT (Ctrl+C) triggers immediate cancellation of running perturbations, with automatic rollback/reversion of all applied faults before the tool exits.
 
+### Run History
+Each completed chaos run (Web or CLI) is automatically persisted to disk. The history includes the full manifest, time-series samples (CPU/mem/net/latency), phase-zone boundaries, log tail, and final validation results. Runs are retained in `~/.chaos/history/` (override: `CHAOS_HISTORY_DIR` env) capped at the 50 most-recent (override: `CHAOS_HISTORY_MAX` env). Browse and replay past runs via the Web UI History button or `chaos history` CLI command.
+
 ### Web UI (3-Step Flow)
 A dark-themed SPA (`chaos serve`) with 3 auto-advancing steps:
 - **Step 1: Configure** — compact form with target selector, duration, perturbation rows (6 types with type-aware param inputs), expectation rows, theme switcher (Amber/Dark/Cyber)
@@ -97,6 +100,7 @@ chaos/
 │   ├── include/
 │   │   ├── containers/
 │   │   ├── core/
+│   │   ├── history/
 │   │   ├── manifests/
 │   │   ├── observability/
 │   │   ├── perturbations/
@@ -107,6 +111,7 @@ chaos/
 │   ├── src/
 │   │   ├── main.cpp
 │   │   ├── core/
+│   │   ├── history/
 │   │   ├── interfaces/
 │   │   │   ├── cli/
 │   │   │   └── web/
@@ -124,6 +129,7 @@ chaos/
 │       ├── containers/
 │       │   └── internal/
 │       ├── core/
+│       ├── history/
 │       ├── interfaces/
 │       │   └── cli/
 │       ├── manifests/
@@ -165,6 +171,9 @@ After building:
 - `sudo ./build/dev-linux-clang/orchestrator/chaos stop <container_id>`
 - `sudo ./build/dev-linux-clang/orchestrator/chaos kill <container_id>`
 - `sudo ./build/dev-linux-clang/orchestrator/chaos run <manifest.json>`
+- `sudo ./build/dev-linux-clang/orchestrator/chaos history [--json]`
+- `sudo ./build/dev-linux-clang/orchestrator/chaos history <run-id> [--json]`
+- `sudo ./build/dev-linux-clang/orchestrator/chaos history clear`
 
 ### Logging & Output
 
@@ -181,6 +190,12 @@ After building:
 |------|--------|
 | `--json` | Emit machine-readable JSON to stdout instead of the human report |
 | `--output PATH` | Write the JSON report to PATH (use `-` for stdout) |
+
+**Environment variables for run history:**
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CHAOS_HISTORY_DIR` | `~/.chaos/history/` | Directory for run history JSON files |
+| `CHAOS_HISTORY_MAX` | `50` | Maximum number of runs to retain |
 
 ### CI & JSON Output
 
@@ -240,6 +255,10 @@ Switch themes (Amber / Dark / Cyber) from the topbar dropdown. Your preference i
 | GET | `/api/limits` | System limits `{cpu_cores, memory_total_mb, perturbation_limits}` |
 | POST | `/api/run` | Async run — returns 202, streams state via SSE |
 | POST | `/api/run/abort` | Abort the currently running test |
+| GET | `/api/history` | List completed runs `[{id, started_at_unix, status, ...}]` |
+| GET | `/api/history/{id}` | Full run record (manifest, samples, logs, results) |
+| DELETE | `/api/history/{id}` | Delete a single run |
+| DELETE | `/api/history` | Clear all run history |
 | GET | `/events` | SSE stream (`event: state` / `event: complete` / `event: error`) |
 
 | POST | `/containers/{id}/stop` | Stop a container |
@@ -254,9 +273,11 @@ Switch themes (Amber / Dark / Cyber) from the topbar dropdown. Your preference i
 - `orchestrator/tests/observability`: observability, validation engine, and OTLP exporter unit tests.
 - `orchestrator/tests/perturbations`: perturbation engine and factory unit tests.
 - `orchestrator/tests/core`: `ChaosRunner` unit tests (build perturbations, validate expectations, parse manifest).
+- `orchestrator/tests/history`: run history unit tests (record serialization, file storage, recording, composite observer).
 - `orchestrator/tests/signals`: `SignalHandlerGuard` unit tests (RAII, pipe, self-signal).
 - `orchestrator/tests/web`: `JsonSerializer` unit tests (state/limits JSON, log parsing).
 - `orchestrator/tests/smoke`: minimal host smoke checks through public APIs (no direct `internal` includes).
+- `orchestrator/tests/smoke/RunHistorySmokeTest.cpp`: history public API smoke test.
 - `frontend/src/utils/__tests__/` and `frontend/src/constants/__tests__/`: Vitest unit tests for frontend utilities and constants.
 - `tests/e2e`: cross-component integration tests.
 

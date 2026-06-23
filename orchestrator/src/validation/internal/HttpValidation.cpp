@@ -119,12 +119,13 @@ ValidationResult HttpLatencyValidation::validate(const core::TargetState& target
             target_state, expectation,
             [max_ms = getIntParamOrDefault(expectation, "max_latency_ms", 1000),
              min_ms = getIntParamOrDefault(expectation, "min_latency_ms", 0)](int, double elapsed_ms,
-                                                                             ValidationResult& result) {
+                                                                              ValidationResult& result) {
                 result.passed = (elapsed_ms >= min_ms && elapsed_ms <= max_ms);
                 result.message =
-                    result.passed ? fmt::format("HTTP Latency {:.0f}ms (expected {} - {}ms)", elapsed_ms, min_ms, max_ms)
-                                  : fmt::format("HTTP Latency {:.0f}ms outside expected bounds ({} - {}ms)", elapsed_ms,
-                                                min_ms, max_ms);
+                    result.passed
+                        ? fmt::format("HTTP Latency {:.0f}ms (expected {} - {}ms)", elapsed_ms, min_ms, max_ms)
+                        : fmt::format("HTTP Latency {:.0f}ms outside expected bounds ({} - {}ms)", elapsed_ms, min_ms,
+                                      max_ms);
             });
     } catch (const std::invalid_argument& e) {
         return ValidationResult{

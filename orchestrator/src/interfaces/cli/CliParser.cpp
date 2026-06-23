@@ -549,7 +549,7 @@ int CliParser::handleHistory(const std::vector<std::string>& args) const {
 
             fmt::print(stdout, "{:<18} {:<20} {:<12} {:<10} {}\n", summ.id, date_buf.data(),
                        summ.run_result.manifest_name.size() > 10 ? summ.run_result.manifest_name.substr(0, 10)
-                                                                : summ.run_result.manifest_name,
+                                                                 : summ.run_result.manifest_name,
                        summ.status, summ.run_result.passed ? "PASS" : "FAIL");
         }
     }

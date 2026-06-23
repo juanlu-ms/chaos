@@ -65,7 +65,8 @@ public:
      * @param socket_path Path to Docker Engine Unix socket.
      * @return A container engine instance.
      */
-    static std::shared_ptr<containers::IContainerEngine> create(const std::string& socket_path = "/var/run/docker.sock");
+    static std::shared_ptr<containers::IContainerEngine> create(
+        const std::string& socket_path = "/var/run/docker.sock");
 
     /**
      * @brief List containers from the Docker Engine.

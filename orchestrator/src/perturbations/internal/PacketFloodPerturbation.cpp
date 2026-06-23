@@ -336,8 +336,9 @@ void PacketFloodPerturbation::floodLoop(const std::stop_token& stop) const {
             uint32_t tcp_src_ip =
                 (static_cast<uint32_t>(ip_header->src[0]) << 24) | (static_cast<uint32_t>(ip_header->src[1]) << 16) |
                 (static_cast<uint32_t>(ip_header->src[2]) << 8) | static_cast<uint32_t>(ip_header->src[3]);
-            uint32_t tcp_dst_ip = (static_cast<uint32_t>(dest_ip[0]) << 24) | (static_cast<uint32_t>(dest_ip[1]) << 16) |
-                                  (static_cast<uint32_t>(dest_ip[2]) << 8) | static_cast<uint32_t>(dest_ip[3]);
+            uint32_t tcp_dst_ip = (static_cast<uint32_t>(dest_ip[0]) << 24) |
+                                  (static_cast<uint32_t>(dest_ip[1]) << 16) | (static_cast<uint32_t>(dest_ip[2]) << 8) |
+                                  static_cast<uint32_t>(dest_ip[3]);
             uint16_t tcp_data_len = static_cast<uint16_t>(sizeof(TcpHeader) + payload_len);
             uint32_t pseudo_sum = detail::pseudoHeaderChecksum(tcp_src_ip, tcp_dst_ip, tcp_data_len);
             {

@@ -434,7 +434,8 @@ std::string DockerClient::execInNetNs(const std::string_view container_id, const
 
     const auto pid = inspect_json["State"]["Pid"].get<int>();
     if (pid <= 0) {
-        throw containers::ContainerEngineError(fmt::format("Container '{}' is not running (PID={})", container_id, pid));
+        throw containers::ContainerEngineError(
+            fmt::format("Container '{}' is not running (PID={})", container_id, pid));
     }
 
     const std::string nsenter_cmd = fmt::format("nsenter -t {} -n {} 2>&1", pid, command);
@@ -484,7 +485,8 @@ int DockerClient::getContainerNetnsFd(const std::string_view container_id) const
 
     const auto pid = inspect_json["State"]["Pid"].get<int>();
     if (pid <= 0) {
-        throw containers::ContainerEngineError(fmt::format("Container '{}' is not running (PID={})", container_id, pid));
+        throw containers::ContainerEngineError(
+            fmt::format("Container '{}' is not running (PID={})", container_id, pid));
     }
 
     const std::string ns_path = fmt::format("/proc/{}/ns/net", pid);
@@ -518,7 +520,8 @@ int DockerClient::getContainerPid(const std::string_view container_id) const {
 
     const auto pid = inspect_json["State"]["Pid"].get<int>();
     if (pid <= 0) {
-        throw containers::ContainerEngineError(fmt::format("Container '{}' is not running (PID={})", container_id, pid));
+        throw containers::ContainerEngineError(
+            fmt::format("Container '{}' is not running (PID={})", container_id, pid));
     }
 
     SPDLOG_DEBUG("DockerClient: container {} has host PID {}", container_id, pid);

@@ -8,3 +8,5 @@ if(UNIX)
         -Wconversion -Wshadow
     )
 endif()
+
+install(TARGETS chaos-wrapper RUNTIME DESTINATION bin)

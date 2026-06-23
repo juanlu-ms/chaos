@@ -263,6 +263,8 @@ include(GoogleTest)
 gtest_discover_tests(orchestrator_unit_tests PROPERTIES LABELS "unit")
 gtest_discover_tests(orchestrator_smoke_tests PROPERTIES LABELS "smoke")
 
+install(TARGETS orchestrator_app RUNTIME DESTINATION bin)
+
 if(CHAOS_ENABLE_COVERAGE)
     add_custom_target(coverage_report
         COMMAND ${CMAKE_COMMAND} -E env LLVM_PROFILE_FILE=${CMAKE_BINARY_DIR}/%m.profraw

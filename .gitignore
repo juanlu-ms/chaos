@@ -222,6 +222,3 @@ yarn-error.log
 
 # local editor settings
 .vscode/
-
-# Frontend build output (Vite builds here)
-orchestrator/src/interfaces/web/static/

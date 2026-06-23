@@ -4,7 +4,6 @@
 
 #include <chrono>
 #include <cstddef>
-#include <filesystem>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <stop_token>
@@ -57,22 +56,26 @@ public:
     }
 };
 
-std::optional<std::filesystem::path> findWebRoot() {
-    std::vector<std::filesystem::path> candidates = {
-        "orchestrator/src/interfaces/web/static",
-        "src/interfaces/web/static",
-        "interfaces/web/static",
-        "../orchestrator/src/interfaces/web/static",
-        "../../orchestrator/src/interfaces/web/static",
-    };
-
-    for (const auto& candidate : candidates) {
-        if (std::filesystem::exists(candidate) && std::filesystem::is_directory(candidate)) {
-            return candidate;
-        }
-    }
-
-    return std::nullopt;
+std::string_view mimeForExtension(std::string_view path) {
+    auto const pos = path.rfind('.');
+    if (pos == std::string_view::npos) return "application/octet-stream";
+    auto const ext = path.substr(pos);
+    if (ext == ".html" || ext == ".htm") return "text/html; charset=utf-8";
+    if (ext == ".js" || ext == ".mjs") return "text/javascript; charset=utf-8";
+    if (ext == ".css") return "text/css; charset=utf-8";
+    if (ext == ".json") return "application/json; charset=utf-8";
+    if (ext == ".svg") return "image/svg+xml";
+    if (ext == ".png") return "image/png";
+    if (ext == ".jpg" || ext == ".jpeg") return "image/jpeg";
+    if (ext == ".gif") return "image/gif";
+    if (ext == ".ico") return "image/x-icon";
+    if (ext == ".woff") return "font/woff";
+    if (ext == ".woff2") return "font/woff2";
+    if (ext == ".ttf") return "font/ttf";
+    if (ext == ".otf") return "font/otf";
+    if (ext == ".wasm") return "application/wasm";
+    if (ext == ".map") return "application/json; charset=utf-8";
+    return "application/octet-stream";
 }
 
 void finalizeSession(const std::shared_ptr<core::RunSession>& session, json result, std::string error) {
@@ -109,21 +112,42 @@ void Server::listen(int port) {
 void Server::stop() { server_.stop(); }
 
 void Server::setupRoutes() {
-    if (auto webRoot = findWebRoot(); webRoot.has_value()) {
-        if (!server_.set_mount_point("/", webRoot->string())) {
-            SPDLOG_WARN("Failed to mount static UI from {}", webRoot->string());
-        } else {
-            SPDLOG_INFO("Serving static UI from {}", webRoot->string());
-        }
-
-        server_.Get("/",
-                    [](const httplib::Request&, httplib::Response& response) { response.set_redirect("/index.html"); });
-    } else {
-        SPDLOG_WARN("Static UI not found. Expected orchestrator/src/interfaces/web/static relative to project root.");
-    }
+#ifdef CHAOS_HAVE_EMBEDDED_WEB_UI
+    webFs_ = cmrc::chaos_web::get_filesystem();
+    registerEmbeddedRoutes();
+    SPDLOG_INFO("Serving embedded Web UI");
+#else
+    SPDLOG_INFO("Web UI not embedded — serving API only");
+#endif
 
     setupApiRoutes();
 }
+
+#ifdef CHAOS_HAVE_EMBEDDED_WEB_UI
+void Server::serveEmbedded(const httplib::Request& /*req*/, httplib::Response& res, const std::string& path) const {
+    if (!webFs_ || !webFs_->is_file(path)) {
+        res.status = 404;
+        res.set_content("Not found", "text/plain");
+        return;
+    }
+    auto file = webFs_->open(path);
+    res.set_content(std::string(file.begin(), file.end()), std::string(mimeForExtension(path)));
+}
+
+void Server::registerEmbeddedRoutes() {
+    server_.Get("/",
+                [this](const httplib::Request& req, httplib::Response& res) { serveEmbedded(req, res, "index.html"); });
+    server_.Get("/index.html",
+                [this](const httplib::Request& req, httplib::Response& res) { serveEmbedded(req, res, "index.html"); });
+    server_.Get(R"(/assets/([^/]+))", [this](const httplib::Request& req, httplib::Response& res) {
+        if (req.matches.size() < 2) {
+            res.status = 400;
+            return;
+        }
+        serveEmbedded(req, res, "assets/" + req.matches[1].str());
+    });
+}
+#endif
 
 void Server::setupApiRoutes() {
     server_.Get("/api/status", [](const httplib::Request&, httplib::Response& response) {
@@ -260,7 +284,7 @@ void Server::executeRunAsync(manifests::ChaosManifest manifest, std::shared_ptr<
 
             auto result = core::runResultToJson(runResult);
 
-            std::string status = session->abortRequested.load() ? "aborted" : "completed";
+            std::string status = session->abort_requested_.load() ? "aborted" : "completed";
             if (history_) {
                 history_->save(recorder.finalize(runResult, status, ""));
             }
@@ -441,7 +465,7 @@ void Server::handleAbort(const httplib::Request&, httplib::Response& response) {
         response.set_content(error.dump(4), "application/json");
         return;
     }
-    session->abortRequested.store(true);
+    session->abort_requested_.store(true);
     run_thread_.request_stop();
     session->cv.notify_all();
     json result = {{"status", "aborted"}};

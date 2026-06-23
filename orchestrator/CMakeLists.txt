@@ -5,6 +5,106 @@ find_package(GTest CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(LibArchive REQUIRED)
 
+# ---------------------------------------------------------------------------
+# Web UI embedding (CMakeRC + automated pnpm build)
+# ---------------------------------------------------------------------------
+option(CHAOS_EMBED_WEB_UI "Build and embed the Web UI assets into the binary" ON)
+
+if(CHAOS_EMBED_WEB_UI)
+    find_program(CHAOS_PNPM_BIN pnpm)
+    if(NOT CHAOS_PNPM_BIN)
+        message(STATUS "pnpm not found — skipping Web UI embedding (install pnpm to enable)")
+        set(CHAOS_EMBED_WEB_UI OFF CACHE BOOL "Build and embed the Web UI assets into the binary" FORCE)
+    endif()
+endif()
+
+if(CHAOS_EMBED_WEB_UI)
+    set(chaos_web_root "${CMAKE_BINARY_DIR}/generated/web")
+    set(frontend_dir "${CMAKE_SOURCE_DIR}/frontend")
+    set(frontend_stamp "${CMAKE_BINARY_DIR}/chaos_frontend.stamp")
+
+    # Track frontend sources for staleness detection.
+    file(GLOB_RECURSE CHAOS_FRONTEND_SOURCES
+        "${frontend_dir}/src/*"
+        "${frontend_dir}/index.html"
+        "${frontend_dir}/package.json"
+        "${frontend_dir}/pnpm-lock.yaml"
+        "${frontend_dir}/vite.config.js")
+
+    # Standard stamp-file staleness check: rebuild only when sources change.
+    set(chaos_need_frontend_build FALSE)
+    if(NOT EXISTS "${frontend_stamp}")
+        set(chaos_need_frontend_build TRUE)
+    elseif(NOT EXISTS "${chaos_web_root}/index.html")
+        set(chaos_need_frontend_build TRUE)
+    else()
+        file(TIMESTAMP "${frontend_stamp}" chaos_stamp_ts "%s" UTC)
+        foreach(src IN LISTS CHAOS_FRONTEND_SOURCES)
+            file(TIMESTAMP "${src}" chaos_src_ts "%s" UTC)
+            if(chaos_src_ts GREATER chaos_stamp_ts)
+                set(chaos_need_frontend_build TRUE)
+                break()
+            endif()
+        endforeach()
+    endif()
+
+    if(chaos_need_frontend_build)
+        message(STATUS "Building frontend (pnpm install + vite build)...")
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E env "CHAOS_WEB_OUT_DIR=${chaos_web_root}"
+                    ${CHAOS_PNPM_BIN} install
+            WORKING_DIRECTORY "${frontend_dir}"
+            RESULT_VARIABLE chaos_pnpm_result
+            OUTPUT_VARIABLE chaos_pnpm_output
+            ERROR_VARIABLE chaos_pnpm_output)
+        if(NOT chaos_pnpm_result EQUAL 0)
+            message(FATAL_ERROR "pnpm install failed (code ${chaos_pnpm_result}):\n${chaos_pnpm_output}")
+        endif()
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E env "CHAOS_WEB_OUT_DIR=${chaos_web_root}"
+                    ${CHAOS_PNPM_BIN} run build
+            WORKING_DIRECTORY "${frontend_dir}"
+            RESULT_VARIABLE chaos_vite_result
+            OUTPUT_VARIABLE chaos_vite_output
+            ERROR_VARIABLE chaos_vite_output)
+        if(NOT chaos_vite_result EQUAL 0)
+            message(FATAL_ERROR "vite build failed (code ${chaos_vite_result}):\n${chaos_vite_output}")
+        endif()
+        file(WRITE "${frontend_stamp}" "built at ${CMAKE_CURRENT_TIMESTAMP}")
+        message(STATUS "Frontend build complete.")
+    else()
+        message(STATUS "Frontend up-to-date (skipping build).")
+    endif()
+
+    # Manual rebuild target (re-run cmake configure afterwards to re-embed).
+    add_custom_target(chaos_frontend
+        COMMAND ${CMAKE_COMMAND} -E env "CHAOS_WEB_OUT_DIR=${chaos_web_root}"
+                ${CHAOS_PNPM_BIN} install
+        COMMAND ${CMAKE_COMMAND} -E env "CHAOS_WEB_OUT_DIR=${chaos_web_root}"
+                ${CHAOS_PNPM_BIN} run build
+        COMMAND ${CMAKE_COMMAND} -E touch "${frontend_stamp}"
+        WORKING_DIRECTORY "${frontend_dir}"
+        COMMENT "Force-rebuilding frontend (run 'cmake --preset ...' afterwards to re-embed)"
+        VERBATIM)
+
+    # Embed built assets via CMakeRC.
+    file(GLOB_RECURSE CHAOS_WEB_ASSETS
+         CONFIGURE_DEPENDS
+         "${chaos_web_root}/*")
+    if(CHAOS_WEB_ASSETS)
+        include("${CMAKE_SOURCE_DIR}/cmake/CMakeRC.cmake")
+        cmrc_add_resource_library(chaos_web_resources
+            NAMESPACE chaos_web)
+        cmrc_add_resources(chaos_web_resources
+            WHENCE "${chaos_web_root}"
+            PREFIX / ${CHAOS_WEB_ASSETS})
+        list(LENGTH CHAOS_WEB_ASSETS CHAOS_WEB_ASSETS_N)
+        message(STATUS "Embedded Web UI: ${CHAOS_WEB_ASSETS_N} files from ${chaos_web_root}")
+    else()
+        message(WARNING "CHAOS_EMBED_WEB_UI=ON but no assets found in ${chaos_web_root}")
+    endif()
+endif()
+
 add_library(chaos_compiler_flags INTERFACE)
 if(UNIX)
     target_compile_options(chaos_compiler_flags INTERFACE
@@ -69,6 +169,12 @@ target_link_libraries(orchestrator_core PUBLIC
     chaos_quality_flags
 )
 
+# Link embedded Web UI resources (if built).
+if(CHAOS_EMBED_WEB_UI AND TARGET chaos_web_resources)
+    target_compile_definitions(orchestrator_core PUBLIC CHAOS_HAVE_EMBEDDED_WEB_UI)
+    target_link_libraries(orchestrator_core PUBLIC chaos_web_resources)
+endif()
+
 if(CHAOS_CLANG_TIDY)
     set_target_properties(orchestrator_core PROPERTIES CXX_CLANG_TIDY "${CHAOS_CLANG_TIDY}")
 endif()
@@ -117,6 +223,7 @@ add_executable(orchestrator_unit_tests
     tests/validation/internal/LogValidationUnitTest.cpp
     tests/web/JsonSerializerUnitTest.cpp
     tests/web/ServerUnitTest.cpp
+    tests/web/EmbeddedWebUiUnitTest.cpp
 )
 
 target_include_directories(orchestrator_unit_tests PRIVATE

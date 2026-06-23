@@ -14,6 +14,11 @@
 #include "core/RunSession.hpp"
 #include "history/IRunHistory.hpp"
 
+#ifdef CHAOS_HAVE_EMBEDDED_WEB_UI
+#include <cmrc/cmrc.hpp>
+CMRC_DECLARE(chaos_web);
+#endif
+
 namespace chaos::orchestrator::interfaces::web {
 
 using core::RunSession;
@@ -53,6 +58,12 @@ private:
     std::shared_ptr<history::IRunHistory> history_;
     core::ChaosRunner runner_;
     std::optional<std::string> otlpEndpoint_;
+
+#ifdef CHAOS_HAVE_EMBEDDED_WEB_UI
+    std::optional<cmrc::embedded_filesystem> webFs_;
+    void registerEmbeddedRoutes();
+    void serveEmbedded(const httplib::Request& req, httplib::Response& res, const std::string& path) const;
+#endif
 
     mutable std::mutex session_mutex_;
     std::shared_ptr<RunSession> session_;

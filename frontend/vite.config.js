@@ -11,7 +11,7 @@ export default defineConfig({
   plugins: [react()],
   base: '/',
   build: {
-    outDir: '../orchestrator/src/interfaces/web/static',
+    outDir: process.env.CHAOS_WEB_OUT_DIR || 'dist',
     emptyOutDir: true,
   },
   server: { proxy },

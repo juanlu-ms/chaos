@@ -120,11 +120,6 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - name: Build Web UI
-        if: matrix.name == 'Release Build'
-        working-directory: frontend
-        run: pnpm install && pnpm run build
-
       - name: Configure CMake
         run: cmake --preset ${{ matrix.config_preset }} ${{ matrix.cmake_args }}
 

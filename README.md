@@ -68,7 +68,7 @@ CHAOS uses a hybrid architecture:
 
 - Top-level separation by deployable component:
     - `orchestrator/`: host binary (CLI/Web) and orchestration logic.
-    - `frontend/`: Vite + pnpm project for the Web UI (builds to `orchestrator/src/interfaces/web/static/`).
+    - `frontend/`: Vite + pnpm project for the Web UI (embedded into the binary at build time via CMakeRC).
     - `wrapper/`: in-container agent (`PID 1`) for process supervision and telemetry handoff.
 - Inside `orchestrator/`, public contracts live in `include/` and implementation details stay in `src/`.
 - Ownership is organized by responsibility (interfaces, containers, manifests, perturbations, observability, core, signals, web).
@@ -151,12 +151,12 @@ chaos/
 
 For direct CMake control, use these exact commands:
 
-- Build the C++ orchestrator: `cmake --build --preset debug-clang -- -j$(nproc)`
-- Build the Web UI (required before C++ build, or whenever frontend changes): `cd frontend && pnpm install && pnpm run build`
-- Full build (frontend + C++): `cd frontend && pnpm install && pnpm run build && cd .. && cmake --build --preset debug-clang -- -j$(nproc)`
+- Full build (frontend + C++, automated): `cmake --preset dev-linux-clang && cmake --build --preset debug -- -j$(nproc)`
+  - CMake automatically runs `pnpm install && pnpm run build` during configure when `CHAOS_EMBED_WEB_UI=ON` (default). A stamp file skips redundant rebuilds.
+  - To force a frontend rebuild: `cmake --build --preset debug --target chaos_frontend`, then re-run `cmake --preset dev-linux-clang` to re-embed.
+  - To disable embedding (e.g. on systems without pnpm): `cmake --preset dev-linux-clang -DCHAOS_EMBED_WEB_UI=OFF`
 - C++ test: `ctest --test-dir build/dev-linux-clang --output-on-failure`
 - Frontend test: `cd frontend && pnpm test` (uses Vitest, 20+ tests for hooks, utils, constants)
-- Build the Web UI: see [Build the Web UI](#build-the-web-ui) below
 
 ## Privilege Requirements
 
@@ -219,15 +219,22 @@ The `--json` flag produces a single JSON object containing the full run result:
 
 ## Build the Web UI
 
-The Web UI is a Vite + pnpm project in `frontend/`:
+The Web UI is a Vite + pnpm project in `frontend/`. When `CHAOS_EMBED_WEB_UI=ON` (default), CMake automatically builds the frontend during configure and embeds the assets into the `chaos` binary via [CMakeRC](https://github.com/vector-of-bool/cmrc). The built UI ships inside the binary — no external files needed.
 
 ```bash
-cd frontend
-pnpm install
-pnpm run build    # outputs to orchestrator/src/interfaces/web/static/
+# Automated (recommended): CMake builds + embeds the frontend during configure
+cmake --preset dev-linux-clang
+cmake --build --preset debug -- -j$(nproc)
+
+# Manual rebuild (then re-configure to re-embed):
+cmake --build --preset debug --target chaos_frontend
+cmake --preset dev-linux-clang
+
+# Disable embedding entirely:
+cmake --preset dev-linux-clang -DCHAOS_EMBED_WEB_UI=OFF
 ```
 
-During development, use `pnpm run dev` for hot module reload at `http://localhost:5173`.
+During development, use `pnpm run dev` for hot module reload at `http://localhost:5173`. The dev server proxies `/api` requests to the backend on `:8080`.
 
 ## Run the Web UI
 

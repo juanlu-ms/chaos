@@ -42,34 +42,34 @@ using ArchiveEntryPtr = std::unique_ptr<archive_entry, ArchiveEntryDeleter>;
 
 }  // namespace
 
-std::string createTarArchive(const std::string_view dockerfilePath) {
-    const auto contextDir = std::filesystem::path(dockerfilePath).parent_path();
-    if (!std::filesystem::exists(contextDir)) {
-        throw std::runtime_error(fmt::format("Build context directory does not exist: {}", contextDir.string()));
+std::string createTarArchive(const std::string_view dockerfile_path) {
+    const auto context_dir = std::filesystem::path(dockerfile_path).parent_path();
+    if (!std::filesystem::exists(context_dir)) {
+        throw std::runtime_error(fmt::format("Build context directory does not exist: {}", context_dir.string()));
     }
 
     ArchiveWritePtr arch(archive_write_new());
     archive_write_set_format_ustar(arch.get());
 
-    std::string tarData;
+    std::string tar_data;
     archive_write_open(
-        arch.get(), &tarData, nullptr,
+        arch.get(), &tar_data, nullptr,
         [](archive*, void* client, const void* buf, size_t len) {
             static_cast<std::string*>(client)->append(static_cast<const char*>(buf), len);
             return static_cast<la_ssize_t>(len);
         },
         nullptr);
 
-    const auto canonicalContext = std::filesystem::weakly_canonical(contextDir);
+    const auto canonical_context = std::filesystem::weakly_canonical(context_dir);
     for (const auto& entry : std::filesystem::recursive_directory_iterator(
-             contextDir, std::filesystem::directory_options::skip_permission_denied)) {
+             context_dir, std::filesystem::directory_options::skip_permission_denied)) {
         if (entry.is_symlink()) {
             SPDLOG_INFO("Skipping symlink in build context: {}", entry.path().string());
             continue;
         }
 
         const auto& path = entry.path();
-        if (!chaos::orchestrator::containers::detail::isWithinBuildContext(path, canonicalContext)) {
+        if (!chaos::orchestrator::containers::detail::isWithinBuildContext(path, canonical_context)) {
             SPDLOG_INFO("Path escapes build context, skipping: {}", path.string());
             continue;
         }
@@ -78,7 +78,7 @@ std::string createTarArchive(const std::string_view dockerfilePath) {
             continue;
         }
 
-        const auto relative = std::filesystem::relative(path, contextDir).string();
+        const auto relative = std::filesystem::relative(path, context_dir).string();
         ArchiveEntryPtr ae(archive_entry_new());
         archive_entry_set_pathname(ae.get(), relative.c_str());
         archive_entry_set_size(ae.get(), static_cast<la_int64_t>(entry.file_size()));
@@ -91,16 +91,16 @@ std::string createTarArchive(const std::string_view dockerfilePath) {
         archive_write_data(arch.get(), content.data(), content.size());
     }
 
-    return tarData;
+    return tar_data;
 }
 
 void parseBuildResponse(const std::string_view body) {
     std::string_view remaining = body;
     while (!remaining.empty()) {
-        const auto newlinePos = remaining.find('\n');
+        const auto newline_pos = remaining.find('\n');
 
         if (const std::string_view line =
-                (newlinePos == std::string_view::npos) ? remaining : remaining.substr(0, newlinePos);
+                (newline_pos == std::string_view::npos) ? remaining : remaining.substr(0, newline_pos);
             !line.empty()) {
             auto json = nlohmann::json::parse(line, nullptr, false);
             if (!json.is_discarded() && json.is_object() && json.contains("error")) {
@@ -109,10 +109,10 @@ void parseBuildResponse(const std::string_view body) {
             }
         }
 
-        if (newlinePos == std::string_view::npos) {
+        if (newline_pos == std::string_view::npos) {
             break;
         }
-        remaining = remaining.substr(newlinePos + 1);
+        remaining = remaining.substr(newline_pos + 1);
     }
 }
 
@@ -120,25 +120,25 @@ void parseBuildResponse(const std::string_view body) {
 
 namespace chaos::orchestrator::containers::detail {
 
-bool isWithinBuildContext(const std::filesystem::path& path, const std::filesystem::path& contextRoot) {
+bool isWithinBuildContext(const std::filesystem::path& path, const std::filesystem::path& context_root) {
     auto canonical = std::filesystem::weakly_canonical(path);
-    return canonical.string().starts_with(contextRoot.string());
+    return canonical.string().starts_with(context_root.string());
 }
 
 }  // namespace chaos::orchestrator::containers::detail
 
 namespace chaos::orchestrator::containers {
 
-DockerClient::DockerClient(RequestFn requestFn) : request_(std::move(requestFn)) {}
+DockerClient::DockerClient(RequestFn request_fn) : request_(std::move(request_fn)) {}
 
-std::shared_ptr<containers::IContainerEngine> DockerClient::create(const std::string& socketPath) {
-    SPDLOG_INFO("DockerClient: using socket {}", socketPath);
-    auto client = std::make_shared<httplib::Client>(socketPath);
+std::shared_ptr<containers::IContainerEngine> DockerClient::create(const std::string& socket_path) {
+    SPDLOG_INFO("DockerClient: using socket {}", socket_path);
+    auto client = std::make_shared<httplib::Client>(socket_path);
     client->set_address_family(AF_UNIX);
     client->set_connection_timeout(5);
     client->set_read_timeout(30);
 
-    auto requestFn = [client](HttpMethod method, std::string_view endpoint, std::string_view body) {
+    auto request_fn = [client](HttpMethod method, std::string_view endpoint, std::string_view body) {
         SPDLOG_DEBUG("DockerClient: request {} {}",
                      method == HttpMethod::GET        ? "GET"
                      : method == HttpMethod::POST     ? "POST"
@@ -146,24 +146,24 @@ std::shared_ptr<containers::IContainerEngine> DockerClient::create(const std::st
                                                       : "REMOVE",
                      endpoint);
         httplib::Result response;
-        std::string endpointStr(endpoint);
+        std::string endpoint_str(endpoint);
         switch (method) {
             using enum chaos::orchestrator::containers::HttpMethod;
             case GET:
-                response = client->Get(endpointStr);
+                response = client->Get(endpoint_str);
                 break;
             case POST:
                 if (body.empty()) {
-                    response = client->Post(endpointStr);
+                    response = client->Post(endpoint_str);
                 } else {
-                    response = client->Post(endpointStr, std::string(body), "application/json");
+                    response = client->Post(endpoint_str, std::string(body), "application/json");
                 }
                 break;
             case POST_TAR:
-                response = client->Post(endpointStr, std::string(body), "application/x-tar");
+                response = client->Post(endpoint_str, std::string(body), "application/x-tar");
                 break;
             case REMOVE:
-                response = client->Delete(endpointStr);
+                response = client->Delete(endpoint_str);
                 break;
         }
 
@@ -174,7 +174,7 @@ std::shared_ptr<containers::IContainerEngine> DockerClient::create(const std::st
         return HttpResponse{.status = response->status, .body = response->body};
     };
 
-    return std::make_shared<DockerClient>(std::move(requestFn));
+    return std::make_shared<DockerClient>(std::move(request_fn));
 }
 
 std::vector<containers::Container> DockerClient::listContainers() const {
@@ -185,12 +185,12 @@ std::vector<containers::Container> DockerClient::listContainers() const {
         throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", response.status));
     }
 
-    auto jsonResponse = parseResponse(response);
+    auto json_response = parseResponse(response);
 
     std::vector<containers::Container> containers;
-    containers.reserve(jsonResponse.size());
+    containers.reserve(json_response.size());
 
-    for (const auto& item : jsonResponse) {
+    for (const auto& item : json_response) {
         containers::Container container;
         if (item.contains("Id") && item["Id"].is_string()) {
             container.id = item["Id"].get<std::string>();
@@ -232,29 +232,29 @@ void DockerClient::pullImage(const std::string_view image) const {
     SPDLOG_INFO("DockerClient: image {} pulled successfully", image);
 }
 
-void DockerClient::buildImage(const std::string_view imageName, const std::string_view dockerfilePath) const {
-    if (imageName.empty()) {
+void DockerClient::buildImage(const std::string_view image_name, const std::string_view dockerfile_path) const {
+    if (image_name.empty()) {
         throw std::invalid_argument("Image name cannot be empty");
     }
-    if (dockerfilePath.empty()) {
+    if (dockerfile_path.empty()) {
         throw std::invalid_argument("Dockerfile path cannot be empty");
     }
-    SPDLOG_DEBUG("DockerClient: building image {} from {}", imageName, dockerfilePath);
+    SPDLOG_DEBUG("DockerClient: building image {} from {}", image_name, dockerfile_path);
 
-    const auto tarArchive = createTarArchive(dockerfilePath);
-    const auto endpoint = fmt::format("/build?t={}", imageName);
-    const auto response = request_(HttpMethod::POST_TAR, endpoint, tarArchive);
+    const auto tar_archive = createTarArchive(dockerfile_path);
+    const auto endpoint = fmt::format("/build?t={}", image_name);
+    const auto response = request_(HttpMethod::POST_TAR, endpoint, tar_archive);
 
     if (response.status != 200) {
-        SPDLOG_ERROR("Docker API returned status {} while building image {}: {}", response.status, imageName,
+        SPDLOG_ERROR("Docker API returned status {} while building image {}: {}", response.status, image_name,
                      response.body);
         throw containers::ContainerEngineApiError(
-            fmt::format("Docker API returned status {} while building image {}", response.status, imageName));
+            fmt::format("Docker API returned status {} while building image {}", response.status, image_name));
     }
 
     parseBuildResponse(response.body);
 
-    SPDLOG_INFO("DockerClient: image {} built successfully", imageName);
+    SPDLOG_INFO("DockerClient: image {} built successfully", image_name);
 }
 
 std::string DockerClient::createContainer(const std::string_view image, const std::vector<std::string>& options) const {
@@ -277,55 +277,55 @@ std::string DockerClient::createContainer(const std::string_view image, const st
         throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", response.status));
     }
 
-    auto jsonResponse = parseResponse(response);
-    if (!jsonResponse.contains("Id") || !jsonResponse["Id"].is_string()) {
+    auto json_response = parseResponse(response);
+    if (!json_response.contains("Id") || !json_response["Id"].is_string()) {
         throw containers::ContainerEngineParseError("Docker create response missing Id field");
     }
 
-    SPDLOG_INFO("DockerClient: container created with id {}", jsonResponse["Id"].get<std::string>());
-    return jsonResponse["Id"].get<std::string>();
+    SPDLOG_INFO("DockerClient: container created with id {}", json_response["Id"].get<std::string>());
+    return json_response["Id"].get<std::string>();
 }
 
-void DockerClient::startContainer(const std::string_view containerId) const {
-    if (containerId.empty()) {
+void DockerClient::startContainer(const std::string_view container_id) const {
+    if (container_id.empty()) {
         throw std::invalid_argument("Container ID cannot be empty");
     }
-    SPDLOG_DEBUG("DockerClient: starting container {}", containerId);
+    SPDLOG_DEBUG("DockerClient: starting container {}", container_id);
 
-    if (const auto response = request_(HttpMethod::POST, fmt::format("/containers/{}/start", containerId), "");
+    if (const auto response = request_(HttpMethod::POST, fmt::format("/containers/{}/start", container_id), "");
         response.status != 204) {
         SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
         throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", response.status));
     }
 
-    SPDLOG_INFO("DockerClient: container {} started successfully", containerId);
+    SPDLOG_INFO("DockerClient: container {} started successfully", container_id);
 }
 
-void DockerClient::stopContainer(const std::string_view containerId) const {
-    if (containerId.empty()) {
+void DockerClient::stopContainer(const std::string_view container_id) const {
+    if (container_id.empty()) {
         throw std::invalid_argument("Container ID cannot be empty");
     }
-    SPDLOG_DEBUG("DockerClient: stopping container {}", containerId);
+    SPDLOG_DEBUG("DockerClient: stopping container {}", container_id);
 
-    constexpr int stopTimeoutSeconds = 5;
+    constexpr int stop_timeout_seconds = 5;
 
     if (const auto response =
-            request_(HttpMethod::POST, fmt::format("/containers/{}/stop?t={}", containerId, stopTimeoutSeconds), "");
+            request_(HttpMethod::POST, fmt::format("/containers/{}/stop?t={}", container_id, stop_timeout_seconds), "");
         response.status != 204) {
         SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
         throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", response.status));
     }
 
-    SPDLOG_INFO("DockerClient: container {} stopped successfully", containerId);
+    SPDLOG_INFO("DockerClient: container {} stopped successfully", container_id);
 }
 
-void DockerClient::killContainer(const std::string_view containerId) const {
-    if (containerId.empty()) {
+void DockerClient::killContainer(const std::string_view container_id) const {
+    if (container_id.empty()) {
         throw std::invalid_argument("Container ID cannot be empty");
     }
-    SPDLOG_DEBUG("DockerClient: killing container {}", containerId);
+    SPDLOG_DEBUG("DockerClient: killing container {}", container_id);
 
-    const auto response = request_(HttpMethod::POST, fmt::format("/containers/{}/kill", containerId), "");
+    const auto response = request_(HttpMethod::POST, fmt::format("/containers/{}/kill", container_id), "");
     if (response.status != 204) {
         SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
         throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", response.status));
@@ -335,115 +335,115 @@ void DockerClient::killContainer(const std::string_view containerId) const {
         parseResponse(response);
     }
 
-    SPDLOG_INFO("DockerClient: container {} killed successfully", containerId);
+    SPDLOG_INFO("DockerClient: container {} killed successfully", container_id);
 }
 
-void DockerClient::removeContainer(const std::string_view containerId) const {
-    if (containerId.empty()) {
+void DockerClient::removeContainer(const std::string_view container_id) const {
+    if (container_id.empty()) {
         throw std::invalid_argument("Container ID cannot be empty");
     }
-    SPDLOG_DEBUG("DockerClient: removing container {}", containerId);
+    SPDLOG_DEBUG("DockerClient: removing container {}", container_id);
 
     if (const auto response =
-            request_(HttpMethod::REMOVE, fmt::format("/containers/{}?force=true&v=true", containerId), "");
+            request_(HttpMethod::REMOVE, fmt::format("/containers/{}?force=true&v=true", container_id), "");
         response.status != 204) {
         SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
         throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", response.status));
     }
 
-    SPDLOG_INFO("DockerClient: container {} removed successfully", containerId);
+    SPDLOG_INFO("DockerClient: container {} removed successfully", container_id);
 }
 
-std::string DockerClient::exec(const std::string_view containerId, const std::string_view command) const {
-    if (containerId.empty()) {
+std::string DockerClient::exec(const std::string_view container_id, const std::string_view command) const {
+    if (container_id.empty()) {
         throw std::invalid_argument("Container ID cannot be empty");
     }
     if (command.empty()) {
         throw std::invalid_argument("Command cannot be empty");
     }
-    SPDLOG_DEBUG("DockerClient: executing command {} in container {}", command, containerId);
+    SPDLOG_DEBUG("DockerClient: executing command {} in container {}", command, container_id);
 
-    nlohmann::json execConfig = {
+    nlohmann::json exec_config = {
         {"AttachStdin", false}, {"AttachStdout", true},
         {"AttachStderr", true}, {"Tty", false},
         {"Privileged", false},  {"Cmd", nlohmann::json::array({"/bin/sh", "-lc", std::string(command)})},
     };
 
-    const auto createResponse =
-        request_(HttpMethod::POST, fmt::format("/containers/{}/exec", containerId), execConfig.dump());
-    if (createResponse.status != 201) {
-        SPDLOG_ERROR("Docker exec create failed with status {}: {}", createResponse.status, createResponse.body);
-        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", createResponse.status));
+    const auto create_response =
+        request_(HttpMethod::POST, fmt::format("/containers/{}/exec", container_id), exec_config.dump());
+    if (create_response.status != 201) {
+        SPDLOG_ERROR("Docker exec create failed with status {}: {}", create_response.status, create_response.body);
+        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", create_response.status));
     }
 
-    auto createJson = parseResponse(createResponse);
-    if (!createJson.contains("Id") || !createJson["Id"].is_string()) {
+    auto create_json = parseResponse(create_response);
+    if (!create_json.contains("Id") || !create_json["Id"].is_string()) {
         throw containers::ContainerEngineParseError("Docker exec create response missing Id");
     }
-    const auto execId = createJson["Id"].get<std::string>();
+    const auto exec_id = create_json["Id"].get<std::string>();
 
-    const nlohmann::json startConfig = {
+    const nlohmann::json start_config = {
         {"Detach", false},
         {"Tty", false},
     };
 
-    const auto startResponse = request_(HttpMethod::POST, fmt::format("/exec/{}/start", execId), startConfig.dump());
-    if (startResponse.status != 200) {
-        SPDLOG_ERROR("Docker exec start failed with status {}: {}", startResponse.status, startResponse.body);
-        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", startResponse.status));
+    const auto start_response = request_(HttpMethod::POST, fmt::format("/exec/{}/start", exec_id), start_config.dump());
+    if (start_response.status != 200) {
+        SPDLOG_ERROR("Docker exec start failed with status {}: {}", start_response.status, start_response.body);
+        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", start_response.status));
     }
 
-    const auto exitResponse = request_(HttpMethod::GET, fmt::format("/exec/{}/json", execId), "");
-    if (exitResponse.status != 200) {
-        SPDLOG_ERROR("Docker exec inspect failed with status {}: {}", exitResponse.status, exitResponse.body);
-        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", exitResponse.status));
+    const auto exit_response = request_(HttpMethod::GET, fmt::format("/exec/{}/json", exec_id), "");
+    if (exit_response.status != 200) {
+        SPDLOG_ERROR("Docker exec inspect failed with status {}: {}", exit_response.status, exit_response.body);
+        throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", exit_response.status));
     }
 
-    if (const auto exitJson = parseResponse(exitResponse);
-        exitJson.contains("ExitCode") && exitJson["ExitCode"].get<int>() != 0) {
+    if (const auto exit_json = parseResponse(exit_response);
+        exit_json.contains("ExitCode") && exit_json["ExitCode"].get<int>() != 0) {
         throw containers::ContainerEngineError(fmt::format("Command '{}' in container '{}' exited with code {}",
-                                                           command, containerId, exitJson["ExitCode"].get<int>()));
+                                                           command, container_id, exit_json["ExitCode"].get<int>()));
     }
 
-    SPDLOG_INFO("DockerClient: command executed successfully in container {}", containerId);
-    return startResponse.body;
+    SPDLOG_INFO("DockerClient: command executed successfully in container {}", container_id);
+    return start_response.body;
 }
 
-std::string DockerClient::execInNetNs(const std::string_view containerId, const std::string_view command) const {
-    if (containerId.empty()) {
+std::string DockerClient::execInNetNs(const std::string_view container_id, const std::string_view command) const {
+    if (container_id.empty()) {
         throw std::invalid_argument("Container ID cannot be empty");
     }
     if (command.empty()) {
         throw std::invalid_argument("Command cannot be empty");
     }
 
-    SPDLOG_DEBUG("DockerClient: executing in netns of container {}: {}", containerId, command);
+    SPDLOG_DEBUG("DockerClient: executing in netns of container {}: {}", container_id, command);
 
-    const auto inspectResponse = request_(HttpMethod::GET, fmt::format("/containers/{}/json", containerId), "");
-    if (inspectResponse.status != 200) {
+    const auto inspect_response = request_(HttpMethod::GET, fmt::format("/containers/{}/json", container_id), "");
+    if (inspect_response.status != 200) {
         throw containers::ContainerEngineApiError(
-            fmt::format("Failed to inspect container '{}': HTTP {}", containerId, inspectResponse.status));
+            fmt::format("Failed to inspect container '{}': HTTP {}", container_id, inspect_response.status));
     }
 
-    auto inspectJson = parseResponse(inspectResponse);
-    if (!inspectJson.contains("State") || !inspectJson["State"].is_object() || !inspectJson["State"].contains("Pid") ||
-        !inspectJson["State"]["Pid"].is_number_integer()) {
+    auto inspect_json = parseResponse(inspect_response);
+    if (!inspect_json.contains("State") || !inspect_json["State"].is_object() ||
+        !inspect_json["State"].contains("Pid") || !inspect_json["State"]["Pid"].is_number_integer()) {
         throw containers::ContainerEngineParseError(
-            fmt::format("Failed to get State.Pid for container '{}'", containerId));
+            fmt::format("Failed to get State.Pid for container '{}'", container_id));
     }
 
-    const auto pid = inspectJson["State"]["Pid"].get<int>();
+    const auto pid = inspect_json["State"]["Pid"].get<int>();
     if (pid <= 0) {
-        throw containers::ContainerEngineError(fmt::format("Container '{}' is not running (PID={})", containerId, pid));
+        throw containers::ContainerEngineError(fmt::format("Container '{}' is not running (PID={})", container_id, pid));
     }
 
-    const std::string nsenterCmd = fmt::format("nsenter -t {} -n {} 2>&1", pid, command);
+    const std::string nsenter_cmd = fmt::format("nsenter -t {} -n {} 2>&1", pid, command);
 
     auto pipe = std::unique_ptr<FILE, decltype([](FILE* f) noexcept {
                                     if (f) {
                                         pclose(f);
                                     }
-                                })>(popen(nsenterCmd.c_str(), "r"));
+                                })>(popen(nsenter_cmd.c_str(), "r"));
     if (!pipe) {
         throw containers::ContainerEngineError(fmt::format("Failed to execute: nsenter -t {} -n {}", pid, command));
     }
@@ -456,172 +456,172 @@ std::string DockerClient::execInNetNs(const std::string_view containerId, const 
 
     if (const int status = pclose(pipe.release()); status != 0) {
         throw containers::ContainerEngineError(
-            fmt::format("Network command in container '{}' failed (exit {}): {}", containerId, status, result));
+            fmt::format("Network command in container '{}' failed (exit {}): {}", container_id, status, result));
     }
 
-    SPDLOG_INFO("DockerClient: network command executed in container {} netns", containerId);
+    SPDLOG_INFO("DockerClient: network command executed in container {} netns", container_id);
     return result;
 }
 
-int DockerClient::getContainerNetnsFd(const std::string_view containerId) const {
-    if (containerId.empty()) {
+int DockerClient::getContainerNetnsFd(const std::string_view container_id) const {
+    if (container_id.empty()) {
         throw std::invalid_argument("Container ID cannot be empty");
     }
-    SPDLOG_DEBUG("DockerClient: getting netns fd for container {}", containerId);
+    SPDLOG_DEBUG("DockerClient: getting netns fd for container {}", container_id);
 
-    const auto inspectResponse = request_(HttpMethod::GET, fmt::format("/containers/{}/json", containerId), "");
-    if (inspectResponse.status != 200) {
+    const auto inspect_response = request_(HttpMethod::GET, fmt::format("/containers/{}/json", container_id), "");
+    if (inspect_response.status != 200) {
         throw containers::ContainerEngineApiError(
-            fmt::format("Failed to inspect container '{}': HTTP {}", containerId, inspectResponse.status));
+            fmt::format("Failed to inspect container '{}': HTTP {}", container_id, inspect_response.status));
     }
 
-    auto inspectJson = parseResponse(inspectResponse);
-    if (!inspectJson.contains("State") || !inspectJson["State"].is_object() || !inspectJson["State"].contains("Pid") ||
-        !inspectJson["State"]["Pid"].is_number_integer()) {
+    auto inspect_json = parseResponse(inspect_response);
+    if (!inspect_json.contains("State") || !inspect_json["State"].is_object() ||
+        !inspect_json["State"].contains("Pid") || !inspect_json["State"]["Pid"].is_number_integer()) {
         throw containers::ContainerEngineParseError(
-            fmt::format("Failed to get State.Pid for container '{}'", containerId));
+            fmt::format("Failed to get State.Pid for container '{}'", container_id));
     }
 
-    const auto pid = inspectJson["State"]["Pid"].get<int>();
+    const auto pid = inspect_json["State"]["Pid"].get<int>();
     if (pid <= 0) {
-        throw containers::ContainerEngineError(fmt::format("Container '{}' is not running (PID={})", containerId, pid));
+        throw containers::ContainerEngineError(fmt::format("Container '{}' is not running (PID={})", container_id, pid));
     }
 
-    const std::string nsPath = fmt::format("/proc/{}/ns/net", pid);
-    const int fd = open(nsPath.c_str(), O_RDONLY);
+    const std::string ns_path = fmt::format("/proc/{}/ns/net", pid);
+    const int fd = open(ns_path.c_str(), O_RDONLY);
     if (fd < 0) {
         throw containers::ContainerEngineError(
-            fmt::format("Failed to open network namespace for container '{}': {}", containerId, std::strerror(errno)));
+            fmt::format("Failed to open network namespace for container '{}': {}", container_id, std::strerror(errno)));
     }
-    SPDLOG_DEBUG("DockerClient: obtained netns fd {} for container {}", fd, containerId);
+    SPDLOG_DEBUG("DockerClient: obtained netns fd {} for container {}", fd, container_id);
 
     return fd;
 }
 
-int DockerClient::getContainerPid(const std::string_view containerId) const {
-    if (containerId.empty()) {
+int DockerClient::getContainerPid(const std::string_view container_id) const {
+    if (container_id.empty()) {
         throw std::invalid_argument("Container ID cannot be empty");
     }
 
-    const auto inspectResponse = request_(HttpMethod::GET, fmt::format("/containers/{}/json", containerId), "");
-    if (inspectResponse.status != 200) {
+    const auto inspect_response = request_(HttpMethod::GET, fmt::format("/containers/{}/json", container_id), "");
+    if (inspect_response.status != 200) {
         throw containers::ContainerEngineApiError(
-            fmt::format("Failed to inspect container '{}': HTTP {}", containerId, inspectResponse.status));
+            fmt::format("Failed to inspect container '{}': HTTP {}", container_id, inspect_response.status));
     }
 
-    auto inspectJson = parseResponse(inspectResponse);
-    if (!inspectJson.contains("State") || !inspectJson["State"].is_object() || !inspectJson["State"].contains("Pid") ||
-        !inspectJson["State"]["Pid"].is_number_integer()) {
+    auto inspect_json = parseResponse(inspect_response);
+    if (!inspect_json.contains("State") || !inspect_json["State"].is_object() ||
+        !inspect_json["State"].contains("Pid") || !inspect_json["State"]["Pid"].is_number_integer()) {
         throw containers::ContainerEngineParseError(
-            fmt::format("Failed to get State.Pid for container '{}'", containerId));
+            fmt::format("Failed to get State.Pid for container '{}'", container_id));
     }
 
-    const auto pid = inspectJson["State"]["Pid"].get<int>();
+    const auto pid = inspect_json["State"]["Pid"].get<int>();
     if (pid <= 0) {
-        throw containers::ContainerEngineError(fmt::format("Container '{}' is not running (PID={})", containerId, pid));
+        throw containers::ContainerEngineError(fmt::format("Container '{}' is not running (PID={})", container_id, pid));
     }
 
-    SPDLOG_DEBUG("DockerClient: container {} has host PID {}", containerId, pid);
+    SPDLOG_DEBUG("DockerClient: container {} has host PID {}", container_id, pid);
     return pid;
 }
 
-void DockerClient::updateMemoryLimit(const std::string_view containerId, int64_t memory_bytes) const {
-    if (containerId.empty()) {
+void DockerClient::updateMemoryLimit(const std::string_view container_id, int64_t memory_bytes) const {
+    if (container_id.empty()) {
         throw std::invalid_argument("Container ID must not be empty");
     }
 
-    nlohmann::json updateConfig = nlohmann::json::object();
+    nlohmann::json update_config = nlohmann::json::object();
     if (memory_bytes >= 0) {
-        updateConfig["Memory"] = memory_bytes;
-        updateConfig["MemorySwap"] = memory_bytes;
+        update_config["Memory"] = memory_bytes;
+        update_config["MemorySwap"] = memory_bytes;
     }
 
-    SPDLOG_DEBUG("Updating memory limit for container {}: {}", containerId, updateConfig.dump());
+    SPDLOG_DEBUG("Updating memory limit for container {}: {}", container_id, update_config.dump());
 
-    const std::string endpoint = fmt::format("/containers/{}/update", containerId);
+    const std::string endpoint = fmt::format("/containers/{}/update", container_id);
 
-    if (const auto response = request_(HttpMethod::POST, endpoint, updateConfig.dump()); response.status != 200) {
+    if (const auto response = request_(HttpMethod::POST, endpoint, update_config.dump()); response.status != 200) {
         throw containers::ContainerEngineApiError(
-            fmt::format("Failed to update memory limit for container '{}': HTTP {}", containerId, response.status));
+            fmt::format("Failed to update memory limit for container '{}': HTTP {}", container_id, response.status));
     }
 
-    SPDLOG_INFO("Updated memory limit for container '{}'", containerId);
+    SPDLOG_INFO("Updated memory limit for container '{}'", container_id);
 }
 
-void DockerClient::updateCpuQuota(const std::string_view containerId, int64_t cpu_quota, int64_t cpu_period) const {
-    if (containerId.empty()) {
+void DockerClient::updateCpuQuota(const std::string_view container_id, int64_t cpu_quota, int64_t cpu_period) const {
+    if (container_id.empty()) {
         throw std::invalid_argument("Container ID must not be empty");
     }
 
-    nlohmann::json updateConfig = nlohmann::json::object();
+    nlohmann::json update_config = nlohmann::json::object();
     if (cpu_quota >= 0) {
-        updateConfig["CpuQuota"] = cpu_quota;
+        update_config["CpuQuota"] = cpu_quota;
     } else if (cpu_quota == -1) {
-        updateConfig["CpuQuota"] = -1;
+        update_config["CpuQuota"] = -1;
     }
     if (cpu_period > 0) {
-        updateConfig["CpuPeriod"] = cpu_period;
+        update_config["CpuPeriod"] = cpu_period;
     }
 
-    SPDLOG_DEBUG("Updating CPU quota for container {}: {}", containerId, updateConfig.dump());
+    SPDLOG_DEBUG("Updating CPU quota for container {}: {}", container_id, update_config.dump());
 
-    const std::string endpoint = fmt::format("/containers/{}/update", containerId);
+    const std::string endpoint = fmt::format("/containers/{}/update", container_id);
 
-    if (const auto response = request_(HttpMethod::POST, endpoint, updateConfig.dump()); response.status != 200) {
+    if (const auto response = request_(HttpMethod::POST, endpoint, update_config.dump()); response.status != 200) {
         throw containers::ContainerEngineApiError(
-            fmt::format("Failed to update CPU quota for container '{}': HTTP {}", containerId, response.status));
+            fmt::format("Failed to update CPU quota for container '{}': HTTP {}", container_id, response.status));
     }
 
-    SPDLOG_INFO("Updated CPU quota for container '{}'", containerId);
+    SPDLOG_INFO("Updated CPU quota for container '{}'", container_id);
 }
 
-containers::ContainerStatus DockerClient::getStatus(const std::string_view containerId) const {
-    if (containerId.empty()) {
+containers::ContainerStatus DockerClient::getStatus(const std::string_view container_id) const {
+    if (container_id.empty()) {
         throw std::invalid_argument("Container ID cannot be empty");
     }
 
-    SPDLOG_DEBUG("DockerClient: getting status for container {}", containerId);
+    SPDLOG_DEBUG("DockerClient: getting status for container {}", container_id);
 
-    const std::string endpoint = fmt::format("/containers/{}/json", containerId);
+    const std::string endpoint = fmt::format("/containers/{}/json", container_id);
     const auto response = request_(HttpMethod::GET, endpoint, "");
     if (response.status != 200) {
         throw containers::ContainerEngineApiError(
-            fmt::format("Failed to get status for container '{}': HTTP {}", containerId, response.status));
+            fmt::format("Failed to get status for container '{}': HTTP {}", container_id, response.status));
     }
 
-    if (auto jsonResponse = parseResponse(response);
-        jsonResponse.contains("State") && jsonResponse["State"].is_object() &&
-        jsonResponse["State"].contains("Status") && jsonResponse["State"]["Status"].is_string()) {
-        std::string stateStr = jsonResponse["State"]["Status"].get<std::string>();
-        SPDLOG_DEBUG("DockerClient: container {} status is {}", containerId, stateStr);
-        return parseContainerStatus(stateStr);
+    if (auto json_response = parseResponse(response);
+        json_response.contains("State") && json_response["State"].is_object() &&
+        json_response["State"].contains("Status") && json_response["State"]["Status"].is_string()) {
+        std::string state_str = json_response["State"]["Status"].get<std::string>();
+        SPDLOG_DEBUG("DockerClient: container {} status is {}", container_id, state_str);
+        return parseContainerStatus(state_str);
     }
 
     throw containers::ContainerEngineParseError(
-        fmt::format("Docker inspect response missing State.Status for container '{}'", containerId));
+        fmt::format("Docker inspect response missing State.Status for container '{}'", container_id));
 }
 
-std::string DockerClient::getLogs(const std::string_view containerId) const {
-    if (containerId.empty()) {
+std::string DockerClient::getLogs(const std::string_view container_id) const {
+    if (container_id.empty()) {
         throw std::invalid_argument("Container ID must not be empty");
     }
 
-    SPDLOG_DEBUG("Fetching logs for container: {}", containerId);
+    SPDLOG_DEBUG("Fetching logs for container: {}", container_id);
 
     constexpr int kLogTailLines = 50;
 
     // tail=50 avoids dumping the entire container log on every poll; demuxing
     // is done below by stripping the 8-byte frame headers.
     const std::string endpoint =
-        fmt::format("/containers/{}/logs?stdout=1&stderr=1&timestamps=0&tail={}", containerId, kLogTailLines);
+        fmt::format("/containers/{}/logs?stdout=1&stderr=1&timestamps=0&tail={}", container_id, kLogTailLines);
     const auto response = request_(HttpMethod::GET, endpoint, "");
 
     if (response.status != 200) {
         throw containers::ContainerEngineApiError(
-            fmt::format("Failed to get logs for container '{}': HTTP {}", containerId, response.status));
+            fmt::format("Failed to get logs for container '{}': HTTP {}", container_id, response.status));
     }
 
-    SPDLOG_DEBUG("Fetched logs for container '{}'", containerId);
+    SPDLOG_DEBUG("Fetched logs for container '{}'", container_id);
 
     // The Docker Engine logs API returns a multiplexed stream where each log
     // entry is prefixed by an 8-byte frame header:
@@ -648,30 +648,30 @@ std::string DockerClient::getLogs(const std::string_view containerId) const {
     return result;
 }
 
-containers::ContainerStats DockerClient::getStats(const std::string_view containerId) {
-    if (containerId.empty()) {
+containers::ContainerStats DockerClient::getStats(const std::string_view container_id) {
+    if (container_id.empty()) {
         throw std::invalid_argument("Container ID must not be empty");
     }
 
-    SPDLOG_DEBUG("Fetching container stats for: {}", containerId);
+    SPDLOG_DEBUG("Fetching container stats for: {}", container_id);
 
-    const std::string endpoint = fmt::format("/containers/{}/stats?stream=false", containerId);
+    const std::string endpoint = fmt::format("/containers/{}/stats?stream=false", container_id);
     const auto response = request_(HttpMethod::GET, endpoint, "");
     if (response.status != 200) {
         throw containers::ContainerEngineApiError(
-            fmt::format("Failed to get stats for container '{}': HTTP {}", containerId, response.status));
+            fmt::format("Failed to get stats for container '{}': HTTP {}", container_id, response.status));
     }
 
-    auto jsonResponse = parseResponse(response);
+    auto json_response = parseResponse(response);
     containers::ContainerStats stats;
 
-    stats.cpu_percent = parseCpuDelta(jsonResponse);
-    stats.memory_mb = parseMemoryFromStats(jsonResponse);
-    auto [rx, tx] = parseNetworkFromStats(jsonResponse);
+    stats.cpu_percent = parseCpuDelta(json_response);
+    stats.memory_mb = parseMemoryFromStats(json_response);
+    auto [rx, tx] = parseNetworkFromStats(json_response);
     stats.network_rx_bps = rx;
     stats.network_tx_bps = tx;
 
-    SPDLOG_DEBUG("Fetched stats for container '{}': CPU={}% Mem={:.0f}MB", containerId,
+    SPDLOG_DEBUG("Fetched stats for container '{}': CPU={}% Mem={:.0f}MB", container_id,
                  stats.cpu_percent ? *stats.cpu_percent : -1.0, stats.memory_mb ? *stats.memory_mb : -1.0);
     return stats;
 }
@@ -737,29 +737,29 @@ std::pair<double, double> DockerClient::parseNetworkFromStats(const nlohmann::js
     return {rx_bps, tx_bps};
 }
 
-std::string DockerClient::getContainerIp(const std::string_view containerId) const {
-    if (containerId.empty()) {
+std::string DockerClient::getContainerIp(const std::string_view container_id) const {
+    if (container_id.empty()) {
         throw std::invalid_argument("Container ID must not be empty");
     }
 
-    SPDLOG_DEBUG("Fetching IP for container: {}", containerId);
+    SPDLOG_DEBUG("Fetching IP for container: {}", container_id);
 
-    const std::string endpoint = fmt::format("/containers/{}/json", containerId);
+    const std::string endpoint = fmt::format("/containers/{}/json", container_id);
     const auto response = request_(HttpMethod::GET, endpoint, "");
     if (response.status != 200) {
         throw containers::ContainerEngineApiError(
-            fmt::format("Failed to inspect container '{}': HTTP {}", containerId, response.status));
+            fmt::format("Failed to inspect container '{}': HTTP {}", container_id, response.status));
     }
 
-    if (auto jsonResponse = parseResponse(response);
-        jsonResponse.contains("NetworkSettings") && jsonResponse["NetworkSettings"].contains("Networks")) {
-        auto& networks = jsonResponse["NetworkSettings"]["Networks"];
+    if (auto json_response = parseResponse(response);
+        json_response.contains("NetworkSettings") && json_response["NetworkSettings"].contains("Networks")) {
+        auto& networks = json_response["NetworkSettings"]["Networks"];
         if (networks.is_object() && !networks.empty()) {
             for (const auto& [name, net] : networks.items()) {
                 if (net.contains("IPAddress") && net["IPAddress"].is_string()) {
                     std::string ip = net["IPAddress"].get<std::string>();
                     if (!ip.empty()) {
-                        SPDLOG_INFO("Fetched IP {} for container '{}' from network '{}'", ip, containerId, name);
+                        SPDLOG_INFO("Fetched IP {} for container '{}' from network '{}'", ip, container_id, name);
                         return ip;
                     }
                 }
@@ -768,7 +768,7 @@ std::string DockerClient::getContainerIp(const std::string_view containerId) con
     }
 
     throw containers::ContainerEngineParseError(
-        fmt::format("Docker inspect response missing IP for container '{}'", containerId));
+        fmt::format("Docker inspect response missing IP for container '{}'", container_id));
 }
 
 SystemInfo DockerClient::getSystemInfo() const {
@@ -776,11 +776,11 @@ SystemInfo DockerClient::getSystemInfo() const {
     if (response.status != 200) {
         throw containers::ContainerEngineApiError(fmt::format("Docker API error {} on GET /info", response.status));
     }
-    auto jsonResponse = parseResponse(response);
+    auto json_response = parseResponse(response);
 
     SystemInfo info;
-    if (jsonResponse.contains("MemTotal") && jsonResponse["MemTotal"].is_number()) {
-        info.memTotal = jsonResponse["MemTotal"].get<int64_t>();
+    if (json_response.contains("MemTotal") && json_response["MemTotal"].is_number()) {
+        info.mem_total = json_response["MemTotal"].get<int64_t>();
     }
     return info;
 }
@@ -791,22 +791,22 @@ nlohmann::json DockerClient::parseResponse(const HttpResponse& response) const {
         throw containers::ContainerEngineParseError("Docker API response body is empty");
     }
 
-    auto jsonResponse = nlohmann::json::parse(response.body, nullptr, false);
-    if (jsonResponse.is_discarded()) {
+    auto json_response = nlohmann::json::parse(response.body, nullptr, false);
+    if (json_response.is_discarded()) {
         SPDLOG_ERROR("Docker API response could not be parsed as JSON");
         throw containers::ContainerEngineParseError("Failed to parse Docker API response");
     }
 
-    if (jsonResponse.is_object() && jsonResponse.contains("error")) {
-        SPDLOG_ERROR("Docker API error: {}", jsonResponse["error"].get<std::string>());
-        for (const auto& [key, value] : jsonResponse.items()) {
+    if (json_response.is_object() && json_response.contains("error")) {
+        SPDLOG_ERROR("Docker API error: {}", json_response["error"].get<std::string>());
+        for (const auto& [key, value] : json_response.items()) {
             SPDLOG_ERROR("  {}: {}", key, value.dump());
         }
         throw containers::ContainerEngineApiError(
-            fmt::format("Docker API error: {}", jsonResponse["error"].get<std::string>()));
+            fmt::format("Docker API error: {}", json_response["error"].get<std::string>()));
     }
 
-    return jsonResponse;
+    return json_response;
 }
 
 }  // namespace chaos::orchestrator::containers

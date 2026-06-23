@@ -14,7 +14,7 @@ namespace chaos::orchestrator::containers {
  */
 struct SystemInfo {
     /** @brief Total physical memory in bytes. */
-    int64_t memTotal = 0;
+    int64_t mem_total = 0;
 };
 
 }  // namespace chaos::orchestrator::containers

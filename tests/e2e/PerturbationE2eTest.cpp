@@ -32,12 +32,12 @@ TEST_F(PerturbationE2eTest, KillPerturbationStopsAndRestartsContainer) {
     auto perturbation = PerturbationFactory().create(engine(), target, spec);
 
     perturbation->apply();
-    const auto statusAfterKill = engine()->getStatus(containerId());
-    EXPECT_TRUE(statusAfterKill == ContainerStatus::Exited || statusAfterKill == ContainerStatus::Dead);
+    const auto status_after_kill = engine()->getStatus(containerId());
+    EXPECT_TRUE(status_after_kill == ContainerStatus::Exited || status_after_kill == ContainerStatus::Dead);
 
     perturbation->revert();
-    const auto statusAfterRevert = engine()->getStatus(containerId());
-    EXPECT_EQ(statusAfterRevert, ContainerStatus::Running);
+    const auto status_after_revert = engine()->getStatus(containerId());
+    EXPECT_EQ(status_after_revert, ContainerStatus::Running);
 }
 
 /**
@@ -48,7 +48,7 @@ TEST_F(PerturbationE2eTest, MemoryCapPerturbationApplyAndRevert) {
     Perturbation spec{"memory_cap", Parameters{{"limit_bytes", "33554432"}}};  // 32 MiB
     auto perturbation = PerturbationFactory().create(engine(), target, spec);
 
-    const auto sysInfo = engine()->getSystemInfo();
+    const auto sys_info = engine()->getSystemInfo();
 
     perturbation->apply();
     EXPECT_EQ(engine()->getStatus(containerId()), ContainerStatus::Running);
@@ -60,9 +60,9 @@ TEST_F(PerturbationE2eTest, MemoryCapPerturbationApplyAndRevert) {
                                             "sh -c 'cat /sys/fs/cgroup/memory.max 2>/dev/null || "
                                             "cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null'");
     try {
-        int64_t limitBytes = std::stoll(limitOutput);
-        EXPECT_GE(limitBytes, sysInfo.memTotal)
-            << "Memory limit " << limitBytes << " not restored to host " << sysInfo.memTotal;
+        int64_t limit_bytes = std::stoll(limitOutput);
+        EXPECT_GE(limit_bytes, sys_info.mem_total)
+            << "Memory limit " << limit_bytes << " not restored to host " << sys_info.mem_total;
     } catch (const std::exception&) {
         auto result = engine()->exec(containerId(), "echo ok");
         EXPECT_NE(result.find("ok"), std::string::npos) << "Container not functional after memory cap revert";
@@ -184,15 +184,15 @@ TEST_F(PerturbationE2eTest, PacketFloodPerturbationApplyAndRevert) {
 
     // During flood: RX packets should increase (flood injects TCP SYNs that loop back)
     const auto rxDuring = engine()->execInNetNs(containerId(), "cat /sys/class/net/eth0/statistics/rx_packets");
-    uint64_t rxBeforeVal = 0;
-    uint64_t rxDuringVal = 0;
+    uint64_t rx_before_val = 0;
+    uint64_t rx_during_val = 0;
     try {
-        rxBeforeVal = std::stoull(rxBefore);
-        rxDuringVal = std::stoull(rxDuring);
+        rx_before_val = std::stoull(rxBefore);
+        rx_during_val = std::stoull(rxDuring);
     } catch (const std::exception&) {
         FAIL() << "Non-numeric RX count: before='" << rxBefore << "' during='" << rxDuring << "'";
     }
-    EXPECT_GT(rxDuringVal, rxBeforeVal);
+    EXPECT_GT(rx_during_val, rx_before_val);
 
     perturbation->revert();
     EXPECT_EQ(engine()->getStatus(containerId()), ContainerStatus::Running);

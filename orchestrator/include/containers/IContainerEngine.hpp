@@ -78,8 +78,8 @@ public:
 
     /**
      * @brief Build a container image from a Dockerfile.
-     * @param imageName Tag for the built image (e.g. "myapp:latest").
-     * @param dockerfilePath Path to the Dockerfile on disk.
+     * @param image_name Tag for the built image (e.g. "myapp:latest").
+     * @param dockerfile_path Path to the Dockerfile on disk.
      * @throws ContainerEngineError On transport errors or non-OK responses.
      * @throws std::runtime_error On filesystem errors.
      */

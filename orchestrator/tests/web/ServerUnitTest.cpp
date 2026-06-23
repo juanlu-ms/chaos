@@ -133,7 +133,7 @@ TEST_F(ServerTest, TargetsReturnsContainerList) {
  */
 TEST_F(ServerTest, LimitsReturnsSystemInfo) {
     containers::SystemInfo info;
-    info.memTotal = 8589934592;
+    info.mem_total = 8589934592;
 
     EXPECT_CALL(*engine_, listContainers()).WillRepeatedly(Return(std::vector<containers::Container>{}));
     EXPECT_CALL(*engine_, getSystemInfo()).WillRepeatedly(Return(info));

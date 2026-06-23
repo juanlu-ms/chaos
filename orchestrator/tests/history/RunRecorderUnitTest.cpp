@@ -127,11 +127,11 @@ TEST(RunRecorderTest, FinalizeCopiesRunResult) {
     rr.started_at = "2024-01-01T00:00:00Z";
 
     RunRecord record = recorder.finalize(rr, "completed", "");
-    EXPECT_TRUE(record.summary.runResult.passed);
-    EXPECT_EQ(record.summary.runResult.manifest_name, "my-manifest");
-    EXPECT_EQ(record.summary.runResult.target_id, "tgt-1");
-    EXPECT_DOUBLE_EQ(record.summary.runResult.duration_s, 30.0);
-    EXPECT_EQ(record.summary.runResult.started_at, "2024-01-01T00:00:00Z");
+    EXPECT_TRUE(record.summary.run_result.passed);
+    EXPECT_EQ(record.summary.run_result.manifest_name, "my-manifest");
+    EXPECT_EQ(record.summary.run_result.target_id, "tgt-1");
+    EXPECT_DOUBLE_EQ(record.summary.run_result.duration_s, 30.0);
+    EXPECT_EQ(record.summary.run_result.started_at, "2024-01-01T00:00:00Z");
 }
 
 TEST(RunRecorderTest, PerturbationTypesExtracted) {

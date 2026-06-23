@@ -72,18 +72,18 @@ public:
          *        and failures are recorded via
          *        SharedState::addContinuousFailure().
          */
-        std::vector<manifests::Expectation> continuousExpectations;
+        std::vector<manifests::Expectation> continuous_expectations;
     };
 
     /**
      * @brief Construct an ObservationLoop.
      * @param engine Container engine for fetching metrics and logs.
-     * @param containerId Target container identifier.
+     * @param container_id Target container identifier.
      * @param state SharedState to populate with observed data.
      * @param observer Observer notified on each update.
      * @param config Interval and expectation configuration.
      */
-    ObservationLoop(std::shared_ptr<containers::IContainerEngine> engine, std::string containerId, SharedState& state,
+    ObservationLoop(std::shared_ptr<containers::IContainerEngine> engine, std::string container_id, SharedState& state,
                     IRunObserver& observer, Config config);
 
     /** @brief Stops all background threads and waits for them to join. */
@@ -112,7 +112,7 @@ private:
     void latencyThreadFn(std::stop_token internal_stop, std::stop_token external_stop);
 
     std::shared_ptr<containers::IContainerEngine> engine_;
-    std::string containerId_;
+    std::string container_id_;
     SharedState& state_;
     IRunObserver& observer_;
     Config config_;
@@ -126,7 +126,7 @@ private:
 
     // Host PID of the container's init process, fetched once at start.
     // Used to read /proc/<pid>/net/dev for fast network stats.
-    int containerPid_{0};
+    int container_pid_{0};
 
     std::stop_source internalStopSource_;
     std::jthread metricsThread_;

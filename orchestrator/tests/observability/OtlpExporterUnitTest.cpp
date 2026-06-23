@@ -43,11 +43,11 @@ TEST(OtlpExporterTest, BuildStateChangeEvent) {
     auto payload = OtlpExporter::buildLogPayload(
         "run-456", "state_changed", R"({"container_id":"abc","cpu_percent":45.2})", {{"service.name", "chaos-engine"}});
 
-    auto& scopeLogs = payload["resourceLogs"][0]["scopeLogs"];
-    ASSERT_TRUE(scopeLogs.is_array());
-    ASSERT_GE(scopeLogs.size(), 1);
+    auto& scope_logs = payload["resourceLogs"][0]["scopeLogs"];
+    ASSERT_TRUE(scope_logs.is_array());
+    ASSERT_GE(scope_logs.size(), 1);
 
-    auto& record = scopeLogs[0]["logRecords"][0];
+    auto& record = scope_logs[0]["logRecords"][0];
     EXPECT_EQ(record["severityText"], "state_changed");
     EXPECT_TRUE(record["body"]["stringValue"].get<std::string>().find("cpu_percent") != std::string::npos);
 }

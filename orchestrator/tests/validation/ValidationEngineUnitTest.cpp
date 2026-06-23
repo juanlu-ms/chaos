@@ -40,7 +40,7 @@ TEST(ValidationEngineTests, ContainerRunningPassesWhenRunning) {
 
     ASSERT_EQ(results.size(), 1u);
     EXPECT_TRUE(results[0].passed);
-    EXPECT_EQ(results[0].expectationType, "container_running");
+    EXPECT_EQ(results[0].expectation_type, "container_running");
 }
 
 /**
@@ -142,9 +142,9 @@ TEST(ValidationEngineTests, MixedExpectationsReturnsAllResults) {
 
     ASSERT_EQ(results.size(), 2u);
     EXPECT_TRUE(results[0].passed);
-    EXPECT_EQ(results[0].expectationType, "container_running");
+    EXPECT_EQ(results[0].expectation_type, "container_running");
     EXPECT_TRUE(results[1].passed);
-    EXPECT_EQ(results[1].expectationType, "log_contains");
+    EXPECT_EQ(results[1].expectation_type, "log_contains");
 }
 
 /**
@@ -395,6 +395,6 @@ TEST(ValidationEngineTests, HttpLatencyFailsWhenMinExceedsMax) {
 TEST(ValidationResultStandaloneTest, CanDefaultConstruct) {
     validation::ValidationResult r{};
     EXPECT_FALSE(r.passed);
-    EXPECT_TRUE(r.expectationType.empty());
+    EXPECT_TRUE(r.expectation_type.empty());
     EXPECT_TRUE(r.message.empty());
 }

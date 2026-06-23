@@ -46,10 +46,10 @@ TEST_F(ManifestE2eTest, ManifestWithKillRunsToCompletion) {
         perturbations.push_back(factory.create(engine(), manifest.target, spec));
     }
 
-    PerturbationEngine pertEngine;
+    PerturbationEngine pert_engine;
     auto duration = std::chrono::seconds(manifest.duration_s.value_or(1));
-    pertEngine.scheduleAllAsync(std::move(perturbations), duration);
-    pertEngine.waitForTeardown();
+    pert_engine.scheduleAllAsync(std::move(perturbations), duration);
+    pert_engine.waitForTeardown();
 
     ObservabilityEngine observer(engine());
     const auto state = observer.observe(containerId());
@@ -82,10 +82,10 @@ TEST_F(ManifestE2eTest, ManifestWithMemoryCapRunsToCompletion) {
         perturbations.push_back(factory.create(engine(), manifest.target, spec));
     }
 
-    PerturbationEngine pertEngine;
+    PerturbationEngine pert_engine;
     auto duration = std::chrono::seconds(manifest.duration_s.value_or(1));
-    pertEngine.scheduleAllAsync(std::move(perturbations), duration);
-    pertEngine.waitForTeardown();
+    pert_engine.scheduleAllAsync(std::move(perturbations), duration);
+    pert_engine.waitForTeardown();
 
     ObservabilityEngine observer(engine());
     const auto state = observer.observe(containerId());

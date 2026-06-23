@@ -14,15 +14,15 @@ json OtlpExporter::buildLogPayload(const std::string& run_id, const std::string&
     auto now = std::chrono::system_clock::now();
     auto nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
 
-    json resourceAttrs = json::array();
+    json resource_attrs = json::array();
     for (const auto& [key, value] : attributes) {
-        resourceAttrs.push_back({{"key", key}, {"value", {{"stringValue", value}}}});
+        resource_attrs.push_back({{"key", key}, {"value", {{"stringValue", value}}}});
     }
 
     json payload = {
         {"resourceLogs",
          json::array(
-             {{{"resource", {{"attributes", std::move(resourceAttrs)}}},
+             {{{"resource", {{"attributes", std::move(resource_attrs)}}},
                {"scopeLogs",
                 json::array(
                     {{{"scope", json::object()},

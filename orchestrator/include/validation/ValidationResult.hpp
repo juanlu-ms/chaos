@@ -16,7 +16,7 @@ struct ValidationResult {
     /** @brief True if the expectation was met. */
     bool passed{false};
     /** @brief The type of expectation evaluated. */
-    std::string expectationType;
+    std::string expectation_type;
     /** @brief Explanatory message for the result. */
     std::string message;
 };

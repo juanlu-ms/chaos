@@ -49,11 +49,11 @@ json stateToJson(const core::TargetState& state, const std::string& phase,
 json limitsToJson(const containers::SystemInfo& info) {
     json result;
     result["cpu_cores"] = std::thread::hardware_concurrency();
-    auto memoryTotalMb = static_cast<uint64_t>(info.memTotal / (static_cast<int64_t>(1024 * 1024)));
-    result["memory_total_mb"] = memoryTotalMb;
+    auto memory_total_mb = static_cast<uint64_t>(info.mem_total / (static_cast<int64_t>(1024 * 1024)));
+    result["memory_total_mb"] = memory_total_mb;
     result["perturbation_limits"] = {
         {"cpu_cap", {{"min_percent", 1}, {"max_percent", 100}}},
-        {"memory_cap", {{"min_mb", 1}, {"max_mb", memoryTotalMb}}},
+        {"memory_cap", {{"min_mb", 1}, {"max_mb", memory_total_mb}}},
         {"network_delay", {{"min_ms", 0}, {"max_ms", 30000}}},
     };
     return result;

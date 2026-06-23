@@ -71,10 +71,10 @@ void OtlpRunObserver::onStateUpdate(const core::TargetState& state) noexcept {
 bool OtlpRunObserver::finalize(const core::RunResult& result) {
     try {
         std::lock_guard<std::mutex> lock(mutex_);
-        int failureCount = 0;
+        int failure_count = 0;
         for (const auto& r : result.results) {
             if (!r.passed) {
-                ++failureCount;
+                ++failure_count;
             }
         }
 
@@ -82,7 +82,7 @@ bool OtlpRunObserver::finalize(const core::RunResult& result) {
 
         json body;
         body["passed"] = result.passed;
-        body["failures"] = failureCount;
+        body["failures"] = failure_count;
         body["duration_s"] = result.duration_s;
         body["manifest"] = result.manifest_name;
         body["target_id"] = result.target_id;

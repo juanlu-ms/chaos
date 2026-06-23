@@ -45,16 +45,16 @@ void TrafficCorruptionPerturbation::apply() {
     }
 
     const std::string iface = [&] {
-        auto ifaceIt = params_.find("iface");
-        return (ifaceIt != params_.end()) ? ifaceIt->second : std::string(kDefaultIface);
+        auto iface_it = params_.find("iface");
+        return (iface_it != params_.end()) ? iface_it->second : std::string(kDefaultIface);
     }();
 
     try {
         {
-            const auto execOut =
+            const auto exec_out =
                 engine_->execInNetNs(target_id_, fmt::format("tc qdisc replace dev {} root netem{}", iface, opts));
-            if (!execOut.empty()) {
-                SPDLOG_TRACE("tc output: {}", execOut);
+            if (!exec_out.empty()) {
+                SPDLOG_TRACE("tc output: {}", exec_out);
             }
         }
         SPDLOG_INFO("Traffic Corruption applied on target {} iface={}: {}", target_id_, iface, opts);
@@ -76,15 +76,15 @@ void TrafficCorruptionPerturbation::revert() {
     }
 
     const std::string iface = [&] {
-        auto ifaceIt = params_.find("iface");
-        return (ifaceIt != params_.end()) ? ifaceIt->second : std::string(kDefaultIface);
+        auto iface_it = params_.find("iface");
+        return (iface_it != params_.end()) ? iface_it->second : std::string(kDefaultIface);
     }();
 
     try {
         {
-            const auto execOut = engine_->execInNetNs(target_id_, "tc qdisc del dev " + iface + " root netem");
-            if (!execOut.empty()) {
-                SPDLOG_TRACE("tc output: {}", execOut);
+            const auto exec_out = engine_->execInNetNs(target_id_, "tc qdisc del dev " + iface + " root netem");
+            if (!exec_out.empty()) {
+                SPDLOG_TRACE("tc output: {}", exec_out);
             }
         }
         SPDLOG_INFO("Traffic Corruption reverted on target {}", target_id_);

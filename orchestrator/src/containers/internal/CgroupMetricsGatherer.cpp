@@ -41,10 +41,10 @@ std::optional<uint64_t> readKeyValueU64(const std::filesystem::path& path, std::
         return std::nullopt;
     }
     std::string line;
-    std::string currentKey;
+    std::string current_key;
     uint64_t val = 0;
-    while (file >> currentKey >> val) {
-        if (currentKey == key) {
+    while (file >> current_key >> val) {
+        if (current_key == key) {
             return val;
         }
     }
@@ -61,7 +61,7 @@ constexpr auto CGROUP_ROOT = "/sys/fs/cgroup/system.slice";
 
 }  // namespace
 
-std::optional<std::filesystem::path> CgroupMetricsGatherer::resolveCgroupPath(const std::string_view containerId) {
+std::optional<std::filesystem::path> CgroupMetricsGatherer::resolveCgroupPath(const std::string_view container_id) {
     namespace fs = std::filesystem;
     const fs::path base(CGROUP_ROOT);
     std::error_code ec;
@@ -69,24 +69,24 @@ std::optional<std::filesystem::path> CgroupMetricsGatherer::resolveCgroupPath(co
         return std::nullopt;
     }
 
-    const std::string idStr(containerId);
+    const std::string id_str(container_id);
     for (const auto& entry : fs::directory_iterator(base, ec)) {
         if (!entry.is_directory(ec)) {
             continue;
         }
         const auto name = entry.path().filename().string();
-        if (name.contains(idStr)) {
-            SPDLOG_DEBUG("CgroupMetricsGatherer: cgroup v2 path resolved for '{}' -> {}", containerId,
+        if (name.contains(id_str)) {
+            SPDLOG_DEBUG("CgroupMetricsGatherer: cgroup v2 path resolved for '{}' -> {}", container_id,
                          entry.path().string());
             return entry.path();
         }
     }
-    SPDLOG_DEBUG("CgroupMetricsGatherer: cgroup v2 path not found for '{}'", containerId);
+    SPDLOG_DEBUG("CgroupMetricsGatherer: cgroup v2 path not found for '{}'", container_id);
     return std::nullopt;
 }
 
-std::optional<double> CgroupMetricsGatherer::getCpuUsagePercent(const std::string_view containerId) {
-    auto dir = resolveCgroupPath(containerId);
+std::optional<double> CgroupMetricsGatherer::getCpuUsagePercent(const std::string_view container_id) {
+    auto dir = resolveCgroupPath(container_id);
     if (!dir) {
         return std::nullopt;
     }
@@ -111,8 +111,8 @@ std::optional<double> CgroupMetricsGatherer::getCpuUsagePercent(const std::strin
     return percent;
 }
 
-std::optional<double> CgroupMetricsGatherer::getMemoryUsageMb(const std::string_view containerId) {
-    auto dir = resolveCgroupPath(containerId);
+std::optional<double> CgroupMetricsGatherer::getMemoryUsageMb(const std::string_view container_id) {
+    auto dir = resolveCgroupPath(container_id);
     if (!dir) {
         return std::nullopt;
     }

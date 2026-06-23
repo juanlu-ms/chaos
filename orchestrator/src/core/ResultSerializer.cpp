@@ -10,17 +10,17 @@
 
 namespace chaos::orchestrator::core {
 
-nlohmann::json runResultToJson(const RunResult& runResult) {
+nlohmann::json runResultToJson(const RunResult& run_result) {
     nlohmann::json result;
-    result["passed"] = runResult.passed;
-    result["manifest_name"] = runResult.manifest_name;
-    result["target_id"] = runResult.target_id;
-    result["duration_s"] = runResult.duration_s;
-    result["started_at"] = runResult.started_at;
+    result["passed"] = run_result.passed;
+    result["manifest_name"] = run_result.manifest_name;
+    result["target_id"] = run_result.target_id;
+    result["duration_s"] = run_result.duration_s;
+    result["started_at"] = run_result.started_at;
     result["results"] = nlohmann::json::array();
-    for (const auto& validation : runResult.results) {
+    for (const auto& validation : run_result.results) {
         result["results"].push_back(
-            {{"type", validation.expectationType}, {"passed", validation.passed}, {"message", validation.message}});
+            {{"type", validation.expectation_type}, {"passed", validation.passed}, {"message", validation.message}});
     }
     return result;
 }

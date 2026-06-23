@@ -39,10 +39,10 @@ void NetworkDelayPerturbation::apply() {
 
     try {
         {
-            const auto execOut = engine_->execInNetNs(
+            const auto exec_out = engine_->execInNetNs(
                 target_id_, fmt::format("tc qdisc replace dev {} root netem delay {}ms", kDefaultIface, delay));
-            if (!execOut.empty()) {
-                SPDLOG_TRACE("tc output: {}", execOut);
+            if (!exec_out.empty()) {
+                SPDLOG_TRACE("tc output: {}", exec_out);
             }
         }
         SPDLOG_INFO("Network Delay Perturbation applied: delay={}ms on target {}", delay, target_id_);
@@ -65,10 +65,10 @@ void NetworkDelayPerturbation::revert() {
 
     try {
         {
-            const auto execOut =
+            const auto exec_out =
                 engine_->execInNetNs(target_id_, fmt::format("tc qdisc del dev {} root netem", kDefaultIface));
-            if (!execOut.empty()) {
-                SPDLOG_TRACE("tc output: {}", execOut);
+            if (!exec_out.empty()) {
+                SPDLOG_TRACE("tc output: {}", exec_out);
             }
         }
         SPDLOG_INFO("Network Delay Perturbation reverted on target {}", target_id_);

@@ -26,7 +26,7 @@ namespace UnitTest {
  */
 class ManifestParserUnitTest : public ::testing::Test {
 private:
-    std::vector<std::filesystem::path> tempFiles;
+    std::vector<std::filesystem::path> temp_files;
 
 protected:
     std::string createTempManifest(const std::string& json) {
@@ -43,12 +43,12 @@ protected:
         output << json;
         output.close();
 
-        tempFiles.push_back(path);
+        temp_files.push_back(path);
         return path.string();
     }
 
     void TearDown() override {
-        for (const auto& path : tempFiles) {
+        for (const auto& path : temp_files) {
             std::error_code ec;
             std::filesystem::remove(path, ec);
         }

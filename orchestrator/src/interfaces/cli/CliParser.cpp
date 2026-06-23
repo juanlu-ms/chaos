@@ -95,18 +95,18 @@ private:
         std::string phase;
         double cpu;
         double mem;
-        std::size_t frameIndex;
+        std::size_t frame_index;
         {
             std::lock_guard<std::mutex> lock(dataMutex_);
-            frameIndex_ = (frameIndex_ + 1) % kFrames.size();
+            frame_index_ = (frame_index_ + 1) % kFrames.size();
             phase = phase_;
             cpu = cpu_;
             mem = mem_;
-            frameIndex = frameIndex_;
+            frame_index = frame_index_;
         }
         auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start_).count();
         std::string line =
-            fmt::format("{} {}  {:.1f}s  cpu={:.1f}%  mem={:.1f}MB", kFrames[frameIndex], phase, elapsed, cpu, mem);
+            fmt::format("{} {}  {:.1f}s  cpu={:.1f}%  mem={:.1f}MB", kFrames[frame_index], phase, elapsed, cpu, mem);
         ProgressCoordinator::instance().renderLine(fmt::format("\r{: <80}", line));
     }
 
@@ -116,7 +116,7 @@ private:
     std::jthread thread_;
     std::mutex dataMutex_;
     std::chrono::steady_clock::time_point start_{std::chrono::steady_clock::now()};
-    std::size_t frameIndex_{0};
+    std::size_t frame_index_{0};
     std::string phase_{"normal"};
     double cpu_{0.0};
     double mem_{0.0};
@@ -162,9 +162,9 @@ ParsedGlobalFlags parseGlobalFlags(std::span<char*> argv) {
     for (std::size_t i = 1; i < argv.size(); ++i) {
         std::string_view arg = argv[i];
         if (isVerboseFlag(arg)) {
-            result.options.logLevel = spdlog::level::debug;
+            result.options.log_level = spdlog::level::debug;
         } else if (isQuietFlag(arg)) {
-            result.options.logLevel = spdlog::level::warn;
+            result.options.log_level = spdlog::level::warn;
         } else if (isLogLevelFlag(arg)) {
             if (i + 1 >= argv.size()) {
                 result.error = "--log-level requires a value";
@@ -175,7 +175,7 @@ ParsedGlobalFlags parseGlobalFlags(std::span<char*> argv) {
                 result.error = fmt::format("Invalid log level: {}", argv[i + 1]);
                 return result;
             }
-            result.options.logLevel = level.value();
+            result.options.log_level = level.value();
             ++i;
         } else if (isNoColorFlag(arg)) {
             result.options.colorize = false;
@@ -188,11 +188,11 @@ ParsedGlobalFlags parseGlobalFlags(std::span<char*> argv) {
 }
 
 CliParser::CliParser(std::shared_ptr<containers::IContainerEngine> engine,
-                     std::shared_ptr<history::IRunHistory> history, std::optional<std::string> otlpEndpoint)
+                     std::shared_ptr<history::IRunHistory> history, std::optional<std::string> otlp_endpoint)
     : engine_(std::move(engine)),
       history_(std::move(history)),
       runner_(engine_),
-      otlpEndpoint_(std::move(otlpEndpoint)) {}
+      otlp_endpoint_(std::move(otlp_endpoint)) {}
 
 int CliParser::run(std::span<char*> argv) const {
     if (argv.size() < 2) {
@@ -234,7 +234,7 @@ int CliParser::dispatchCommand(const std::vector<std::string>& args) const {
 
     if (command == "run") {
         RunOptions options;
-        std::optional<std::string> manifestPath;
+        std::optional<std::string> manifest_path;
         for (std::size_t i = 2; i < args.size(); ++i) {
             const std::string& arg = args[i];
             if (arg == "--json") {
@@ -245,18 +245,18 @@ int CliParser::dispatchCommand(const std::vector<std::string>& args) const {
                     return 1;
                 }
                 options.outputPath = args[++i];
-            } else if (manifestPath.has_value()) {
+            } else if (manifest_path.has_value()) {
                 fmt::print(stderr, "Unexpected argument: {}\n", arg);
                 return 1;
             } else {
-                manifestPath = arg;
+                manifest_path = arg;
             }
         }
-        if (!manifestPath.has_value()) {
+        if (!manifest_path.has_value()) {
             fmt::print(stderr, "'run' requires a path to a manifest JSON\n");
             return 1;
         }
-        return handleRun(manifestPath.value(), options);
+        return handleRun(manifest_path.value(), options);
     }
 
     if (command == "history") {
@@ -304,13 +304,13 @@ int CliParser::handleList() const {
 
         fmt::print(stdout, "{:<14} {:<30} {}\n", "CONTAINER ID", "NAME", "STATE");
         for (const auto& container : containers) {
-            std::string displayId = container.id;
-            if (displayId.empty()) {
-                displayId = "<missing>";
-            } else if (displayId.size() > 12) {
-                displayId = displayId.substr(0, 12);
+            std::string display_id = container.id;
+            if (display_id.empty()) {
+                display_id = "<missing>";
+            } else if (display_id.size() > 12) {
+                display_id = display_id.substr(0, 12);
             }
-            fmt::print(stdout, "{:<14} {:<30} {}\n", displayId, container.name, container.state);
+            fmt::print(stdout, "{:<14} {:<30} {}\n", display_id, container.name, container.state);
         }
     } catch (const containers::ContainerEngineError& ex) {
         fmt::print(stderr, "Failed to list containers: {}\n", ex.what());
@@ -320,114 +320,114 @@ int CliParser::handleList() const {
     return 0;
 }
 
-int CliParser::handleStop(const std::string& containerId) const {
+int CliParser::handleStop(const std::string& container_id) const {
     try {
-        engine_->stopContainer(containerId);
-        fmt::print(stdout, "Container {} stopped.\n", containerId);
+        engine_->stopContainer(container_id);
+        fmt::print(stdout, "Container {} stopped.\n", container_id);
     } catch (const std::invalid_argument& ex) {
-        fmt::print(stderr, "Failed to stop container {}: {}\n", containerId, ex.what());
+        fmt::print(stderr, "Failed to stop container {}: {}\n", container_id, ex.what());
         return 1;
     } catch (const containers::ContainerEngineError& ex) {
-        fmt::print(stderr, "Failed to stop container {}: {}\n", containerId, ex.what());
+        fmt::print(stderr, "Failed to stop container {}: {}\n", container_id, ex.what());
         return 1;
     }
 
     return 0;
 }
 
-int CliParser::handleKill(const std::string& containerId) const {
+int CliParser::handleKill(const std::string& container_id) const {
     try {
-        engine_->killContainer(containerId);
-        fmt::print(stdout, "Container {} killed.\n", containerId);
+        engine_->killContainer(container_id);
+        fmt::print(stdout, "Container {} killed.\n", container_id);
     } catch (const std::invalid_argument& ex) {
-        fmt::print(stderr, "Failed to kill container {}: {}\n", containerId, ex.what());
+        fmt::print(stderr, "Failed to kill container {}: {}\n", container_id, ex.what());
         return 1;
     } catch (const containers::ContainerEngineError& ex) {
-        fmt::print(stderr, "Failed to kill container {}: {}\n", containerId, ex.what());
+        fmt::print(stderr, "Failed to kill container {}: {}\n", container_id, ex.what());
         return 1;
     }
 
     return 0;
 }
 
-int CliParser::handleRun(const std::string& manifestPath, const RunOptions& options) const {
+int CliParser::handleRun(const std::string& manifest_path, const RunOptions& options) const {
     std::optional<history::RunRecorder> recorder;
-    std::optional<observability::OtlpRunObserver> otlpObserver;
+    std::optional<observability::OtlpRunObserver> otlp_observer;
     try {
-        auto manifest = runner_.parseManifest(manifestPath);
+        auto manifest = runner_.parseManifest(manifest_path);
         SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.id);
 
         auto perturbation_instances = runner_.buildPerturbations(manifest);
 
         core::SharedState state;
 
-        const bool jsonMode =
+        const bool json_mode =
             options.jsonOutput || (options.outputPath.has_value() && options.outputPath.value() == "-");
-        ProgressRenderer renderer{!jsonMode};
+        ProgressRenderer renderer{!json_mode};
         CliRunObserver observer(renderer);
         recorder.emplace(manifest);
-        if (otlpEndpoint_.has_value()) {
-            otlpObserver.emplace(observability::OtlpExporter(*otlpEndpoint_));
+        if (otlp_endpoint_.has_value()) {
+            otlp_observer.emplace(observability::OtlpExporter(*otlp_endpoint_));
         }
         std::vector<core::IRunObserver*> observer_list = {&observer, &*recorder};
-        if (otlpObserver.has_value()) {
-            observer_list.push_back(&*otlpObserver);
+        if (otlp_observer.has_value()) {
+            observer_list.push_back(&*otlp_observer);
         }
         core::CompositeRunObserver composite(observer_list);
 
-        core::ObservationLoop::Config loopConfig;
-        loopConfig.metricsInterval = std::chrono::milliseconds(200);
-        loopConfig.logsInterval = std::chrono::milliseconds(2000);
-        loopConfig.continuousExpectations = manifest.expectations;
+        core::ObservationLoop::Config loop_config;
+        loop_config.metricsInterval = std::chrono::milliseconds(200);
+        loop_config.logsInterval = std::chrono::milliseconds(2000);
+        loop_config.continuous_expectations = manifest.expectations;
 
         signals::SignalHandlerGuard signal_guard;
 
-        core::ObservationLoop obsLoop(engine_, manifest.target.id, state, composite, loopConfig);
-        obsLoop.start(signal_guard.token());
+        core::ObservationLoop obs_loop(engine_, manifest.target.id, state, composite, loop_config);
+        obs_loop.start(signal_guard.token());
 
         core::RunOrchestrator orchestrator(runner_);
-        auto runResult =
+        auto run_result =
             orchestrator.run(manifest, state, composite, std::move(perturbation_instances), signal_guard.token());
         renderer.finish();
         if (history_) {
-            history_->save(recorder->finalize(runResult, "completed", ""));
+            history_->save(recorder->finalize(run_result, "completed", ""));
         }
-        if (otlpObserver.has_value()) {
-            (void)otlpObserver->finalize(runResult);
+        if (otlp_observer.has_value()) {
+            (void)otlp_observer->finalize(run_result);
         }
-        const auto elapsed = std::chrono::duration<double>(runResult.duration_s);
+        const auto elapsed = std::chrono::duration<double>(run_result.duration_s);
 
-        const auto jsonReport = core::runResultToJson(runResult).dump(2);
-        const bool writeFile = options.outputPath.has_value() && options.outputPath.value() != "-";
+        const auto json_report = core::runResultToJson(run_result).dump(2);
+        const bool write_file = options.outputPath.has_value() && options.outputPath.value() != "-";
 
-        if (writeFile) {
+        if (write_file) {
             std::ofstream out(options.outputPath.value());
             if (!out) {
                 fmt::print(stderr, "Failed to open output file: {}\n", options.outputPath.value());
                 return 1;
             }
-            out << jsonReport << '\n';
+            out << json_report << '\n';
             if (!out.good()) {
                 fmt::print(stderr, "Failed to write output file: {}\n", options.outputPath.value());
                 return 1;
             }
         }
 
-        if (jsonMode) {
-            fmt::print(stdout, "{}\n", jsonReport);
+        if (json_mode) {
+            fmt::print(stdout, "{}\n", json_report);
         } else {
-            printRunResults(runResult, manifest, elapsed);
+            printRunResults(run_result, manifest, elapsed);
         }
 
-        if (!runResult.passed) {
+        if (!run_result.passed) {
             return 1;
         }
     } catch (const manifests::ManifestParserError& ex) {
         if (history_ && recorder.has_value()) {
             history_->save(recorder->finalize({}, "error", ex.what()));
         }
-        if (otlpObserver.has_value()) {
-            (void)otlpObserver->finalize({});
+        if (otlp_observer.has_value()) {
+            (void)otlp_observer->finalize({});
         }
         fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;
@@ -435,8 +435,8 @@ int CliParser::handleRun(const std::string& manifestPath, const RunOptions& opti
         if (history_ && recorder.has_value()) {
             history_->save(recorder->finalize({}, "error", ex.what()));
         }
-        if (otlpObserver.has_value()) {
-            (void)otlpObserver->finalize({});
+        if (otlp_observer.has_value()) {
+            (void)otlp_observer->finalize({});
         }
         fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;
@@ -444,8 +444,8 @@ int CliParser::handleRun(const std::string& manifestPath, const RunOptions& opti
         if (history_ && recorder.has_value()) {
             history_->save(recorder->finalize({}, "error", ex.what()));
         }
-        if (otlpObserver.has_value()) {
-            (void)otlpObserver->finalize({});
+        if (otlp_observer.has_value()) {
+            (void)otlp_observer->finalize({});
         }
         fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;
@@ -453,8 +453,8 @@ int CliParser::handleRun(const std::string& manifestPath, const RunOptions& opti
         if (history_ && recorder.has_value()) {
             history_->save(recorder->finalize({}, "error", ex.what()));
         }
-        if (otlpObserver.has_value()) {
-            (void)otlpObserver->finalize({});
+        if (otlp_observer.has_value()) {
+            (void)otlp_observer->finalize({});
         }
         fmt::print(stderr, "Failed to run manifest: {}\n", ex.what());
         return 1;
@@ -468,25 +468,25 @@ int CliParser::handleHistory(const std::vector<std::string>& args) const {
         return 1;
     }
 
-    bool jsonMode = false;
-    std::optional<std::string> runId;
+    bool json_mode = false;
+    std::optional<std::string> run_id;
 
     for (std::size_t i = 2; i < args.size(); ++i) {
         const std::string& arg = args[i];
         if (arg == "--json") {
-            jsonMode = true;
-        } else if (!runId.has_value()) {
-            runId = arg;
+            json_mode = true;
+        } else if (!run_id.has_value()) {
+            run_id = arg;
         } else {
             fmt::print(stderr, "Unexpected argument: {}\n", arg);
             return 1;
         }
     }
 
-    if (runId.has_value()) {
-        if (runId.value() == "clear") {
+    if (run_id.has_value()) {
+        if (run_id.value() == "clear") {
             history_->clear();
-            if (jsonMode) {
+            if (json_mode) {
                 fmt::print(stdout, "{{\"status\":\"cleared\"}}\n");
             } else {
                 fmt::print(stdout, "Run history cleared.\n");
@@ -494,29 +494,29 @@ int CliParser::handleHistory(const std::vector<std::string>& args) const {
             return 0;
         }
 
-        auto record = history_->get(runId.value());
+        auto record = history_->get(run_id.value());
         if (!record.has_value()) {
-            fmt::print(stderr, "Run '{}' not found.\n", runId.value());
+            fmt::print(stderr, "Run '{}' not found.\n", run_id.value());
             return 1;
         }
 
-        if (jsonMode) {
+        if (json_mode) {
             fmt::print(stdout, "{}\n", history::runRecordToJson(record.value()).dump(2));
         } else {
             const auto& sum = record->summary;
             fmt::print(stdout, "\nRun: {}\n", sum.id);
             fmt::print(stdout, "Status: {}\n", sum.status);
-            fmt::print(stdout, "Test:   {}\n", sum.runResult.manifest_name);
-            fmt::print(stdout, "Target: {}\n", sum.runResult.target_id);
+            fmt::print(stdout, "Test:   {}\n", sum.run_result.manifest_name);
+            fmt::print(stdout, "Target: {}\n", sum.run_result.target_id);
             if (!sum.error.empty()) {
                 fmt::print(stdout, "Error:  {}\n", sum.error);
             }
-            fmt::print(stdout, "Result: {}\n", sum.runResult.passed ? "PASS" : "FAIL");
-            if (!sum.runResult.results.empty()) {
+            fmt::print(stdout, "Result: {}\n", sum.run_result.passed ? "PASS" : "FAIL");
+            if (!sum.run_result.results.empty()) {
                 fmt::print(stdout, "Expectations:\n");
-                for (const auto& res : sum.runResult.results) {
+                for (const auto& res : sum.run_result.results) {
                     const char* symbol = res.passed ? "✓" : "✗";
-                    fmt::print(stdout, "  {} {}: {}\n", symbol, res.expectationType, res.message);
+                    fmt::print(stdout, "  {} {}: {}\n", symbol, res.expectation_type, res.message);
                 }
             }
         }
@@ -525,14 +525,14 @@ int CliParser::handleHistory(const std::vector<std::string>& args) const {
 
     auto summaries = history_->list();
     if (summaries.empty()) {
-        if (jsonMode) {
+        if (json_mode) {
             fmt::print(stdout, "[]\n");
         } else {
             fmt::print(stdout, "No runs yet.\n");
         }
         return 0;
     }
-    if (jsonMode) {
+    if (json_mode) {
         nlohmann::json arr = nlohmann::json::array();
         for (const auto& summ : summaries) {
             arr.push_back(history::runSummaryToJson(summ));
@@ -544,42 +544,42 @@ int CliParser::handleHistory(const std::vector<std::string>& args) const {
             auto time_t_val = static_cast<std::time_t>(summ.started_at_unix / 1000);
             std::tm tm_val{};
             localtime_r(&time_t_val, &tm_val);
-            std::array<char, 20> dateBuf{};
-            std::strftime(dateBuf.data(), dateBuf.size(), "%Y-%m-%d %H:%M:%S", &tm_val);
+            std::array<char, 20> date_buf{};
+            std::strftime(date_buf.data(), date_buf.size(), "%Y-%m-%d %H:%M:%S", &tm_val);
 
-            fmt::print(stdout, "{:<18} {:<20} {:<12} {:<10} {}\n", summ.id, dateBuf.data(),
-                       summ.runResult.manifest_name.size() > 10 ? summ.runResult.manifest_name.substr(0, 10)
-                                                                : summ.runResult.manifest_name,
-                       summ.status, summ.runResult.passed ? "PASS" : "FAIL");
+            fmt::print(stdout, "{:<18} {:<20} {:<12} {:<10} {}\n", summ.id, date_buf.data(),
+                       summ.run_result.manifest_name.size() > 10 ? summ.run_result.manifest_name.substr(0, 10)
+                                                                : summ.run_result.manifest_name,
+                       summ.status, summ.run_result.passed ? "PASS" : "FAIL");
         }
     }
 
     return 0;
 }
 
-void CliParser::printRunResults(const core::RunResult& runResult, const manifests::ChaosManifest& manifest,
+void CliParser::printRunResults(const core::RunResult& run_result, const manifests::ChaosManifest& manifest,
                                 std::chrono::duration<double> elapsed) const {
     fmt::print(stdout, "\nManifest: {}  Target: {}\n", manifest.test_name, manifest.target.id);
 
-    std::size_t maxTypeWidth = 0;
-    for (const auto& result : runResult.results) {
-        maxTypeWidth = std::max(maxTypeWidth, result.expectationType.size());
+    std::size_t max_type_width = 0;
+    for (const auto& result : run_result.results) {
+        max_type_width = std::max(max_type_width, result.expectation_type.size());
     }
 
-    std::size_t passedCount = 0;
-    std::size_t failedCount = 0;
-    for (const auto& result : runResult.results) {
+    std::size_t passed_count = 0;
+    std::size_t failed_count = 0;
+    for (const auto& result : run_result.results) {
         const char* symbol = result.passed ? "✓" : "✗";
-        fmt::print(stdout, "  {} {:<{}}  {}\n", symbol, result.expectationType, maxTypeWidth, result.message);
+        fmt::print(stdout, "  {} {:<{}}  {}\n", symbol, result.expectation_type, max_type_width, result.message);
         if (result.passed) {
-            ++passedCount;
+            ++passed_count;
         } else {
-            ++failedCount;
+            ++failed_count;
         }
     }
 
-    const char* verdict = runResult.passed ? "PASS" : "FAIL";
-    fmt::print(stdout, "\nResult: {} ({} passed, {} failed) in {:.1f}s\n", verdict, passedCount, failedCount,
+    const char* verdict = run_result.passed ? "PASS" : "FAIL";
+    fmt::print(stdout, "\nResult: {} ({} passed, {} failed) in {:.1f}s\n", verdict, passed_count, failed_count,
                elapsed.count());
 }
 

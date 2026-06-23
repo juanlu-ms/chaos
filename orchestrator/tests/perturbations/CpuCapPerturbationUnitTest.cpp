@@ -33,13 +33,13 @@ TEST(CpuCapPerturbationTest, RevertDoesNotClearAppliedFlagOnFailure) {
     EXPECT_CALL(*engine, updateCpuQuota(std::string_view("test-id"), -1, 100000))
         .WillOnce(Throw(containers::ContainerEngineError("update failed")));
 
-    bool revertThrew = false;
+    bool revert_threw = false;
     try {
         p.revert();
     } catch (const std::system_error&) {
-        revertThrew = true;
+        revert_threw = true;
     }
-    EXPECT_TRUE(revertThrew);
+    EXPECT_TRUE(revert_threw);
 
     EXPECT_CALL(*engine, updateCpuQuota(std::string_view("test-id"), -1, 100000)).Times(1);
 

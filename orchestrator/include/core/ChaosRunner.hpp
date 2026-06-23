@@ -52,12 +52,12 @@ public:
     /**
      * @brief Validate expectations and return full results.
      * @param manifest The chaos test manifest with expectations.
-     * @param finalState The final observed container state.
-     * @param continuousFailures Optional list of expectation types that failed mid-run.
+     * @param final_state The final observed container state.
+     * @param continuous_failures Optional list of expectation types that failed mid-run.
      * @return RunResult with pass/fail and per-expectation details.
      */
-    [[nodiscard]] RunResult finalize(const manifests::ChaosManifest& manifest, const core::TargetState& finalState,
-                                     const std::vector<std::string>& continuousFailures = {}) const;
+    [[nodiscard]] RunResult finalize(const manifests::ChaosManifest& manifest, const core::TargetState& final_state,
+                                     const std::vector<std::string>& continuous_failures = {}) const;
 
     /**
      * @brief Parse a manifest from a JSON file.

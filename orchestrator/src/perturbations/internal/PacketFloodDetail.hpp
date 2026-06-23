@@ -28,10 +28,10 @@ private:
 
 // Compute the TCP pseudo-header checksum (IP addresses + protocol + length).
 // Returns 32-bit sum for folding into the final checksum.
-[[nodiscard]] uint32_t pseudoHeaderChecksum(uint32_t srcIp, uint32_t dstIp, uint16_t tcpLen);
+[[nodiscard]] uint32_t pseudoHeaderChecksum(uint32_t src_ip, uint32_t dst_ip, uint16_t tcp_len);
 
 // Compute the final TCP checksum from segment data and pseudo-header sum.
 // Returns 16-bit one's complement checksum in network byte order.
-[[nodiscard]] uint16_t segmentChecksum(const std::vector<uint8_t>& data, uint32_t pseudoSum);
+[[nodiscard]] uint16_t segmentChecksum(const std::vector<uint8_t>& data, uint32_t pseudo_sum);
 
 }  // namespace chaos::orchestrator::perturbations::detail

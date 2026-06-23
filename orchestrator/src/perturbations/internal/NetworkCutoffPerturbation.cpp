@@ -27,17 +27,17 @@ void NetworkCutoffPerturbation::apply() {
     }
 
     try {
-        bool hasFilter = false;
+        bool has_filter = false;
 
-        auto addRule = [&](const std::string& applyArgs, const std::string& revertArgs) {
+        auto addRule = [&](const std::string& apply_args, const std::string& revert_args) {
             {
-                const auto execOut = engine_->execInNetNs(target_id_, "iptables " + applyArgs);
-                if (!execOut.empty()) {
-                    SPDLOG_TRACE("iptables output: {}", execOut);
+                const auto exec_out = engine_->execInNetNs(target_id_, "iptables " + apply_args);
+                if (!exec_out.empty()) {
+                    SPDLOG_TRACE("iptables output: {}", exec_out);
                 }
             }
-            revertCommands_.push_back("iptables " + revertArgs);
-            hasFilter = true;
+            revertCommands_.push_back("iptables " + revert_args);
+            has_filter = true;
         };
 
         auto iter = params_.find("dst_ip");
@@ -57,7 +57,7 @@ void NetworkCutoffPerturbation::apply() {
                     "-D INPUT -p tcp --sport " + iter->second + " -j DROP");
         }
 
-        if (!hasFilter) {
+        if (!has_filter) {
             addRule("-A OUTPUT -j DROP", "-D OUTPUT -j DROP");
             addRule("-A INPUT -j DROP", "-D INPUT -j DROP");
         }
@@ -68,9 +68,9 @@ void NetworkCutoffPerturbation::apply() {
         hasBeenApplied_ = false;
         for (const auto& cmd : revertCommands_) {
             try {
-                const auto execOut = engine_->execInNetNs(target_id_, cmd);
-                if (!execOut.empty()) {
-                    SPDLOG_TRACE("iptables output: {}", execOut);
+                const auto exec_out = engine_->execInNetNs(target_id_, cmd);
+                if (!exec_out.empty()) {
+                    SPDLOG_TRACE("iptables output: {}", exec_out);
                 }
             } catch (...) {
                 SPDLOG_ERROR("Failed to roll back iptables rule '{}' after apply failure", cmd);
@@ -95,9 +95,9 @@ void NetworkCutoffPerturbation::revert() {
 
     try {
         for (const auto& command : revertCommands_) {
-            const auto execOut = engine_->execInNetNs(target_id_, command);
-            if (!execOut.empty()) {
-                SPDLOG_TRACE("iptables output: {}", execOut);
+            const auto exec_out = engine_->execInNetNs(target_id_, command);
+            if (!exec_out.empty()) {
+                SPDLOG_TRACE("iptables output: {}", exec_out);
             }
         }
 

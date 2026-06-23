@@ -35,7 +35,7 @@ TEST(HttpValidationTest, StatusFailsWhenIpMissing) {
     auto result = v.validate(makeState(std::nullopt),
                              {"http_status", {{"port", "8080"}, {"path", "/ping"}, {"expected_status", "200"}}});
     EXPECT_FALSE(result.passed);
-    EXPECT_EQ(result.expectationType, "http_status");
+    EXPECT_EQ(result.expectation_type, "http_status");
 }
 
 /**
@@ -56,7 +56,7 @@ TEST(HttpValidationTest, LatencyFailsWhenIpMissing) {
     auto result = v.validate(makeState(std::nullopt),
                              {"http_latency", {{"port", "8080"}, {"path", "/ping"}, {"max_latency_ms", "100"}}});
     EXPECT_FALSE(result.passed);
-    EXPECT_EQ(result.expectationType, "http_latency");
+    EXPECT_EQ(result.expectation_type, "http_latency");
 }
 
 /**

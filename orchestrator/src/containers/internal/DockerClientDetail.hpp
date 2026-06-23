@@ -12,6 +12,6 @@ namespace chaos::orchestrator::containers::detail {
 // Check whether a path lies within the build context root.
 // Ensures the path does not escape the build context directory via ".."
 // components or symlinks. Used to prevent directory traversal in tar archives.
-[[nodiscard]] bool isWithinBuildContext(const std::filesystem::path& path, const std::filesystem::path& contextRoot);
+[[nodiscard]] bool isWithinBuildContext(const std::filesystem::path& path, const std::filesystem::path& context_root);
 
 }  // namespace chaos::orchestrator::containers::detail

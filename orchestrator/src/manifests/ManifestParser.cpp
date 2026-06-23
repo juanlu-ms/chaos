@@ -14,7 +14,7 @@ namespace {
 
 struct RequiredParameterRule {
     std::string parameter;
-    std::string errorMessage;
+    std::string error_message;
 };
 
 using StringSet = std::unordered_set<std::string, TransparentStringHash, std::equal_to<>>;
@@ -52,7 +52,7 @@ void validateRequiredParameters(const std::string& type, const nlohmann::json& p
 
     for (const auto& rule : iter->second) {
         if (!parameters.contains(rule.parameter)) {
-            throw ManifestParserError(rule.errorMessage);
+            throw ManifestParserError(rule.error_message);
         }
     }
 }
@@ -137,8 +137,8 @@ ChaosManifest ManifestParser::parseFromFile(const std::string& filepath) {
     }
 }
 
-ChaosManifest ManifestParser::parseFromJson(const std::string& jsonStr) {
-    nlohmann::json manifest_json = nlohmann::json::parse(jsonStr, nullptr, false);
+ChaosManifest ManifestParser::parseFromJson(const std::string& json_str) {
+    nlohmann::json manifest_json = nlohmann::json::parse(json_str, nullptr, false);
     if (manifest_json.is_discarded()) {
         throw ManifestParserError("Invalid JSON string");
     }

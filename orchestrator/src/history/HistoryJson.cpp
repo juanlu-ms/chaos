@@ -11,7 +11,7 @@
 namespace chaos::orchestrator::history {
 
 nlohmann::json runSummaryToJson(const RunSummary& summary) {
-    auto j = core::runResultToJson(summary.runResult);
+    auto j = core::runResultToJson(summary.run_result);
     j["id"] = summary.id;
     j["started_at_unix"] = summary.started_at_unix;
     j["ended_at_unix"] = summary.ended_at_unix;
@@ -38,18 +38,18 @@ nlohmann::json runRecordToJson(const RunRecord& record) {
         record.manifest.duration_s.has_value() ? nlohmann::json(*record.manifest.duration_s) : nlohmann::json(nullptr);
     j["manifest"]["perturbations"] = nlohmann::json::array();
     for (const auto& pert : record.manifest.perturbations) {
-        nlohmann::json pertJson;
-        pertJson["type"] = pert.type;
-        pertJson["parameters"] = nlohmann::json(pert.parameters);
-        j["manifest"]["perturbations"].push_back(std::move(pertJson));
+        nlohmann::json pert_json;
+        pert_json["type"] = pert.type;
+        pert_json["parameters"] = nlohmann::json(pert.parameters);
+        j["manifest"]["perturbations"].push_back(std::move(pert_json));
     }
     j["manifest"]["expectations"] = nlohmann::json::array();
     for (const auto& exp : record.manifest.expectations) {
-        nlohmann::json expJson;
-        expJson["type"] = exp.type;
-        expJson["parameters"] = nlohmann::json(exp.parameters);
-        expJson["continuous"] = exp.continuous;
-        j["manifest"]["expectations"].push_back(std::move(expJson));
+        nlohmann::json exp_json;
+        exp_json["type"] = exp.type;
+        exp_json["parameters"] = nlohmann::json(exp.parameters);
+        exp_json["continuous"] = exp.continuous;
+        j["manifest"]["expectations"].push_back(std::move(exp_json));
     }
     j["samples"] = nlohmann::json::array();
     for (const auto& sample : record.samples) {
@@ -80,18 +80,18 @@ std::optional<RunSummary> runSummaryFromJson(const nlohmann::json& j) {
         }
         summary.normal_end_t = j.at("normal_end_t").get<double>();
         summary.chaos_end_t = j.at("chaos_end_t").get<double>();
-        summary.runResult.passed = j.at("passed").get<bool>();
-        summary.runResult.manifest_name = j.at("manifest_name").get<std::string>();
-        summary.runResult.target_id = j.at("target_id").get<std::string>();
-        summary.runResult.duration_s = j.at("duration_s").get<double>();
-        summary.runResult.started_at = j.at("started_at").get<std::string>();
+        summary.run_result.passed = j.at("passed").get<bool>();
+        summary.run_result.manifest_name = j.at("manifest_name").get<std::string>();
+        summary.run_result.target_id = j.at("target_id").get<std::string>();
+        summary.run_result.duration_s = j.at("duration_s").get<double>();
+        summary.run_result.started_at = j.at("started_at").get<std::string>();
         if (j.contains("results") && j.at("results").is_array()) {
             for (const auto& r : j.at("results")) {
                 validation::ValidationResult vr;
                 vr.passed = r.at("passed").get<bool>();
-                vr.expectationType = r.at("type").get<std::string>();
+                vr.expectation_type = r.at("type").get<std::string>();
                 vr.message = r.value("message", "");
-                summary.runResult.results.push_back(std::move(vr));
+                summary.run_result.results.push_back(std::move(vr));
             }
         }
         return summary;
@@ -107,11 +107,11 @@ std::optional<RunRecord> runRecordFromJson(const nlohmann::json& j) {
         if (!j.contains("summary") || !j.contains("manifest")) {
             return std::nullopt;
         }
-        auto summaryOpt = runSummaryFromJson(j.at("summary"));
-        if (!summaryOpt.has_value()) {
+        auto summary_opt = runSummaryFromJson(j.at("summary"));
+        if (!summary_opt.has_value()) {
             return std::nullopt;
         }
-        record.summary = std::move(*summaryOpt);
+        record.summary = std::move(*summary_opt);
         const auto& m = j.at("manifest");
         record.manifest.test_name = m.at("test_name").get<std::string>();
         record.manifest.target.id = m.at("target_id").get<std::string>();

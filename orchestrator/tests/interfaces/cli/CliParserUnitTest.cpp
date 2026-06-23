@@ -181,7 +181,7 @@ TEST(ParseGlobalFlagsTest, StripsVerboseFlag) {
     const auto result = parseGlobalFlags({"chaos", "-v", "run", "manifest.json"});
 
     EXPECT_FALSE(result.error.has_value());
-    EXPECT_EQ(result.options.logLevel, spdlog::level::debug);
+    EXPECT_EQ(result.options.log_level, spdlog::level::debug);
     EXPECT_EQ(toViews(result.args), (std::vector<std::string_view>{"chaos", "run", "manifest.json"}));
 }
 
@@ -192,7 +192,7 @@ TEST(ParseGlobalFlagsTest, StripsQuietFlag) {
     const auto result = parseGlobalFlags({"chaos", "--quiet", "list"});
 
     EXPECT_FALSE(result.error.has_value());
-    EXPECT_EQ(result.options.logLevel, spdlog::level::warn);
+    EXPECT_EQ(result.options.log_level, spdlog::level::warn);
     EXPECT_EQ(toViews(result.args), (std::vector<std::string_view>{"chaos", "list"}));
 }
 
@@ -214,7 +214,7 @@ TEST(ParseGlobalFlagsTest, LogLevelConsumesValue) {
     const auto result = parseGlobalFlags({"chaos", "run", "--log-level", "trace", "manifest.json"});
 
     EXPECT_FALSE(result.error.has_value());
-    EXPECT_EQ(result.options.logLevel, spdlog::level::trace);
+    EXPECT_EQ(result.options.log_level, spdlog::level::trace);
     EXPECT_EQ(toViews(result.args), (std::vector<std::string_view>{"chaos", "run", "manifest.json"}));
 }
 
@@ -264,7 +264,7 @@ TEST(ParseGlobalFlagsTest, FlagsCanAppearAnywhere) {
     const auto result = parseGlobalFlags({"chaos", "run", "manifest.json", "-v"});
 
     EXPECT_FALSE(result.error.has_value());
-    EXPECT_EQ(result.options.logLevel, spdlog::level::debug);
+    EXPECT_EQ(result.options.log_level, spdlog::level::debug);
     EXPECT_EQ(toViews(result.args), (std::vector<std::string_view>{"chaos", "run", "manifest.json"}));
 }
 
@@ -290,7 +290,7 @@ TEST(CliParserUnitTest, HistoryGetRun) {
     history::RunRecord record;
     record.summary.id = "run-1000";
     record.summary.status = "completed";
-    record.summary.runResult.passed = true;
+    record.summary.run_result.passed = true;
 
     EXPECT_CALL(*mockHistory, get("run-1000")).WillOnce(Return(record));
 

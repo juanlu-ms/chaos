@@ -25,28 +25,28 @@ TEST(MemoryCapPerturbationTest, RevertDoesNotClearAppliedFlagOnFailure) {
     spec.type = "memory_cap";
     spec.parameters["limit_bytes"] = "1048576";
 
-    containers::SystemInfo sysInfo;
-    sysInfo.memTotal = 4294967296;
+    containers::SystemInfo sys_info;
+    sys_info.mem_total = 4294967296;
 
-    EXPECT_CALL(*engine, getSystemInfo()).WillOnce(Return(sysInfo));
+    EXPECT_CALL(*engine, getSystemInfo()).WillOnce(Return(sys_info));
 
     EXPECT_CALL(*engine, updateMemoryLimit("test-id", 1048576)).Times(1);
 
     MemoryCapPerturbation p(engine, "test-id", spec);
     p.apply();
 
-    EXPECT_CALL(*engine, updateMemoryLimit("test-id", sysInfo.memTotal))
+    EXPECT_CALL(*engine, updateMemoryLimit("test-id", sys_info.mem_total))
         .WillOnce(Throw(containers::ContainerEngineError("update failed")));
 
-    bool revertThrew = false;
+    bool revert_threw = false;
     try {
         p.revert();
     } catch (const std::system_error&) {
-        revertThrew = true;
+        revert_threw = true;
     }
-    EXPECT_TRUE(revertThrew);
+    EXPECT_TRUE(revert_threw);
 
-    EXPECT_CALL(*engine, updateMemoryLimit("test-id", sysInfo.memTotal)).Times(1);
+    EXPECT_CALL(*engine, updateMemoryLimit("test-id", sys_info.mem_total)).Times(1);
 
     EXPECT_NO_THROW(p.revert());
 }
@@ -61,17 +61,17 @@ TEST(MemoryCapPerturbationTest, StoresOriginalMemoryInApply) {
     spec.type = "memory_cap";
     spec.parameters["limit_bytes"] = "1048576";
 
-    containers::SystemInfo sysInfo;
-    sysInfo.memTotal = 4294967296;
+    containers::SystemInfo sys_info;
+    sys_info.mem_total = 4294967296;
 
-    EXPECT_CALL(*engine, getSystemInfo()).WillOnce(Return(sysInfo));
+    EXPECT_CALL(*engine, getSystemInfo()).WillOnce(Return(sys_info));
 
     EXPECT_CALL(*engine, updateMemoryLimit("test-id", 1048576)).Times(1);
 
     MemoryCapPerturbation p(engine, "test-id", spec);
     p.apply();
 
-    EXPECT_CALL(*engine, updateMemoryLimit("test-id", sysInfo.memTotal)).Times(1);
+    EXPECT_CALL(*engine, updateMemoryLimit("test-id", sys_info.mem_total)).Times(1);
 
     p.revert();
 }

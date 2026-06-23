@@ -26,13 +26,13 @@ namespace {
 
 class E2eRunObserver final : public core::IRunObserver {
 public:
-    void onStateUpdate(const core::TargetState&) override { ++stateUpdates; }
-    void onPhaseChange(std::string_view phase) override { lastPhase = phase; }
-    void onLogsUpdate(const std::vector<std::string>&) override { ++logUpdates; }
+    void onStateUpdate(const core::TargetState&) override { ++state_updates; }
+    void onPhaseChange(std::string_view phase) override { last_phase = phase; }
+    void onLogsUpdate(const std::vector<std::string>&) override { ++log_updates; }
 
-    int stateUpdates = 0;
-    int logUpdates = 0;
-    std::string lastPhase;
+    int state_updates = 0;
+    int log_updates = 0;
+    std::string last_phase;
 };
 
 }  // namespace
@@ -57,22 +57,22 @@ TEST_F(RunOrchestratorE2eTest, NoPerturbationsPassesRunningExpectation) {
     core::SharedState state;
     E2eRunObserver observer;
 
-    core::ObservationLoop::Config loopConfig;
-    loopConfig.metricsInterval = std::chrono::milliseconds(200);
-    loopConfig.logsInterval = std::chrono::milliseconds(2000);
-    loopConfig.continuousExpectations = manifest.expectations;
+    core::ObservationLoop::Config loop_config;
+    loop_config.metricsInterval = std::chrono::milliseconds(200);
+    loop_config.logsInterval = std::chrono::milliseconds(2000);
+    loop_config.continuous_expectations = manifest.expectations;
 
     core::ChaosRunner runner(engine());
     core::RunOrchestrator orchestrator(runner);
 
     {
-        core::ObservationLoop obsLoop(engine(), manifest.target.id, state, observer, loopConfig);
-        obsLoop.start();
+        core::ObservationLoop obs_loop(engine(), manifest.target.id, state, observer, loop_config);
+        obs_loop.start();
 
         auto result = orchestrator.run(manifest, state, observer, {});
         EXPECT_TRUE(result.passed);
     }
 
-    EXPECT_EQ(observer.lastPhase, "recovery");
-    EXPECT_GT(observer.stateUpdates, 0);
+    EXPECT_EQ(observer.last_phase, "recovery");
+    EXPECT_GT(observer.state_updates, 0);
 }

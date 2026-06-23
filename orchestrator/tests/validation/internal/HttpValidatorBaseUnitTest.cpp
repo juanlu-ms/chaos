@@ -13,7 +13,7 @@ using chaos::orchestrator::core::TargetState;
 using chaos::orchestrator::manifests::Expectation;
 
 /**
- * @test performHttpValidation returns a result with the correct expectationType.
+ * @test performHttpValidation returns a result with the correct expectation_type.
  */
 TEST(HttpValidatorBaseTest, ReturnsResultWithExpectationType) {
     TargetState state;
@@ -28,7 +28,7 @@ TEST(HttpValidatorBaseTest, ReturnsResultWithExpectationType) {
         r.message = "never reached";
     });
 
-    EXPECT_EQ(result.expectationType, "http_status");
+    EXPECT_EQ(result.expectation_type, "http_status");
     EXPECT_FALSE(result.passed);
 }
 

@@ -33,8 +33,8 @@ void MemoryCapPerturbation::apply() {
     const std::string& limit = limit_it->second;
 
     try {
-        auto sysInfo = engine_->getSystemInfo();
-        original_memory_limit_ = sysInfo.memTotal;
+        auto sys_info = engine_->getSystemInfo();
+        original_memory_limit_ = sys_info.mem_total;
         engine_->updateMemoryLimit(target_id_, std::stoll(limit));
         SPDLOG_INFO("Memory Cap Perturbation applied: limit_bytes={} on target {}", limit, target_id_);
     } catch (const containers::ContainerEngineError& e) {

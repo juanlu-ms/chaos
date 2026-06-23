@@ -38,9 +38,9 @@ DockerClient makeAdapterForListContainers(const nlohmann::json& response) {
 /**
  * @brief Creates a DockerClient adapter that throws a transport-level error.
  */
-DockerClient makeAdapterWithError(const std::string& errorMessage) {
-    return DockerClient([errorMessage](HttpMethod, std::string_view, std::string_view) -> HttpResponse {
-        throw std::runtime_error(errorMessage);
+DockerClient makeAdapterWithError(const std::string& error_message) {
+    return DockerClient([error_message](HttpMethod, std::string_view, std::string_view) -> HttpResponse {
+        throw std::runtime_error(error_message);
     });
 }
 
@@ -50,7 +50,7 @@ DockerClient makeAdapterWithError(const std::string& errorMessage) {
  * @test Verifies correct parsing of a single-container list.
  */
 TEST(DockerClientUnitTest, ParsesContainerList) {
-    const auto mockResponse = nlohmann::json::array({
+    const auto mock_response = nlohmann::json::array({
         {
             {"Id", "abc123"},
             {"Names", nlohmann::json::array({"/mock-container"})},
@@ -61,7 +61,7 @@ TEST(DockerClientUnitTest, ParsesContainerList) {
             // State field is intentionally missing to test default handling
         },
     });
-    auto adapter = makeAdapterForListContainers(mockResponse);
+    auto adapter = makeAdapterForListContainers(mock_response);
 
     const auto containers = adapter.listContainers();
 
@@ -94,11 +94,11 @@ TEST(DockerClientUnitTest, ThrowsOnErrorInResponse) {
  * @test Verifies tolerant handling of containers with missing fields on listContainers.
  */
 TEST(DockerClientUnitTest, ListHandlesContainersWithMissingFields) {
-    const auto mockResponse = nlohmann::json::array({
+    const auto mock_response = nlohmann::json::array({
         {{"Id", "abc123"}},
         {{"Names", nlohmann::json::array({"/only-name"})}},
     });
-    auto adapter = makeAdapterForListContainers(mockResponse);
+    auto adapter = makeAdapterForListContainers(mock_response);
 
     const auto containers = adapter.listContainers();
 
@@ -114,12 +114,12 @@ TEST(DockerClientUnitTest, ListHandlesContainersWithMissingFields) {
  * @test Verifies parsing of multiple containers with different states on listContainers.
  */
 TEST(DockerClientUnitTest, ListParsesMultipleContainers) {
-    const auto mockResponse = nlohmann::json::array({
+    const auto mock_response = nlohmann::json::array({
         {{"Id", "aaa"}, {"Names", nlohmann::json::array({"/alpha"})}, {"State", "running"}},
         {{"Id", "bbb"}, {"Names", nlohmann::json::array({"/beta"})}, {"State", "exited"}},
         {{"Id", "ccc"}, {"Names", nlohmann::json::array({"/gamma"})}, {"State", "paused"}},
     });
-    auto adapter = makeAdapterForListContainers(mockResponse);
+    auto adapter = makeAdapterForListContainers(mock_response);
 
     const auto containers = adapter.listContainers();
 
@@ -144,20 +144,20 @@ TEST(DockerClientUnitTest, ListPropagatesTransportErrors) {
  * @test Verifies stopContainer calls the expected endpoint and HTTP method.
  */
 TEST(DockerClientUnitTest, StopContainerCallsCorrectEndpoint) {
-    bool wasCalled = false;
-    const std::string containerId = "test-container-456";
+    bool was_called = false;
+    const std::string container_id = "test-container-456";
 
     auto adapter =
-        DockerClient([&wasCalled, &containerId](HttpMethod method, std::string_view endpoint, std::string_view body) {
-            wasCalled = true;
+        DockerClient([&was_called, &container_id](HttpMethod method, std::string_view endpoint, std::string_view body) {
+            was_called = true;
             EXPECT_EQ(method, HttpMethod::POST);
-            EXPECT_EQ(endpoint, fmt::format("/containers/{}/stop?t=5", containerId));
+            EXPECT_EQ(endpoint, fmt::format("/containers/{}/stop?t=5", container_id));
             EXPECT_TRUE(body.empty());
             return HttpResponse{204, ""};
         });
 
-    adapter.stopContainer(containerId);
-    EXPECT_TRUE(wasCalled);
+    adapter.stopContainer(container_id);
+    EXPECT_TRUE(was_called);
 }
 
 /**
@@ -182,20 +182,20 @@ TEST(DockerClientUnitTest, StopContainerWithEmptyIdThrows) {
  * @test Verifies killContainer calls the expected endpoint and HTTP method.
  */
 TEST(DockerClientUnitTest, KillContainerCallsCorrectEndpoint) {
-    bool wasCalled = false;
-    const std::string containerId = "test-container-123";
+    bool was_called = false;
+    const std::string container_id = "test-container-123";
 
     auto adapter =
-        DockerClient([&wasCalled, &containerId](HttpMethod method, std::string_view endpoint, std::string_view body) {
-            wasCalled = true;
+        DockerClient([&was_called, &container_id](HttpMethod method, std::string_view endpoint, std::string_view body) {
+            was_called = true;
             EXPECT_EQ(method, HttpMethod::POST);
-            EXPECT_EQ(endpoint, fmt::format("/containers/{}/kill", containerId));
+            EXPECT_EQ(endpoint, fmt::format("/containers/{}/kill", container_id));
             EXPECT_TRUE(body.empty());
             return HttpResponse{204, ""};
         });
 
-    adapter.killContainer(containerId);
-    EXPECT_TRUE(wasCalled);
+    adapter.killContainer(container_id);
+    EXPECT_TRUE(was_called);
 }
 
 /**
@@ -220,17 +220,17 @@ TEST(DockerClientUnitTest, KillContainerWithEmptyIdThrows) {
  * @test Verifies exec performs create+start flow and returns command output.
  */
 TEST(DockerClientUnitTest, ExecCallsCreateAndStartEndpoints) {
-    const std::string containerId = "container-1";
+    const std::string container_id = "container-1";
     const std::string command = "echo hello";
     int calls = 0;
 
     auto adapter = DockerClient(
-        [&calls, &containerId, &command](HttpMethod method, std::string_view endpoint, std::string_view body) {
+        [&calls, &container_id, &command](HttpMethod method, std::string_view endpoint, std::string_view body) {
             ++calls;
 
             if (calls == 1) {
                 EXPECT_EQ(method, HttpMethod::POST);
-                EXPECT_EQ(endpoint, fmt::format("/containers/{}/exec", containerId));
+                EXPECT_EQ(endpoint, fmt::format("/containers/{}/exec", container_id));
                 const auto payload = nlohmann::json::parse(body);
                 EXPECT_TRUE(payload["AttachStdout"].get<bool>());
                 EXPECT_TRUE(payload["AttachStderr"].get<bool>());
@@ -256,7 +256,7 @@ TEST(DockerClientUnitTest, ExecCallsCreateAndStartEndpoints) {
             return HttpResponse{200, R"json({"ExitCode":0})json"};
         });
 
-    const auto output = adapter.exec(containerId, command);
+    const auto output = adapter.exec(container_id, command);
     EXPECT_EQ(calls, 3);
     EXPECT_EQ(output, "hello\n");
 }
@@ -265,31 +265,32 @@ TEST(DockerClientUnitTest, ExecCallsCreateAndStartEndpoints) {
  * @test Verifies exec throws on non-zero exit code from the inspected command.
  */
 TEST(DockerClientUnitTest, ExecThrowsOnNonZeroExitCode) {
-    const std::string containerId = "container-1";
+    const std::string container_id = "container-1";
     const std::string command = "false";
     int calls = 0;
 
-    auto adapter = DockerClient([&calls, &containerId](HttpMethod method, std::string_view endpoint, std::string_view) {
-        ++calls;
+    auto adapter =
+        DockerClient([&calls, &container_id](HttpMethod method, std::string_view endpoint, std::string_view) {
+            ++calls;
 
-        if (calls == 1) {
-            EXPECT_EQ(method, HttpMethod::POST);
-            EXPECT_EQ(endpoint, fmt::format("/containers/{}/exec", containerId));
-            return HttpResponse{201, R"json({"Id":"exec-99"})json"};
-        }
+            if (calls == 1) {
+                EXPECT_EQ(method, HttpMethod::POST);
+                EXPECT_EQ(endpoint, fmt::format("/containers/{}/exec", container_id));
+                return HttpResponse{201, R"json({"Id":"exec-99"})json"};
+            }
 
-        if (calls == 2) {
-            EXPECT_EQ(method, HttpMethod::POST);
-            EXPECT_EQ(endpoint, "/exec/exec-99/start");
-            return HttpResponse{200, "command output"};
-        }
+            if (calls == 2) {
+                EXPECT_EQ(method, HttpMethod::POST);
+                EXPECT_EQ(endpoint, "/exec/exec-99/start");
+                return HttpResponse{200, "command output"};
+            }
 
-        EXPECT_EQ(method, HttpMethod::GET);
-        EXPECT_EQ(endpoint, "/exec/exec-99/json");
-        return HttpResponse{200, R"json({"ExitCode":1})json"};
-    });
+            EXPECT_EQ(method, HttpMethod::GET);
+            EXPECT_EQ(endpoint, "/exec/exec-99/json");
+            return HttpResponse{200, R"json({"ExitCode":1})json"};
+        });
 
-    EXPECT_THROW((void)adapter.exec(containerId, command), ContainerEngineError);
+    EXPECT_THROW((void)adapter.exec(container_id, command), ContainerEngineError);
     EXPECT_EQ(calls, 3);
 }
 
@@ -297,18 +298,19 @@ TEST(DockerClientUnitTest, ExecThrowsOnNonZeroExitCode) {
  * @test Verifies execInNetNs calls the Docker inspect endpoint and runs nsenter.
  */
 TEST(DockerClientUnitTest, ExecInNetNsCallsInspectEndpoint) {
-    const std::string containerId = "test-container";
+    const std::string container_id = "test-container";
     int calls = 0;
 
-    auto adapter = DockerClient([&calls, &containerId](HttpMethod method, std::string_view endpoint, std::string_view) {
-        ++calls;
-        EXPECT_EQ(method, HttpMethod::GET);
-        EXPECT_EQ(endpoint, fmt::format("/containers/{}/json", containerId));
-        return HttpResponse{200, R"json({"State":{"Status":"running","Pid":1}})json"};
-    });
+    auto adapter =
+        DockerClient([&calls, &container_id](HttpMethod method, std::string_view endpoint, std::string_view) {
+            ++calls;
+            EXPECT_EQ(method, HttpMethod::GET);
+            EXPECT_EQ(endpoint, fmt::format("/containers/{}/json", container_id));
+            return HttpResponse{200, R"json({"State":{"Status":"running","Pid":1}})json"};
+        });
 
     try {
-        const auto output = adapter.execInNetNs(containerId, "echo ok");
+        const auto output = adapter.execInNetNs(container_id, "echo ok");
         EXPECT_EQ(calls, 1);
         EXPECT_EQ(output, "ok\n");
     } catch (const ContainerEngineError&) {
@@ -373,23 +375,23 @@ TEST(DockerClientUnitTest, ExecRejectsEmptyArguments) {
  * @test Verifies createContainer sends POST to /containers/create with image in JSON body.
  */
 TEST(DockerClientUnitTest, CreateContainerSendsCorrectRequest) {
-    bool wasCalled = false;
-    std::string capturedBody;
+    bool was_called = false;
+    std::string captured_body;
 
-    auto adapter =
-        DockerClient([&wasCalled, &capturedBody](HttpMethod method, std::string_view endpoint, std::string_view body) {
-            wasCalled = true;
+    auto adapter = DockerClient(
+        [&was_called, &captured_body](HttpMethod method, std::string_view endpoint, std::string_view body) {
+            was_called = true;
             EXPECT_EQ(method, HttpMethod::POST);
             EXPECT_EQ(endpoint, "/containers/create");
-            capturedBody = std::string(body);
+            captured_body = std::string(body);
             return HttpResponse{201, R"json({"Id":"newly-created-id","Warnings":[]})json"};
         });
 
-    const auto containerId = adapter.createContainer("alpine:latest", {});
-    EXPECT_EQ(containerId, "newly-created-id");
-    EXPECT_TRUE(wasCalled);
+    const auto container_id = adapter.createContainer("alpine:latest", {});
+    EXPECT_EQ(container_id, "newly-created-id");
+    EXPECT_TRUE(was_called);
 
-    const auto payload = nlohmann::json::parse(capturedBody);
+    const auto payload = nlohmann::json::parse(captured_body);
     EXPECT_EQ(payload.at("Image").get<std::string>(), "alpine:latest");
 }
 
@@ -397,17 +399,17 @@ TEST(DockerClientUnitTest, CreateContainerSendsCorrectRequest) {
  * @test Verifies createContainer includes Env options when provided.
  */
 TEST(DockerClientUnitTest, CreateContainerIncludesEnvOptions) {
-    std::string capturedBody;
+    std::string captured_body;
 
-    auto adapter = DockerClient([&capturedBody](HttpMethod, std::string_view, std::string_view body) {
-        capturedBody = std::string(body);
+    auto adapter = DockerClient([&captured_body](HttpMethod, std::string_view, std::string_view body) {
+        captured_body = std::string(body);
         return HttpResponse{201, R"json({"Id":"test-id","Warnings":[]})json"};
     });
 
-    const auto containerId = adapter.createContainer("nginx:latest", {"FOO=bar", "BAZ=qux"});
-    EXPECT_EQ(containerId, "test-id");
+    const auto container_id = adapter.createContainer("nginx:latest", {"FOO=bar", "BAZ=qux"});
+    EXPECT_EQ(container_id, "test-id");
 
-    const auto payload = nlohmann::json::parse(capturedBody);
+    const auto payload = nlohmann::json::parse(captured_body);
     ASSERT_TRUE(payload.at("Env").is_array());
     EXPECT_EQ(payload.at("Env").size(), 2U);
     EXPECT_EQ(payload.at("Env").at(0).get<std::string>(), "FOO=bar");
@@ -452,14 +454,14 @@ TEST(DockerClientUnitTest, GetLogsCallsCorrectEndpoint) {
     };
 
     const std::string body = buildFrame(1, "app started\n") + buildFrame(2, "some error\n");
-    const std::string expectedLogs = "app started\nsome error\n";
+    const std::string expected_logs = "app started\nsome error\n";
 
     DockerClient adapter([&body](HttpMethod method, std::string_view endpoint, std::string_view) {
         EXPECT_EQ(method, HttpMethod::GET);
         EXPECT_EQ(endpoint, "/containers/my-id/logs?stdout=1&stderr=1&timestamps=0&tail=50");
         return HttpResponse{.status = 200, .body = body};
     });
-    EXPECT_EQ(adapter.getLogs("my-id"), expectedLogs);
+    EXPECT_EQ(adapter.getLogs("my-id"), expected_logs);
 }
 
 /**
@@ -484,21 +486,21 @@ TEST(DockerClientUnitTest, GetLogsPropagatesApiError) {
  * @test Verifies getSystemInfo calls GET /info and extracts MemTotal.
  */
 TEST(DockerClientUnitTest, GetSystemInfoCallsCorrectEndpoint) {
-    const nlohmann::json mockResponse = {
+    const nlohmann::json mock_response = {
         {"MemTotal", 8388608000},
         {"NCPU", 4},
         {"ServerVersion", "24.0.0"},
     };
 
-    DockerClient adapter([&mockResponse](HttpMethod method, std::string_view endpoint, std::string_view body) {
+    DockerClient adapter([&mock_response](HttpMethod method, std::string_view endpoint, std::string_view body) {
         EXPECT_EQ(method, HttpMethod::GET);
         EXPECT_EQ(endpoint, "/info");
         EXPECT_TRUE(body.empty());
-        return HttpResponse{.status = 200, .body = mockResponse.dump()};
+        return HttpResponse{.status = 200, .body = mock_response.dump()};
     });
 
-    auto sysInfo = adapter.getSystemInfo();
-    EXPECT_EQ(sysInfo.memTotal, 8388608000);
+    auto sys_info = adapter.getSystemInfo();
+    EXPECT_EQ(sys_info.mem_total, 8388608000);
 }
 
 /**
@@ -516,25 +518,25 @@ TEST(DockerClientUnitTest, GetSystemInfoPropagatesApiError) {
  *       image name and completes successfully.
  */
 TEST(DockerClientUnitTest, PullImageSucceedsWithDockerProgressStream) {
-    bool wasCalled = false;
+    bool was_called = false;
     const std::string image = "nginx:latest";
 
-    const std::string dockerPullResponse = R"({"status":"Pulling from library/nginx","id":"latest"}\n)"
-                                           R"({"status":"Digest: sha256:abc123"}\n)"
-                                           R"({"status":"Status: Image is up to date for nginx:latest"}\n)";
+    const std::string docker_pull_response = R"({"status":"Pulling from library/nginx","id":"latest"}\n)"
+                                             R"({"status":"Digest: sha256:abc123"}\n)"
+                                             R"({"status":"Status: Image is up to date for nginx:latest"}\n)";
 
-    auto adapter = DockerClient(
-        [&wasCalled, &image, &dockerPullResponse](HttpMethod method, std::string_view endpoint, std::string_view body) {
-            wasCalled = true;
-            EXPECT_EQ(method, HttpMethod::POST);
-            EXPECT_EQ(endpoint, "/images/create");
-            const auto payload = nlohmann::json::parse(body);
-            EXPECT_EQ(payload.at("Image").get<std::string>(), image);
-            return HttpResponse{200, dockerPullResponse};
-        });
+    auto adapter = DockerClient([&was_called, &image, &docker_pull_response](
+                                    HttpMethod method, std::string_view endpoint, std::string_view body) {
+        was_called = true;
+        EXPECT_EQ(method, HttpMethod::POST);
+        EXPECT_EQ(endpoint, "/images/create");
+        const auto payload = nlohmann::json::parse(body);
+        EXPECT_EQ(payload.at("Image").get<std::string>(), image);
+        return HttpResponse{200, docker_pull_response};
+    });
 
     EXPECT_NO_THROW(adapter.pullImage(image));
-    EXPECT_TRUE(wasCalled);
+    EXPECT_TRUE(was_called);
 }
 
 /**
@@ -578,31 +580,31 @@ TEST(DockerClientUnitTest, PullImagePropagatesTransportErrors) {
  *       and a temp Dockerfile on disk.
  */
 TEST(DockerClientUnitTest, BuildImageSendsTarToCorrectEndpoint) {
-    const std::string dockerfileContent = "FROM alpine:latest\nCMD [\"echo\", \"hello\"]\n";
-    const std::filesystem::path tmpDir =
-        fmt::format("/tmp/chaos_test_{}", std::to_string(reinterpret_cast<std::uintptr_t>(&dockerfileContent)));
-    std::filesystem::create_directory(tmpDir);
-    const std::filesystem::path dockerfilePath = tmpDir / "Dockerfile";
+    const std::string dockerfile_content = "FROM alpine:latest\nCMD [\"echo\", \"hello\"]\n";
+    const std::filesystem::path tmp_dir =
+        fmt::format("/tmp/chaos_test_{}", std::to_string(reinterpret_cast<std::uintptr_t>(&dockerfile_content)));
+    std::filesystem::create_directory(tmp_dir);
+    const std::filesystem::path dockerfile_path = tmp_dir / "Dockerfile";
     {
-        std::ofstream file(dockerfilePath);
-        file << dockerfileContent;
+        std::ofstream file(dockerfile_path);
+        file << dockerfile_content;
     }
 
-    bool wasCalled = false;
-    const std::string imageName = "test-image:latest";
+    bool was_called = false;
+    const std::string image_name = "test-image:latest";
 
     auto adapter =
-        DockerClient([&wasCalled, &imageName](HttpMethod method, std::string_view endpoint, std::string_view body) {
-            wasCalled = true;
+        DockerClient([&was_called, &image_name](HttpMethod method, std::string_view endpoint, std::string_view body) {
+            was_called = true;
             EXPECT_EQ(method, HttpMethod::POST_TAR);
-            EXPECT_EQ(endpoint, fmt::format("/build?t={}", imageName));
+            EXPECT_EQ(endpoint, fmt::format("/build?t={}", image_name));
             EXPECT_FALSE(body.empty());
             return HttpResponse{200, "Successfully built"};
         });
 
-    EXPECT_NO_THROW(adapter.buildImage(imageName, dockerfilePath.c_str()));
-    EXPECT_TRUE(wasCalled);
-    std::filesystem::remove_all(tmpDir);
+    EXPECT_NO_THROW(adapter.buildImage(image_name, dockerfile_path.c_str()));
+    EXPECT_TRUE(was_called);
+    std::filesystem::remove_all(tmp_dir);
 }
 
 /**
@@ -625,22 +627,22 @@ TEST(DockerClientUnitTest, BuildImageRejectsEmptyPath) {
  * @test Verifies buildImage throws ContainerEngineApiError on 500.
  */
 TEST(DockerClientUnitTest, BuildImageThrowsOn500) {
-    const std::string dockerfileContent = "FROM alpine:latest\n";
-    const std::filesystem::path tmpDir =
-        fmt::format("/tmp/chaos_test_{}", std::to_string(reinterpret_cast<std::uintptr_t>(&dockerfileContent)));
-    std::filesystem::create_directory(tmpDir);
-    const std::filesystem::path dockerfilePath = tmpDir / "Dockerfile";
+    const std::string dockerfile_content = "FROM alpine:latest\n";
+    const std::filesystem::path tmp_dir =
+        fmt::format("/tmp/chaos_test_{}", std::to_string(reinterpret_cast<std::uintptr_t>(&dockerfile_content)));
+    std::filesystem::create_directory(tmp_dir);
+    const std::filesystem::path dockerfile_path = tmp_dir / "Dockerfile";
     {
-        std::ofstream file(dockerfilePath);
-        file << dockerfileContent;
+        std::ofstream file(dockerfile_path);
+        file << dockerfile_content;
     }
 
     DockerClient adapter([](HttpMethod, std::string_view, std::string_view) {
         return HttpResponse{.status = 500, .body = "Internal server error"};
     });
 
-    EXPECT_THROW((void)adapter.buildImage("myapp:latest", dockerfilePath.c_str()), ContainerEngineApiError);
-    std::filesystem::remove_all(tmpDir);
+    EXPECT_THROW((void)adapter.buildImage("myapp:latest", dockerfile_path.c_str()), ContainerEngineApiError);
+    std::filesystem::remove_all(tmp_dir);
 }
 
 /**
@@ -655,7 +657,7 @@ TEST(DockerClientUnitTest, BuildImagePropagatesTransportErrors) {
  * @test getStats parses CPU, memory, and network from Docker stats JSON.
  */
 TEST(DockerClientUnitTest, GetStatsParsesCpuMemoryNetwork) {
-    auto statsJson = R"({
+    auto stats_json = R"({
         "cpu_stats": {
             "cpu_usage": { "total_usage": 4825316964 },
             "system_cpu_usage": 17371230000000,
@@ -675,10 +677,10 @@ TEST(DockerClientUnitTest, GetStatsParsesCpuMemoryNetwork) {
         }
     })";
 
-    auto adapter = DockerClient([statsJson](HttpMethod method, std::string_view endpoint, std::string_view) {
+    auto adapter = DockerClient([stats_json](HttpMethod method, std::string_view endpoint, std::string_view) {
         EXPECT_EQ(method, HttpMethod::GET);
         EXPECT_NE(endpoint.find("stats"), std::string_view::npos);
-        return HttpResponse{.status = 200, .body = statsJson};
+        return HttpResponse{.status = 200, .body = stats_json};
     });
 
     auto stats = adapter.getStats("test-container");
@@ -694,7 +696,7 @@ TEST(DockerClientUnitTest, GetStatsParsesCpuMemoryNetwork) {
  * @test getStats returns parsed values for memory and CPU.
  */
 TEST(DockerClientUnitTest, GetStatsReturnsMemoryInMb) {
-    auto statsJson = R"({
+    auto stats_json = R"({
         "cpu_stats": {
             "cpu_usage": { "total_usage": 1000000 },
             "system_cpu_usage": 1000000000,
@@ -714,8 +716,8 @@ TEST(DockerClientUnitTest, GetStatsReturnsMemoryInMb) {
         }
     })";
 
-    auto adapter = DockerClient([statsJson](HttpMethod, std::string_view, std::string_view) {
-        return HttpResponse{.status = 200, .body = statsJson};
+    auto adapter = DockerClient([stats_json](HttpMethod, std::string_view, std::string_view) {
+        return HttpResponse{.status = 200, .body = stats_json};
     });
 
     auto stats = adapter.getStats("test-container");

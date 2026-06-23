@@ -4,40 +4,40 @@
 
 namespace chaos::orchestrator::validation {
 
-ValidationResult LogContainsValidation::validate(const core::TargetState& targetState,
+ValidationResult LogContainsValidation::validate(const core::TargetState& target_state,
                                                  const manifests::Expectation& expectation) const {
     const auto& substring = expectation.parameters.at("substring");
-    for (const auto& log : targetState.recent_logs) {
+    for (const auto& log : target_state.recent_logs) {
         if (log.contains(substring)) {
             return {
                 .passed = true,
-                .expectationType = expectation.type,
+                .expectation_type = expectation.type,
                 .message = fmt::format("Logs contain '{}':\n{}", substring, log),
             };
         }
     }
     return {
         .passed = false,
-        .expectationType = expectation.type,
+        .expectation_type = expectation.type,
         .message = fmt::format("Logs do NOT contain '{}'", substring),
     };
 }
 
-ValidationResult LogNotContainsValidation::validate(const core::TargetState& targetState,
+ValidationResult LogNotContainsValidation::validate(const core::TargetState& target_state,
                                                     const manifests::Expectation& expectation) const {
     const auto& substring = expectation.parameters.at("substring");
-    for (const auto& log : targetState.recent_logs) {
+    for (const auto& log : target_state.recent_logs) {
         if (log.contains(substring)) {
             return {
                 .passed = false,
-                .expectationType = expectation.type,
+                .expectation_type = expectation.type,
                 .message = fmt::format("Logs CONTAIN '{}' (expected absent):\n{}", substring, log),
             };
         }
     }
     return {
         .passed = true,
-        .expectationType = expectation.type,
+        .expectation_type = expectation.type,
         .message = fmt::format("Logs do not contain '{}'", substring),
     };
 }

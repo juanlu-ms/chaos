@@ -33,7 +33,7 @@ public:
      * @return Path like /sys/fs/cgroup/system.slice/docker-<id>.scope/,
      *         or empty if not found.
      */
-    static std::optional<std::filesystem::path> resolveCgroupPath(const std::string_view containerId);
+    static std::optional<std::filesystem::path> resolveCgroupPath(const std::string_view container_id);
 
     /**
      * @brief Read CPU usage percent since the last call for this instance.
@@ -44,13 +44,13 @@ public:
      *
      * @return CPU usage in percent (0.0 – 100.0 * nr_cpus), or nullopt.
      */
-    std::optional<double> getCpuUsagePercent(const std::string_view containerId);
+    std::optional<double> getCpuUsagePercent(const std::string_view container_id);
 
     /**
      * @brief Read current memory usage in MB.
      * @return Memory in MB, or nullopt.
      */
-    std::optional<double> getMemoryUsageMb(const std::string_view containerId);
+    std::optional<double> getMemoryUsageMb(const std::string_view container_id);
 
 private:
     // Last CPU usage value for delta computation.

@@ -56,7 +56,7 @@ TEST(JsonSerializerTest, StateToJsonOmitsOptionalFieldsWhenEmpty) {
  */
 TEST(JsonSerializerTest, LimitsToJsonContainsCpuAndMemory) {
     chaos::orchestrator::containers::SystemInfo info;
-    info.memTotal = 8589934592;
+    info.mem_total = 8589934592;
 
     auto j = limitsToJson(info);
     EXPECT_TRUE(j.contains("cpu_cores"));
@@ -109,16 +109,16 @@ TEST(JsonSerializerTest, ParseLogLinesSkipsEmptyLines) {
  * @test Verifies runResultToJson serializes RunResult with pass/fail and results array.
  */
 TEST(JsonSerializerTest, SerializeRunResult) {
-    chaos::orchestrator::core::RunResult runResult;
-    runResult.passed = true;
-    runResult.manifest_name = "serializer-test";
-    runResult.target_id = "target-1";
-    runResult.duration_s = 12.5;
-    runResult.started_at = "2026-06-20T22:35:19Z";
-    runResult.results.push_back(
+    chaos::orchestrator::core::RunResult run_result;
+    run_result.passed = true;
+    run_result.manifest_name = "serializer-test";
+    run_result.target_id = "target-1";
+    run_result.duration_s = 12.5;
+    run_result.started_at = "2026-06-20T22:35:19Z";
+    run_result.results.push_back(
         chaos::orchestrator::validation::ValidationResult{true, "container_running", "Container is running"});
 
-    auto j = chaos::orchestrator::core::runResultToJson(runResult);
+    auto j = chaos::orchestrator::core::runResultToJson(run_result);
 
     EXPECT_EQ(j["passed"], true);
     EXPECT_EQ(j["manifest_name"], "serializer-test");

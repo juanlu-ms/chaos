@@ -32,8 +32,8 @@ RunOrchestrator::RunOrchestrator(const ChaosRunner& runner) : runner_(runner) {}
 RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedState& state, IRunObserver& observer,
                                std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations,
                                std::stop_token external_stop) {
-    const auto wallStart = std::chrono::system_clock::now();
-    const auto steadyStart = std::chrono::steady_clock::now();
+    const auto wall_start = std::chrono::system_clock::now();
+    const auto steady_start = std::chrono::steady_clock::now();
     const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
 
     // ── Normal phase ──────────────────────────────────────────────
@@ -47,20 +47,20 @@ RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedS
 
     // ── Chaos phase ───────────────────────────────────────────────
     if (duration.count() > 0 && !external_stop.stop_requested()) {
-        perturbations::PerturbationEngine pertEngine;
-        pertEngine.scheduleAllAsync(std::move(perturbations), duration, external_stop);
+        perturbations::PerturbationEngine pert_engine;
+        pert_engine.scheduleAllAsync(std::move(perturbations), duration, external_stop);
 
         SPDLOG_INFO("Entering chaos phase: injecting faults for {}s.", duration.count());
         observer.onPhaseChange("chaos");
         state.setPhase("chaos");
 
-        auto chaosEnd = std::chrono::steady_clock::now() + duration;
-        while (std::chrono::steady_clock::now() < chaosEnd && !external_stop.stop_requested()) {
+        auto chaos_end = std::chrono::steady_clock::now() + duration;
+        while (std::chrono::steady_clock::now() < chaos_end && !external_stop.stop_requested()) {
             std::this_thread::sleep_for(100ms);
         }
 
-        pertEngine.cancel();
-        pertEngine.waitForTeardown();
+        pert_engine.cancel();
+        pert_engine.waitForTeardown();
     }
 
     // ── Recovery phase ────────────────────────────────────────────
@@ -73,16 +73,16 @@ RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedS
     }
 
     // ── Validation ────────────────────────────────────────────────
-    auto finalState = state.latestState();
+    auto final_state = state.latestState();
     auto failures = state.continuousFailures();
     SPDLOG_INFO("Running final validation");
 
-    RunResult result = runner_.finalize(manifest, finalState, failures);
-    const auto steadyEnd = std::chrono::steady_clock::now();
+    RunResult result = runner_.finalize(manifest, final_state, failures);
+    const auto steady_end = std::chrono::steady_clock::now();
     result.manifest_name = manifest.test_name;
     result.target_id = manifest.target.id;
-    result.duration_s = std::chrono::duration<double>(steadyEnd - steadyStart).count();
-    result.started_at = formatUtcIso8601(wallStart);
+    result.duration_s = std::chrono::duration<double>(steady_end - steady_start).count();
+    result.started_at = formatUtcIso8601(wall_start);
     return result;
 }
 

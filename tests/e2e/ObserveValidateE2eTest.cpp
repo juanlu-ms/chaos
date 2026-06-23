@@ -44,7 +44,7 @@ TEST_F(ObserveValidateE2eTest, ValidateContainerRunningExpectation) {
     const auto results = validate(state, expectations);
     ASSERT_EQ(results.size(), 1u);
     EXPECT_TRUE(results[0].passed);
-    EXPECT_EQ(results[0].expectationType, "container_running");
+    EXPECT_EQ(results[0].expectation_type, "container_running");
 }
 
 /**

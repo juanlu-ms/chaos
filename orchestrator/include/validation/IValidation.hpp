@@ -21,11 +21,11 @@ public:
 
     /**
      * @brief Evaluate the given expectation using the provided context.
-     * @param targetState The current state of the target container.
+     * @param target_state The current state of the target container.
      * @param expectation The expectation to validate against.
      * @return A ValidationResult indicating pass/fail and diagnostic info.
      */
-    virtual ValidationResult validate(const core::TargetState& targetState,
+    virtual ValidationResult validate(const core::TargetState& target_state,
                                       const manifests::Expectation& expectation) const = 0;
 };
 

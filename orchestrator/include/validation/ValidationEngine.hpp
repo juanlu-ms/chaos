@@ -15,7 +15,7 @@ namespace chaos::orchestrator::validation {
 
 /**
  * @brief Evaluate all expectations against the current container state.
- * @param targetState The observed state of the target container to validate against.
+ * @param target_state The observed state of the target container to validate against.
  * @param expectations List of expectations from the manifest.
  * @return One ValidationResult per expectation, in order.
  *
@@ -24,7 +24,7 @@ namespace chaos::orchestrator::validation {
  * - log_contains / log_not_contains
  * - http_status / http_latency
  */
-[[nodiscard]] std::vector<ValidationResult> validate(const core::TargetState& targetState,
+[[nodiscard]] std::vector<ValidationResult> validate(const core::TargetState& target_state,
                                                      const std::vector<manifests::Expectation>& expectations);
 
 }  // namespace chaos::orchestrator::validation

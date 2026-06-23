@@ -23,35 +23,35 @@ TEST(ObservationLoopInternalTest, ParseProcNetDevFirstCallReturnsZeros) {
     std::ifstream ifs("/proc/self/net/dev");
     ASSERT_TRUE(ifs.good()) << "This test requires /proc to be available";
 
-    uint64_t prevRx = 0, prevTx = 0;
-    auto prevTime = std::chrono::steady_clock::time_point{};
-    bool prevValid = false;
+    uint64_t prev_rx = 0, prev_tx = 0;
+    auto prev_time = std::chrono::steady_clock::time_point{};
+    bool prev_valid = false;
 
-    auto result = parseProcNetDev(getpid(), prevRx, prevTx, prevTime, prevValid);
+    auto result = parseProcNetDev(getpid(), prev_rx, prev_tx, prev_time, prev_valid);
 
     // On first call with no valid previous state, rates should be 0
-    EXPECT_EQ(result.rxBps, 0.0);
-    EXPECT_EQ(result.txBps, 0.0);
-    EXPECT_TRUE(prevValid);
+    EXPECT_EQ(result.rx_bps, 0.0);
+    EXPECT_EQ(result.tx_bps, 0.0);
+    EXPECT_TRUE(prev_valid);
 }
 
 /**
  * @test parseProcNetDev with valid previous snapshot computes rate deltas on second call.
  */
 TEST(ObservationLoopInternalTest, ParseProcNetDevSecondCallWithValidPrev) {
-    uint64_t prevRx = 0, prevTx = 0;
-    auto prevTime = std::chrono::steady_clock::time_point{};
-    bool prevValid = false;
+    uint64_t prev_rx = 0, prev_tx = 0;
+    auto prev_time = std::chrono::steady_clock::time_point{};
+    bool prev_valid = false;
 
-    auto first = parseProcNetDev(getpid(), prevRx, prevTx, prevTime, prevValid);
-    EXPECT_EQ(first.rxBps, 0.0);
-    EXPECT_EQ(first.txBps, 0.0);
-    ASSERT_TRUE(prevValid);
+    auto first = parseProcNetDev(getpid(), prev_rx, prev_tx, prev_time, prev_valid);
+    EXPECT_EQ(first.rx_bps, 0.0);
+    EXPECT_EQ(first.tx_bps, 0.0);
+    ASSERT_TRUE(prev_valid);
 
-    auto second = parseProcNetDev(getpid(), prevRx, prevTx, prevTime, prevValid);
-    EXPECT_TRUE(prevValid);
-    EXPECT_GE(second.rxBps, 0.0);
-    EXPECT_GE(second.txBps, 0.0);
+    auto second = parseProcNetDev(getpid(), prev_rx, prev_tx, prev_time, prev_valid);
+    EXPECT_TRUE(prev_valid);
+    EXPECT_GE(second.rx_bps, 0.0);
+    EXPECT_GE(second.tx_bps, 0.0);
 }
 
 /**

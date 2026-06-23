@@ -25,7 +25,7 @@ namespace chaos::orchestrator::interfaces::cli {
  */
 struct GlobalOptions {
     /** @brief Minimum log level for the default spdlog logger. */
-    spdlog::level::level_enum logLevel{spdlog::level::info};
+    spdlog::level::level_enum log_level{spdlog::level::info};
     /** @brief Whether ANSI color output is enabled. */
     bool colorize{true};
 };
@@ -93,12 +93,12 @@ private:
     std::shared_ptr<containers::IContainerEngine> engine_;
     std::shared_ptr<history::IRunHistory> history_;
     core::ChaosRunner runner_;
-    std::optional<std::string> otlpEndpoint_;
+    std::optional<std::string> otlp_endpoint_;
 
     void printUsage() const;
     int handleList() const;
-    int handleStop(const std::string& containerId) const;
-    int handleKill(const std::string& containerId) const;
+    int handleStop(const std::string& container_id) const;
+    int handleKill(const std::string& container_id) const;
     int handleRun(const std::string& manifestPath, const RunOptions& options) const;
     void printRunResults(const core::RunResult& results, const manifests::ChaosManifest& manifest,
                          std::chrono::duration<double> elapsed) const;

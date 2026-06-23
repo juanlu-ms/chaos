@@ -13,9 +13,9 @@ namespace chaos::orchestrator::core {
 
 /**
  * @brief Serialize a RunResult to JSON for the /api/events complete message.
- * @param runResult The completed run result to serialize.
+ * @param run_result The completed run result to serialize.
  * @return JSON object representing the run result.
  */
-nlohmann::json runResultToJson(const RunResult& runResult);
+nlohmann::json runResultToJson(const RunResult& run_result);
 
 }  // namespace chaos::orchestrator::core

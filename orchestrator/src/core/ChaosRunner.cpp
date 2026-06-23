@@ -32,8 +32,8 @@ std::vector<std::unique_ptr<perturbations::IPerturbation>> ChaosRunner::buildPer
     return instances;
 }
 
-RunResult ChaosRunner::finalize(const manifests::ChaosManifest& manifest, const core::TargetState& finalState,
-                                const std::vector<std::string>& continuousFailures) const {
+RunResult ChaosRunner::finalize(const manifests::ChaosManifest& manifest, const core::TargetState& final_state,
+                                const std::vector<std::string>& continuous_failures) const {
     SPDLOG_DEBUG("Finalizing run with {} expectation(s)", manifest.expectations.size());
     if (manifest.expectations.empty()) {
         RunResult result;
@@ -41,12 +41,12 @@ RunResult ChaosRunner::finalize(const manifests::ChaosManifest& manifest, const 
         return result;
     }
 
-    auto results = validation::validate(finalState, manifest.expectations);
+    auto results = validation::validate(final_state, manifest.expectations);
 
     bool passed = true;
     for (auto& result : results) {
-        if (bool continuousFailed =
-                std::ranges::find(continuousFailures, result.expectationType) != continuousFailures.end()) {
+        if (bool continuous_failed =
+                std::ranges::find(continuous_failures, result.expectation_type) != continuous_failures.end()) {
             result.passed = false;
             result.message = "Passed final validation but failed mid-run continuous check";
         }

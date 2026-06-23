@@ -30,7 +30,7 @@ TEST(ContainerStateValidationTest, RunningPassesWhenRunning) {
     ContainerRunningValidation v;
     auto result = v.validate(makeState(containers::ContainerStatus::Running), {"container_running", {}});
     EXPECT_TRUE(result.passed);
-    EXPECT_EQ(result.expectationType, "container_running");
+    EXPECT_EQ(result.expectation_type, "container_running");
 }
 
 /**
@@ -67,7 +67,7 @@ TEST(ContainerStateValidationTest, NotRunningPassesWhenExited) {
     ContainerNotRunningValidation v;
     auto result = v.validate(makeState(containers::ContainerStatus::Exited), {"container_not_running", {}});
     EXPECT_TRUE(result.passed);
-    EXPECT_EQ(result.expectationType, "container_not_running");
+    EXPECT_EQ(result.expectation_type, "container_not_running");
 }
 
 /**

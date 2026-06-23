@@ -30,17 +30,17 @@ TEST(HistoryJsonTest, RunRecordRoundTrip) {
     original.summary.perturbation_types = {"network_delay", "cpu_cap"};
     original.summary.normal_end_t = 5.0;
     original.summary.chaos_end_t = 25.0;
-    original.summary.runResult.passed = true;
-    original.summary.runResult.manifest_name = "test-run-1";
-    original.summary.runResult.target_id = "container-abc";
-    original.summary.runResult.duration_s = 30.0;
-    original.summary.runResult.started_at = "2024-06-21T12:00:00Z";
+    original.summary.run_result.passed = true;
+    original.summary.run_result.manifest_name = "test-run-1";
+    original.summary.run_result.target_id = "container-abc";
+    original.summary.run_result.duration_s = 30.0;
+    original.summary.run_result.started_at = "2024-06-21T12:00:00Z";
     {
         ValidationResult vr;
         vr.passed = true;
-        vr.expectationType = "container_running";
+        vr.expectation_type = "container_running";
         vr.message = "container is running";
-        original.summary.runResult.results.push_back(vr);
+        original.summary.run_result.results.push_back(vr);
     }
 
     original.manifest.test_name = "test-run-1";
@@ -82,15 +82,15 @@ TEST(HistoryJsonTest, RunRecordRoundTrip) {
     EXPECT_EQ(p.summary.perturbation_types, original.summary.perturbation_types);
     EXPECT_DOUBLE_EQ(p.summary.normal_end_t, original.summary.normal_end_t);
     EXPECT_DOUBLE_EQ(p.summary.chaos_end_t, original.summary.chaos_end_t);
-    EXPECT_EQ(p.summary.runResult.passed, original.summary.runResult.passed);
-    EXPECT_EQ(p.summary.runResult.manifest_name, original.summary.runResult.manifest_name);
-    EXPECT_EQ(p.summary.runResult.target_id, original.summary.runResult.target_id);
-    EXPECT_DOUBLE_EQ(p.summary.runResult.duration_s, original.summary.runResult.duration_s);
-    EXPECT_EQ(p.summary.runResult.started_at, original.summary.runResult.started_at);
-    ASSERT_EQ(p.summary.runResult.results.size(), 1u);
-    EXPECT_EQ(p.summary.runResult.results[0].passed, true);
-    EXPECT_EQ(p.summary.runResult.results[0].expectationType, "container_running");
-    EXPECT_EQ(p.summary.runResult.results[0].message, "container is running");
+    EXPECT_EQ(p.summary.run_result.passed, original.summary.run_result.passed);
+    EXPECT_EQ(p.summary.run_result.manifest_name, original.summary.run_result.manifest_name);
+    EXPECT_EQ(p.summary.run_result.target_id, original.summary.run_result.target_id);
+    EXPECT_DOUBLE_EQ(p.summary.run_result.duration_s, original.summary.run_result.duration_s);
+    EXPECT_EQ(p.summary.run_result.started_at, original.summary.run_result.started_at);
+    ASSERT_EQ(p.summary.run_result.results.size(), 1u);
+    EXPECT_EQ(p.summary.run_result.results[0].passed, true);
+    EXPECT_EQ(p.summary.run_result.results[0].expectation_type, "container_running");
+    EXPECT_EQ(p.summary.run_result.results[0].message, "container is running");
 
     EXPECT_EQ(p.manifest.test_name, original.manifest.test_name);
     EXPECT_EQ(p.manifest.target.id, original.manifest.target.id);
@@ -135,17 +135,17 @@ TEST(HistoryJsonTest, RunSummaryRoundTrip) {
     original.perturbation_types = {"kill"};
     original.normal_end_t = 3.0;
     original.chaos_end_t = 18.0;
-    original.runResult.passed = false;
-    original.runResult.manifest_name = "kill-test";
-    original.runResult.target_id = "target-1";
-    original.runResult.duration_s = 20.0;
-    original.runResult.started_at = "2024-06-21T12:00:00Z";
+    original.run_result.passed = false;
+    original.run_result.manifest_name = "kill-test";
+    original.run_result.target_id = "target-1";
+    original.run_result.duration_s = 20.0;
+    original.run_result.started_at = "2024-06-21T12:00:00Z";
     {
         ValidationResult vr;
         vr.passed = false;
-        vr.expectationType = "container_not_running";
+        vr.expectation_type = "container_not_running";
         vr.message = "container was still running";
-        original.runResult.results.push_back(vr);
+        original.run_result.results.push_back(vr);
     }
 
     auto j = runSummaryToJson(original);
@@ -161,15 +161,15 @@ TEST(HistoryJsonTest, RunSummaryRoundTrip) {
     EXPECT_EQ(p.perturbation_types, original.perturbation_types);
     EXPECT_DOUBLE_EQ(p.normal_end_t, original.normal_end_t);
     EXPECT_DOUBLE_EQ(p.chaos_end_t, original.chaos_end_t);
-    EXPECT_EQ(p.runResult.passed, original.runResult.passed);
-    EXPECT_EQ(p.runResult.manifest_name, original.runResult.manifest_name);
-    EXPECT_EQ(p.runResult.target_id, original.runResult.target_id);
-    EXPECT_DOUBLE_EQ(p.runResult.duration_s, original.runResult.duration_s);
-    EXPECT_EQ(p.runResult.started_at, original.runResult.started_at);
-    ASSERT_EQ(p.runResult.results.size(), 1u);
-    EXPECT_EQ(p.runResult.results[0].passed, false);
-    EXPECT_EQ(p.runResult.results[0].expectationType, "container_not_running");
-    EXPECT_EQ(p.runResult.results[0].message, "container was still running");
+    EXPECT_EQ(p.run_result.passed, original.run_result.passed);
+    EXPECT_EQ(p.run_result.manifest_name, original.run_result.manifest_name);
+    EXPECT_EQ(p.run_result.target_id, original.run_result.target_id);
+    EXPECT_DOUBLE_EQ(p.run_result.duration_s, original.run_result.duration_s);
+    EXPECT_EQ(p.run_result.started_at, original.run_result.started_at);
+    ASSERT_EQ(p.run_result.results.size(), 1u);
+    EXPECT_EQ(p.run_result.results[0].passed, false);
+    EXPECT_EQ(p.run_result.results[0].expectation_type, "container_not_running");
+    EXPECT_EQ(p.run_result.results[0].message, "container was still running");
 }
 
 /**
@@ -185,7 +185,7 @@ TEST(HistoryJsonTest, EmbeddedRunResultMatchesCoreSerializer) {
     {
         ValidationResult vr;
         vr.passed = true;
-        vr.expectationType = "log_contains";
+        vr.expectation_type = "log_contains";
         vr.message = "found expected log line";
         rr.results.push_back(vr);
     }
@@ -197,7 +197,7 @@ TEST(HistoryJsonTest, EmbeddedRunResultMatchesCoreSerializer) {
     summary.status = "completed";
     summary.normal_end_t = 3.0;
     summary.chaos_end_t = 8.0;
-    summary.runResult = rr;
+    summary.run_result = rr;
 
     auto summaryJson = runSummaryToJson(summary);
     auto coreJson = runResultToJson(rr);

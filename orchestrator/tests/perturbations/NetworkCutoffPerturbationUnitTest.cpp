@@ -34,13 +34,13 @@ TEST(NetworkCutoffPerturbationTest, RevertDoesNotClearAppliedFlagOnFailure) {
     EXPECT_CALL(*engine, execInNetNs(std::string_view("target"), std::string_view("iptables -D OUTPUT -j DROP")))
         .WillOnce(Throw(containers::ContainerEngineError("exec failed")));
 
-    bool revertThrew = false;
+    bool revert_threw = false;
     try {
         p.revert();
     } catch (const std::system_error&) {
-        revertThrew = true;
+        revert_threw = true;
     }
-    EXPECT_TRUE(revertThrew);
+    EXPECT_TRUE(revert_threw);
 
     EXPECT_CALL(*engine, execInNetNs(std::string_view("target"), std::string_view("iptables -D OUTPUT -j DROP")))
         .WillOnce(Return(std::string{}));

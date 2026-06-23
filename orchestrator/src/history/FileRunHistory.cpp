@@ -14,7 +14,7 @@
 
 namespace chaos::orchestrator::history {
 
-FileRunHistory::FileRunHistory(std::filesystem::path dir, size_t maxRuns) : dir_(std::move(dir)), maxRuns_(maxRuns) {
+FileRunHistory::FileRunHistory(std::filesystem::path dir, size_t max_runs) : dir_(std::move(dir)), max_runs_(max_runs) {
     std::filesystem::create_directories(dir_);
 }
 
@@ -111,7 +111,7 @@ void FileRunHistory::refreshCache() {
 }
 
 void FileRunHistory::prune() {
-    while (cache_.size() > maxRuns_) {
+    while (cache_.size() > max_runs_) {
         const auto& oldest = cache_.back();
         std::filesystem::remove(dir_ / (oldest.id + ".json"));
         cache_.pop_back();

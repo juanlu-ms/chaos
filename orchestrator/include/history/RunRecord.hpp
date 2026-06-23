@@ -56,7 +56,7 @@ struct RunSummary {
     /** @brief Seconds from start when the chaos phase ended. */
     double chaos_end_t{0.0};
     /** @brief Embedded final run result carrying pass/fail and validation details. */
-    core::RunResult runResult;
+    core::RunResult run_result;
 };
 
 /**

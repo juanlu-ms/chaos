@@ -29,13 +29,13 @@ TEST(KillPerturbationTest, RevertDoesNotClearAppliedFlagOnFailure) {
     EXPECT_CALL(*engine, startContainer(std::string_view("test-id")))
         .WillOnce(Throw(containers::ContainerEngineError("start failed")));
 
-    bool revertThrew = false;
+    bool revert_threw = false;
     try {
         p.revert();
     } catch (const std::system_error&) {
-        revertThrew = true;
+        revert_threw = true;
     }
-    EXPECT_TRUE(revertThrew);
+    EXPECT_TRUE(revert_threw);
 
     EXPECT_CALL(*engine, startContainer(std::string_view("test-id"))).Times(1);
 

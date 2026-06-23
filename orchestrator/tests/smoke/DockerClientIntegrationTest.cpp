@@ -28,10 +28,10 @@ TEST_F(DockerClientIntegrationTest, ListsContainersWhenDockerAvailable) {
 }
 
 /**
- * @test Verifies getSystemInfo returns a positive memTotal value.
+ * @test Verifies getSystemInfo returns a positive mem_total value.
  */
 TEST(DockerClientSystemInfoTest, GetSystemInfoReturnsTotalMemory) {
     auto adapter = createTestEngine();
     const auto info = adapter->getSystemInfo();
-    EXPECT_GT(info.memTotal, 0);
+    EXPECT_GT(info.mem_total, 0);
 }

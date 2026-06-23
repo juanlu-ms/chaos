@@ -54,10 +54,10 @@ void RunRecorder::onLogsUpdate(const std::vector<std::string>& logs) {
     logs_ = logs;
 }
 
-RunRecord RunRecorder::finalize(const core::RunResult& runResult, std::string status, std::string error) {
+RunRecord RunRecorder::finalize(const core::RunResult& run_result, std::string status, std::string error) {
     std::lock_guard lock(mutex_);
     summary_.ended_at_unix = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-    summary_.runResult = runResult;
+    summary_.run_result = run_result;
     summary_.status = std::move(status);
     summary_.error = std::move(error);
     return RunRecord{.summary = std::move(summary_),

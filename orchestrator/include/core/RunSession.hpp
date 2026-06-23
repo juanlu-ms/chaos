@@ -40,7 +40,7 @@ struct RunSession {
     /** @brief Stop source for requesting cancellation of background work. */
     std::stop_source stop_source;
     /** @brief Whether the run was aborted by the user. */
-    std::atomic<bool> abortRequested{false};
+    std::atomic<bool> abort_requested{false};
 };
 
 }  // namespace chaos::orchestrator::core

@@ -50,9 +50,9 @@ public:
 
     /**
      * @brief Construct an adapter using an injected request function.
-     * @param requestFn Function that performs requests against Docker API.
+     * @param request_fn Function that performs requests against Docker API.
      */
-    explicit DockerClient(RequestFn requestFn);
+    explicit DockerClient(RequestFn request_fn);
     ~DockerClient() override = default;
 
     DockerClient(const DockerClient&) = delete;
@@ -62,10 +62,10 @@ public:
 
     /**
      * @brief Create a default adapter using a Unix socket.
-     * @param socketPath Path to Docker Engine Unix socket.
+     * @param socket_path Path to Docker Engine Unix socket.
      * @return A container engine instance.
      */
-    static std::shared_ptr<containers::IContainerEngine> create(const std::string& socketPath = "/var/run/docker.sock");
+    static std::shared_ptr<containers::IContainerEngine> create(const std::string& socket_path = "/var/run/docker.sock");
 
     /**
      * @brief List containers from the Docker Engine.
@@ -83,13 +83,13 @@ public:
 
     /**
      * @brief Build a container image from a Dockerfile.
-     * @param imageName Tag for the built image (e.g. "myapp:latest").
-     * @param dockerfilePath Path to the Dockerfile on disk.
+     * @param image_name Tag for the built image (e.g. "myapp:latest").
+     * @param dockerfile_path Path to the Dockerfile on disk.
      * @throws std::invalid_argument On empty image name or path.
      * @throws ContainerEngineApiError On non-200 HTTP response.
      * @throws std::runtime_error On filesystem errors.
      */
-    void buildImage(const std::string_view imageName, const std::string_view dockerfilePath) const override;
+    void buildImage(const std::string_view image_name, const std::string_view dockerfile_path) const override;
 
     /**
      * @brief Create a new container with the specified image and options.
@@ -105,40 +105,40 @@ public:
 
     /**
      * @brief Start a container by ID.
-     * @param containerId Docker container ID.
+     * @param container_id Docker container ID.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    void startContainer(const std::string_view containerId) const override;
+    void startContainer(const std::string_view container_id) const override;
 
     /**
      * @brief Stop a container by ID.
-     * @param containerId Docker container ID.
+     * @param container_id Docker container ID.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    void stopContainer(const std::string_view containerId) const override;
+    void stopContainer(const std::string_view container_id) const override;
 
     /**
      * @brief Kill a container by ID.
-     * @param containerId Docker container ID.
+     * @param container_id Docker container ID.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    void killContainer(const std::string_view containerId) const override;
+    void killContainer(const std::string_view container_id) const override;
 
     /**
      * @brief Remove a container by ID.
-     * @param containerId Docker container ID.
+     * @param container_id Docker container ID.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    void removeContainer(const std::string_view containerId) const override;
+    void removeContainer(const std::string_view container_id) const override;
 
     /**
      * @brief Execute a command inside a running container.
-     * @param containerId ID of the target container.
+     * @param container_id ID of the target container.
      * @param command Command to execute (e.g. "ls -la /").
      * @return Output of the command execution.
      * @throws std::exception On transport errors or non-OK responses.
      */
-    [[nodiscard]] std::string exec(const std::string_view containerId, const std::string_view command) const override;
+    [[nodiscard]] std::string exec(const std::string_view container_id, const std::string_view command) const override;
 
     /**
      * @brief Execute a command in the target container's network namespace from the host.
@@ -147,83 +147,83 @@ public:
      * namespace so that tools like tc(8) and iptables(8) affect the container
      * without needing them installed inside it.
      *
-     * @param containerId ID of the target container.
+     * @param container_id ID of the target container.
      * @param command Command to execute on the host inside the container's netns.
      * @return Combined stdout+stderr of the command.
      * @throws ContainerEngineError If the container PID cannot be retrieved, or
      *         if the nsenter'd command exits with a non-zero status.
      */
-    [[nodiscard]] std::string execInNetNs(const std::string_view containerId,
+    [[nodiscard]] std::string execInNetNs(const std::string_view container_id,
                                           const std::string_view command) const override;
 
     /**
      * @brief Open a file descriptor on the container's network namespace.
-     * @param containerId Docker container ID.
+     * @param container_id Docker container ID.
      * @return A file descriptor opened on /proc/<pid>/ns/net.
      * @throws ContainerEngineError If the container cannot be inspected.
      */
-    [[nodiscard]] int getContainerNetnsFd(const std::string_view containerId) const override;
+    [[nodiscard]] int getContainerNetnsFd(const std::string_view container_id) const override;
 
     /**
      * @brief Get the host PID of the container's init process via Docker inspect.
-     * @param containerId Docker container ID.
+     * @param container_id Docker container ID.
      * @return Host PID of the container's main process.
      * @throws ContainerEngineError If the container cannot be inspected.
      */
-    [[nodiscard]] int getContainerPid(const std::string_view containerId) const override;
+    [[nodiscard]] int getContainerPid(const std::string_view container_id) const override;
 
     /**
      * @brief Update the memory limit of a container via Docker Engine API.
-     * @param containerId Docker container ID.
+     * @param container_id Docker container ID.
      * @param memory_bytes Max memory in bytes (0 to ignore).
-     * @throws std::invalid_argument On empty containerId.
+     * @throws std::invalid_argument On empty container_id.
      * @throws ContainerEngineApiError On non-200 HTTP response.
      */
-    void updateMemoryLimit(const std::string_view containerId, int64_t memory_bytes) const override;
+    void updateMemoryLimit(const std::string_view container_id, int64_t memory_bytes) const override;
 
     /**
      * @brief Update the CPU quota and period of a container via Docker Engine API.
-     * @param containerId Docker container ID.
+     * @param container_id Docker container ID.
      * @param cpu_quota CPU quota in microseconds (0 to ignore, -1 to reset/unlimited).
      * @param cpu_period CPU period in microseconds (0 to ignore).
-     * @throws std::invalid_argument On empty containerId.
+     * @throws std::invalid_argument On empty container_id.
      * @throws ContainerEngineApiError On non-200 HTTP response.
      */
-    void updateCpuQuota(const std::string_view containerId, int64_t cpu_quota, int64_t cpu_period) const override;
+    void updateCpuQuota(const std::string_view container_id, int64_t cpu_quota, int64_t cpu_period) const override;
 
     /**
      * @brief Get status of a container by ID.
-     * @param containerId Docker container ID.
+     * @param container_id Docker container ID.
      * @return ContainerStatus enum value representing the container's state.
      * @throws ContainerEngineApiError On non-OK HTTP responses.
      * @throws ContainerEngineParseError On JSON parsing failures.
      */
-    [[nodiscard]] containers::ContainerStatus getStatus(const std::string_view containerId) const override;
+    [[nodiscard]] containers::ContainerStatus getStatus(const std::string_view container_id) const override;
 
     /**
      * @brief Fetch stdout/stderr logs from a container via Docker Engine API.
-     * @param containerId Docker container ID.
+     * @param container_id Docker container ID.
      * @return Raw log text (may contain Docker multiplexed stream headers).
-     * @throws std::invalid_argument On empty containerId.
+     * @throws std::invalid_argument On empty container_id.
      * @throws ContainerEngineApiError On non-200 HTTP response.
      * @throws ContainerEngineTransportError On connection failure.
      */
-    [[nodiscard]] std::string getLogs(const std::string_view containerId) const override;
+    [[nodiscard]] std::string getLogs(const std::string_view container_id) const override;
 
     /**
      * @brief Fetch CPU, memory and network stats in one HTTP call.
      */
-    [[nodiscard]] containers::ContainerStats getStats(const std::string_view containerId) override;
+    [[nodiscard]] containers::ContainerStats getStats(const std::string_view container_id) override;
 
     /**
      * @brief Fetch the primary IP address of a running container.
-     * @param containerId Docker container ID.
+     * @param container_id Docker container ID.
      * @return IPv4 address as a string.
-     * @throws std::invalid_argument On empty containerId.
+     * @throws std::invalid_argument On empty container_id.
      * @throws ContainerEngineApiError On non-200 HTTP response.
      * @throws ContainerEngineParseError On unexpected response format.
      */
-    [[nodiscard]] std::string getContainerIp(const std::string_view containerId) const override;
+    [[nodiscard]] std::string getContainerIp(const std::string_view container_id) const override;
 
     /**
      * @brief Retrieve system-level information from the Docker Engine.

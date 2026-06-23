@@ -34,7 +34,7 @@ TEST(LogValidationTest, ContainsPassesWhenSubstringPresent) {
     LogContainsValidation v;
     auto result = v.validate(makeState({"hello world\n"}), {"log_contains", {{"substring", "hello"}}});
     EXPECT_TRUE(result.passed);
-    EXPECT_EQ(result.expectationType, "log_contains");
+    EXPECT_EQ(result.expectation_type, "log_contains");
 }
 
 /**
@@ -53,7 +53,7 @@ TEST(LogValidationTest, NotContainsPassesWhenSubstringAbsent) {
     LogNotContainsValidation v;
     auto result = v.validate(makeState({"all good\n"}), {"log_not_contains", {{"substring", "panic"}}});
     EXPECT_TRUE(result.passed);
-    EXPECT_EQ(result.expectationType, "log_not_contains");
+    EXPECT_EQ(result.expectation_type, "log_not_contains");
 }
 
 /**

@@ -32,11 +32,11 @@ public:
      * @brief Construct a Server backed by the given container engine.
      * @param engine shared container engine implementation
      * @param history Optional run history for storing and querying past runs.
-     * @param otlpEndpoint Optional OTLP HTTP endpoint for exporting run events.
+     * @param otlp_endpoint Optional OTLP HTTP endpoint for exporting run events.
      */
     explicit Server(std::shared_ptr<containers::IContainerEngine> engine,
                     std::shared_ptr<history::IRunHistory> history = nullptr,
-                    std::optional<std::string> otlpEndpoint = std::nullopt);
+                    std::optional<std::string> otlp_endpoint = std::nullopt);
     ~Server();
 
     /**
@@ -57,7 +57,7 @@ private:
     std::shared_ptr<containers::IContainerEngine> engine_;
     std::shared_ptr<history::IRunHistory> history_;
     core::ChaosRunner runner_;
-    std::optional<std::string> otlpEndpoint_;
+    std::optional<std::string> otlp_endpoint_;
 
 #ifdef CHAOS_HAVE_EMBEDDED_WEB_UI
     std::optional<cmrc::embedded_filesystem> webFs_;
@@ -83,7 +83,7 @@ private:
     void handleHistoryClear(const httplib::Request& req, httplib::Response& res);
 
     void executeRunAsync(manifests::ChaosManifest manifest, std::shared_ptr<RunSession> session);
-    void handleContainerAction(const httplib::Request& req, httplib::Response& res, std::string_view actionName);
+    void handleContainerAction(const httplib::Request& req, httplib::Response& res, std::string_view action_name);
 
     void writeSSEEvent(const httplib::DataSink& sink, const nlohmann::json& data);
 };

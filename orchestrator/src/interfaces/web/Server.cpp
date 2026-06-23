@@ -92,11 +92,11 @@ void finalizeSession(const std::shared_ptr<core::RunSession>& session, json resu
 }  // namespace
 
 Server::Server(std::shared_ptr<containers::IContainerEngine> engine, std::shared_ptr<history::IRunHistory> history,
-               std::optional<std::string> otlpEndpoint)
+               std::optional<std::string> otlp_endpoint)
     : engine_(std::move(engine)),
       history_(std::move(history)),
       runner_(engine_),
-      otlpEndpoint_(std::move(otlpEndpoint)) {
+      otlp_endpoint_(std::move(otlp_endpoint)) {
     setupRoutes();
 }
 
@@ -219,77 +219,77 @@ void Server::setupApiRoutes() {
                    [this](const httplib::Request& req, httplib::Response& res) { handleHistoryClear(req, res); });
 }
 
-void Server::handleContainerAction(const httplib::Request& req, httplib::Response& res, std::string_view actionName) {
+void Server::handleContainerAction(const httplib::Request& req, httplib::Response& res, std::string_view action_name) {
     if (req.matches.size() < 2) {
         res.status = 400;
         res.set_content(R"({"error":"Missing container id"})", "application/json");
         return;
     }
 
-    const std::string containerId = req.matches[1];
+    const std::string container_id = req.matches[1];
     try {
-        SPDLOG_INFO("/api/containers/{}/{} requested", containerId, actionName);
+        SPDLOG_INFO("/api/containers/{}/{} requested", container_id, action_name);
 
-        if (actionName == "stop") {
-            engine_->stopContainer(containerId);
-        } else if (actionName == "kill") {
-            engine_->killContainer(containerId);
+        if (action_name == "stop") {
+            engine_->stopContainer(container_id);
+        } else if (action_name == "kill") {
+            engine_->killContainer(container_id);
         }
 
         json result;
         result["status"] = "ok";
-        result["action"] = std::string(actionName);
-        result["id"] = containerId;
+        result["action"] = std::string(action_name);
+        result["id"] = container_id;
         res.set_content(result.dump(4), "application/json");
     } catch (const std::exception& ex) {
         json error;
-        error["error"] = "Failed to " + std::string(actionName) + " container";
+        error["error"] = "Failed to " + std::string(action_name) + " container";
         res.status = 500;
         res.set_content(error.dump(4), "application/json");
-        SPDLOG_ERROR("/api/containers/{}/{} failed: {}", containerId, actionName, ex.what());
+        SPDLOG_ERROR("/api/containers/{}/{} failed: {}", container_id, action_name, ex.what());
     }
 }
 
 void Server::executeRunAsync(manifests::ChaosManifest manifest, std::shared_ptr<core::RunSession> session) {
     run_thread_ = std::jthread([this, engine = engine_, session, manifest = std::move(manifest),
-                                otlpEndpoint = otlpEndpoint_](const std::stop_token& token) mutable {
+                                otlp_endpoint = otlp_endpoint_](const std::stop_token& token) mutable {
         if (token.stop_requested()) {
             return;
         }
         history::RunRecorder recorder(manifest);
-        std::optional<observability::OtlpRunObserver> otlpObserver;
+        std::optional<observability::OtlpRunObserver> otlp_observer;
         try {
             WebRunObserver observer(session);
-            if (otlpEndpoint.has_value()) {
-                otlpObserver.emplace(observability::OtlpExporter(*otlpEndpoint));
+            if (otlp_endpoint.has_value()) {
+                otlp_observer.emplace(observability::OtlpExporter(*otlp_endpoint));
             }
             std::vector<core::IRunObserver*> observer_list = {&observer, &recorder};
-            if (otlpObserver.has_value()) {
-                observer_list.push_back(&*otlpObserver);
+            if (otlp_observer.has_value()) {
+                observer_list.push_back(&*otlp_observer);
             }
             core::CompositeRunObserver composite(observer_list);
 
-            core::ObservationLoop::Config loopConfig;
-            loopConfig.metricsInterval = std::chrono::milliseconds(100);
-            loopConfig.logsInterval = std::chrono::milliseconds(1500);
-            loopConfig.continuousExpectations = manifest.expectations;
+            core::ObservationLoop::Config loop_config;
+            loop_config.metricsInterval = std::chrono::milliseconds(100);
+            loop_config.logsInterval = std::chrono::milliseconds(1500);
+            loop_config.continuous_expectations = manifest.expectations;
 
-            core::ObservationLoop obsLoop(engine, manifest.target.id, session->state, composite, loopConfig);
-            obsLoop.start(token);
+            core::ObservationLoop obs_loop(engine, manifest.target.id, session->state, composite, loop_config);
+            obs_loop.start(token);
 
             core::RunOrchestrator orchestrator(runner_);
             auto perturbation_instances = runner_.buildPerturbations(manifest);
-            auto runResult =
+            auto run_result =
                 orchestrator.run(manifest, session->state, composite, std::move(perturbation_instances), token);
 
-            auto result = core::runResultToJson(runResult);
+            auto result = core::runResultToJson(run_result);
 
-            std::string status = session->abort_requested_.load() ? "aborted" : "completed";
+            std::string status = session->abort_requested.load() ? "aborted" : "completed";
             if (history_) {
-                history_->save(recorder.finalize(runResult, status, ""));
+                history_->save(recorder.finalize(run_result, status, ""));
             }
-            if (otlpObserver.has_value()) {
-                (void)otlpObserver->finalize(runResult);
+            if (otlp_observer.has_value()) {
+                (void)otlp_observer->finalize(run_result);
             }
 
             finalizeSession(session, std::move(result), {});
@@ -298,8 +298,8 @@ void Server::executeRunAsync(manifests::ChaosManifest manifest, std::shared_ptr<
             if (history_) {
                 history_->save(recorder.finalize({}, "error", ex.what()));
             }
-            if (otlpObserver.has_value()) {
-                (void)otlpObserver->finalize({});
+            if (otlp_observer.has_value()) {
+                (void)otlp_observer->finalize({});
             }
             finalizeSession(session, {}, std::string{ex.what()});
             session->cv.notify_all();
@@ -362,22 +362,22 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& response) 
     response.set_header("Connection", "keep-alive");
 
     std::shared_ptr<RunSession> session;
-    bool wasCompleteAtConnect = false;
-    uint64_t lastSeq = 0;
+    bool was_complete_at_connect = false;
+    uint64_t last_seq = 0;
     {
         std::lock_guard lock(session_mutex_);
         session = session_;
-        wasCompleteAtConnect = session ? session->complete : false;
+        was_complete_at_connect = session ? session->complete : false;
         if (session) {
-            lastSeq = session->state.sequence();
+            last_seq = session->state.sequence();
         }
     }
 
     response.set_chunked_content_provider(
         "text/event-stream",
-        [this, session, wasCompleteAtConnect, lastSeq](size_t /*offset*/, httplib::DataSink const& sink) mutable {
+        [this, session, was_complete_at_connect, last_seq](size_t /*offset*/, httplib::DataSink const& sink) mutable {
             SPDLOG_DEBUG("SSE event stream connected");
-            if (!session || wasCompleteAtConnect) {
+            if (!session || was_complete_at_connect) {
                 SPDLOG_DEBUG("SSE event stream: no active session, closing");
                 if (!sink.write("event: error\ndata: {\"error\":\"No active run\"}\n\n", 47)) {
                     return false;
@@ -387,15 +387,15 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& response) 
             }
 
             std::unique_lock lock(session->mtx);
-            session->cv.wait_for(lock, std::chrono::milliseconds(100), [&session, &lastSeq]() {
-                return session->state.sequence() != lastSeq || session->complete;
+            session->cv.wait_for(lock, std::chrono::milliseconds(100), [&session, &last_seq]() {
+                return session->state.sequence() != last_seq || session->complete;
             });
 
-            if (uint64_t newSeq = session->state.sequence(); newSeq != lastSeq && !session->complete) {
+            if (uint64_t new_seq = session->state.sequence(); new_seq != last_seq && !session->complete) {
                 auto state = session->state.latestState();
-                auto stateJson = stateToJson(state, session->state.phase(), session->state.continuousFailures());
-                writeSSEEvent(sink, stateJson);
-                lastSeq = newSeq;
+                auto state_json = stateToJson(state, session->state.phase(), session->state.continuousFailures());
+                writeSSEEvent(sink, state_json);
+                last_seq = new_seq;
             }
 
             if (session->complete) {
@@ -465,7 +465,7 @@ void Server::handleAbort(const httplib::Request&, httplib::Response& response) {
         response.set_content(error.dump(4), "application/json");
         return;
     }
-    session->abort_requested_.store(true);
+    session->abort_requested.store(true);
     run_thread_.request_stop();
     session->cv.notify_all();
     json result = {{"status", "aborted"}};

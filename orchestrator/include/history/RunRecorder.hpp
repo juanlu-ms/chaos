@@ -65,7 +65,7 @@ public:
 
     /**
      * @brief Build the final RunRecord and return it.
-     * @param runResult The run result from ChaosRunner.
+     * @param run_result The run result from ChaosRunner.
      * @param status "completed", "aborted", or "error".
      * @param error Error message if status is "error".
      * @return The complete RunRecord with all accumulated data.
@@ -73,7 +73,7 @@ public:
      * Stamps ended_at_unix, copies runResult into summary, derives
      * perturbation_types from the manifest's perturbation types. Thread-safe.
      */
-    [[nodiscard]] RunRecord finalize(const core::RunResult& runResult, std::string status, std::string error);
+    [[nodiscard]] RunRecord finalize(const core::RunResult& run_result, std::string status, std::string error);
 
 private:
     manifests::ChaosManifest manifest_;

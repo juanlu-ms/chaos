@@ -33,13 +33,13 @@ TEST(TrafficCorruptionPerturbationTest, RevertDoesNotClearAppliedFlagOnFailure) 
 
     EXPECT_CALL(*engine, execInNetNs("test-id", _)).WillOnce(Throw(containers::ContainerEngineError("tc failed")));
 
-    bool revertThrew = false;
+    bool revert_threw = false;
     try {
         p.revert();
     } catch (const std::system_error&) {
-        revertThrew = true;
+        revert_threw = true;
     }
-    EXPECT_TRUE(revertThrew);
+    EXPECT_TRUE(revert_threw);
 
     EXPECT_CALL(*engine, execInNetNs("test-id", _)).WillOnce(Return(std::string{}));
 

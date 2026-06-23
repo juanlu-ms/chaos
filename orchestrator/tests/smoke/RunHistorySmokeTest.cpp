@@ -29,9 +29,9 @@ protected:
         r.summary.id = id;
         r.summary.started_at_unix = started_at;
         r.summary.status = "completed";
-        r.summary.runResult.manifest_name = "smoke-test";
-        r.summary.runResult.target_id = "target-1";
-        r.summary.runResult.passed = true;
+        r.summary.run_result.manifest_name = "smoke-test";
+        r.summary.run_result.target_id = "target-1";
+        r.summary.run_result.passed = true;
         return r;
     }
 };
@@ -48,7 +48,7 @@ TEST_F(RunHistorySmokeTest, SaveAndGet) {
     auto record = history_->get("run-2000");
     ASSERT_TRUE(record.has_value());
     EXPECT_EQ(record->summary.id, "run-2000");
-    EXPECT_EQ(record->summary.runResult.manifest_name, "smoke-test");
+    EXPECT_EQ(record->summary.run_result.manifest_name, "smoke-test");
 }
 
 TEST_F(RunHistorySmokeTest, GetNonexistent) {

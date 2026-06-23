@@ -111,8 +111,8 @@ TEST(ChaosRunnerUnitTest, FinalizeReturnsDetailedResults) {
     ASSERT_EQ(result.results.size(), 2u);
     EXPECT_TRUE(result.results[0].passed);   // container_running passes
     EXPECT_FALSE(result.results[1].passed);  // container_not_running fails
-    EXPECT_EQ(result.results[0].expectationType, "container_running");
-    EXPECT_EQ(result.results[1].expectationType, "container_not_running");
+    EXPECT_EQ(result.results[0].expectation_type, "container_running");
+    EXPECT_EQ(result.results[1].expectation_type, "container_not_running");
 }
 
 /**

@@ -20,8 +20,8 @@
 
 namespace chaos::orchestrator::core::detail {
 
-NetworkMetrics parseProcNetDev(int pid, uint64_t& prevRx, uint64_t& prevTx,
-                               std::chrono::steady_clock::time_point& prevTime, bool& prevValid) {
+NetworkMetrics parseProcNetDev(int pid, uint64_t& prev_rx, uint64_t& prev_tx,
+                               std::chrono::steady_clock::time_point& prev_time, bool& prev_valid) {
     NetworkMetrics metrics;
 
     std::ifstream file(fmt::format("/proc/{}/net/dev", pid));
@@ -62,23 +62,23 @@ NetworkMetrics parseProcNetDev(int pid, uint64_t& prevRx, uint64_t& prevTx,
     }
 
     const auto now = std::chrono::steady_clock::now();
-    if (prevValid) {
-        auto dt = std::chrono::duration_cast<std::chrono::duration<double>>(now - prevTime).count();
+    if (prev_valid) {
+        auto dt = std::chrono::duration_cast<std::chrono::duration<double>>(now - prev_time).count();
         if (dt > 0.0) {
-            metrics.rxBps = static_cast<double>(rx - prevRx) / dt;
-            metrics.txBps = static_cast<double>(tx - prevTx) / dt;
+            metrics.rx_bps = static_cast<double>(rx - prev_rx) / dt;
+            metrics.tx_bps = static_cast<double>(tx - prev_tx) / dt;
         }
     }
-    prevRx = rx;
-    prevTx = tx;
-    prevTime = now;
-    prevValid = true;
+    prev_rx = rx;
+    prev_tx = tx;
+    prev_time = now;
+    prev_valid = true;
 
     return metrics;
 }
 
-std::optional<double> executePing(std::string_view targetIp) {
-    std::string cmd = fmt::format("LC_ALL=C ping -c 1 -W 2 {} 2>&1", targetIp);
+std::optional<double> executePing(std::string_view target_ip) {
+    std::string cmd = fmt::format("LC_ALL=C ping -c 1 -W 2 {} 2>&1", target_ip);
 
     FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) {
@@ -121,10 +121,10 @@ namespace chaos::orchestrator::core {
 
 using namespace std::chrono_literals;
 
-ObservationLoop::ObservationLoop(std::shared_ptr<containers::IContainerEngine> engine, std::string containerId,
+ObservationLoop::ObservationLoop(std::shared_ptr<containers::IContainerEngine> engine, std::string container_id,
                                  SharedState& state, IRunObserver& observer, Config config)
     : engine_(std::move(engine)),
-      containerId_(std::move(containerId)),
+      container_id_(std::move(container_id)),
       state_(state),
       observer_(observer),
       config_(std::move(config)) {}
@@ -133,22 +133,22 @@ ObservationLoop::~ObservationLoop() { internalStopSource_.request_stop(); }
 
 void ObservationLoop::start(std::stop_token external_stop) {
     cgroup_ = std::make_unique<containers::CgroupMetricsGatherer>();
-    if (!containers::CgroupMetricsGatherer::resolveCgroupPath(containerId_).has_value()) {
+    if (!containers::CgroupMetricsGatherer::resolveCgroupPath(container_id_).has_value()) {
         cgroup_.reset();
     } else {
-        SPDLOG_DEBUG("ObservationLoop: using cgroup v2 for {}", containerId_);
+        SPDLOG_DEBUG("ObservationLoop: using cgroup v2 for {}", container_id_);
     }
 
-    observability::ObservabilityEngine initObs(engine_);
-    containerIp_ = initObs.getContainerIp(containerId_);
+    observability::ObservabilityEngine init_obs(engine_);
+    containerIp_ = init_obs.getContainerIp(container_id_);
 
     try {
-        containerPid_ = engine_->getContainerPid(containerId_);
+        container_pid_ = engine_->getContainerPid(container_id_);
     } catch (const containers::ContainerEngineError& e) {
         SPDLOG_DEBUG("ObservationLoop: could not get container PID: {}", e.what());
     }
 
-    auto initial = initObs.observe(containerId_);
+    auto initial = init_obs.observe(container_id_);
     if (containerIp_) {
         initial.container_ip = *containerIp_;
     }
@@ -168,29 +168,29 @@ void ObservationLoop::start(std::stop_token external_stop) {
 
 void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_token external_stop) {
     observability::ObservabilityEngine obs(engine_);
-    auto lastContinuousCheck = std::chrono::steady_clock::now();
+    auto last_continuous_check = std::chrono::steady_clock::now();
 
-    uint64_t prevNetRx{0};
-    uint64_t prevNetTx{0};
-    auto prevNetTime = std::chrono::steady_clock::now();
-    bool prevNetValid{false};
+    uint64_t prev_net_rx{0};
+    uint64_t prev_net_tx{0};
+    auto prev_net_time = std::chrono::steady_clock::now();
+    bool prev_net_valid{false};
 
     while (!internal_stop.stop_requested() && !external_stop.stop_requested()) {
         auto tick = std::chrono::steady_clock::now();
 
         try {
             core::TargetState state;
-            state.container_id = containerId_;
+            state.container_id = container_id_;
             if (containerIp_) {
                 state.container_ip = *containerIp_;
             }
 
-            state.status = obs.getStatus(containerId_);
+            state.status = obs.getStatus(container_id_);
 
             if (state.status == containers::ContainerStatus::Running) {
                 if (cgroup_) {
-                    auto cpu = cgroup_->getCpuUsagePercent(containerId_);
-                    auto mem = cgroup_->getMemoryUsageMb(containerId_);
+                    auto cpu = cgroup_->getCpuUsagePercent(container_id_);
+                    auto mem = cgroup_->getMemoryUsageMb(container_id_);
                     if (cpu.has_value()) {
                         state.cpu_usage_percent = cpu;
                     }
@@ -198,18 +198,18 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
                         state.memory_usage_mb = mem;
                     }
 
-                    if (containerPid_ > 0) {
-                        bool hadPrevious = prevNetValid;
-                        auto net =
-                            detail::parseProcNetDev(containerPid_, prevNetRx, prevNetTx, prevNetTime, prevNetValid);
-                        if (hadPrevious) {
-                            state.network_rx_bps = net.rxBps;
-                            state.network_tx_bps = net.txBps;
+                    if (container_pid_ > 0) {
+                        bool had_previous = prev_net_valid;
+                        auto net = detail::parseProcNetDev(container_pid_, prev_net_rx, prev_net_tx, prev_net_time,
+                                                           prev_net_valid);
+                        if (had_previous) {
+                            state.network_rx_bps = net.rx_bps;
+                            state.network_tx_bps = net.tx_bps;
                         }
                     }
                 } else {
                     try {
-                        auto stats = obs.getStats(containerId_);
+                        auto stats = obs.getStats(container_id_);
                         state.cpu_usage_percent = stats.cpu_percent;
                         state.memory_usage_mb = stats.memory_mb;
                         state.network_rx_bps = stats.network_rx_bps;
@@ -223,20 +223,21 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
             state_.updateMetrics(state);
             observer_.onStateUpdate(state);
 
-            if (auto timeSinceLastCheck = tick - lastContinuousCheck;
-                timeSinceLastCheck >= config_.continuousValidationInterval && !config_.continuousExpectations.empty()) {
-                lastContinuousCheck = tick;
+            if (auto time_since_last_check = tick - last_continuous_check;
+                time_since_last_check >= config_.continuousValidationInterval &&
+                !config_.continuous_expectations.empty()) {
+                last_continuous_check = tick;
 
                 std::vector<manifests::Expectation> continuous;
-                std::ranges::copy_if(config_.continuousExpectations, std::back_inserter(continuous),
+                std::ranges::copy_if(config_.continuous_expectations, std::back_inserter(continuous),
                                      [](const auto& e) { return e.continuous; });
 
                 if (!continuous.empty()) {
                     auto results = validation::validate(state_.latestState(), continuous);
                     for (const auto& r : results) {
                         if (!r.passed) {
-                            state_.addContinuousFailure(r.expectationType);
-                            SPDLOG_WARN("Continuous expectation '{}' failed", r.expectationType);
+                            state_.addContinuousFailure(r.expectation_type);
+                            SPDLOG_WARN("Continuous expectation '{}' failed", r.expectation_type);
                         }
                     }
                 }
@@ -260,11 +261,11 @@ void ObservationLoop::logsThreadFn(std::stop_token internal_stop, std::stop_toke
         auto tick = std::chrono::steady_clock::now();
 
         try {
-            auto rawLogs = obs.getLogs(containerId_);
-            std::vector<std::string> logLines;
-            observability::parseLogLines(rawLogs, logLines);
-            state_.updateLogs(logLines);
-            observer_.onLogsUpdate(logLines);
+            auto raw_logs = obs.getLogs(container_id_);
+            std::vector<std::string> log_lines;
+            observability::parseLogLines(raw_logs, log_lines);
+            state_.updateLogs(log_lines);
+            observer_.onLogsUpdate(log_lines);
         } catch (const std::exception& e) {
             SPDLOG_ERROR("Logs thread: unhandled exception — {}", e.what());
         }

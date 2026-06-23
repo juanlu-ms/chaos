@@ -21,7 +21,7 @@ namespace chaos::orchestrator::history {
  * @brief File-system-backed run history storage.
  *
  * Stores each run as <dir>/<id>.json. Maintains an in-memory summary cache
- * for fast listing. Retention capped at maxRuns (oldest by started_at_unix
+ * for fast listing. Retention capped at max_runs (oldest by started_at_unix
  * pruned on each save). Thread-safe via internal shared_mutex (concurrent
  * readers, exclusive writers).
  */
@@ -30,9 +30,9 @@ public:
     /**
      * @brief Construct with storage directory and retention cap.
      * @param dir Directory for run JSON files. Created if missing.
-     * @param maxRuns Maximum number of runs to retain.
+     * @param max_runs Maximum number of runs to retain.
      */
-    explicit FileRunHistory(std::filesystem::path dir, size_t maxRuns = 50);
+    explicit FileRunHistory(std::filesystem::path dir, size_t max_runs = 50);
 
     /**
      * @brief Persist a run record to a JSON file on disk.
@@ -72,7 +72,7 @@ private:
     void refreshCache();
 
     /**
-     * @brief Delete oldest runs until the cache size respects maxRuns_.
+     * @brief Delete oldest runs until the cache size respects max_runs_.
      */
     void prune();
 
@@ -82,7 +82,7 @@ private:
     static bool isValidRunFile(const std::filesystem::path& path);
 
     std::filesystem::path dir_;
-    size_t maxRuns_;
+    size_t max_runs_;
     std::vector<RunSummary> cache_;
     mutable std::shared_mutex mutex_;
 };

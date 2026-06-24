@@ -10,35 +10,38 @@ Right now, concurrency and error handling are robust, but it can leverage modern
 
     * The PerturbationEngine now uses `std::jthread` with `std::stop_token` for concurrent fault injection, with RAII join on destruction (no detached threads). The Web Server's run thread also uses `std::jthread` instead of `std::thread::detach()`, guaranteeing thread completion before `Server` destruction.
 
-* **Adopt std::expected for Error Handling:**
+* **Adopt std::expected for Error Handling:** (Low priority — deferred indefinitely)
 
     * Current State: It is using try-catch blocks for control flow (e.g., catching ContainerEngineError).
 
     * The Improvement: C++23 introduced std::expected<T, E>. Exceptions should be for truly exceptional, unrecoverable crashes. For expected failures (like a network timeout to the Docker API or a missing container), returning std::expected<TargetState, ErrorCode> makes the control flow predictable, avoids the performance overhead of stack-unwinding during exceptions, and forces the caller to handle the error at compile time.
+
+    * Status: Low-impact refactor on a working codebase with a single exception hierarchy. The ergonomic and compile-time correctness gains don't justify the churn. Revisit if the codebase grows multiple error origins or a second container backend.
 
 
 ## 2. Architectural Refinements
 
 As system grows, preventing class bloat and tight coupling will be biggest challenge.
 
-* **Interface Segregation Principle (ISP) for Docker:**
-    * Current State: IContainerEngine handles listing containers, killing them, stopping them, observing metrics, and updating resources.
+* **Interface Segregation Principle (ISP) for Docker:** (Low priority — deferred indefinitely)
+
+    * Current State: IContainerEngine handles listing containers, killing them, stopping them, observing metrics, and updating resources (18 methods).
+
     * The Improvement: Break this massive interface down. Create IResourceLimiter (for CPU/RAM), ILifecycleManager (for Stop/Kill), and ITelemetryProvider (for Observation). This ensures that the ObservabilityEngine only has access to telemetry methods, preventing it from accidentally killing a container.
 
-* **State Machine for Container Lifecycle:**
-    * Current State: Container states ("running", "exited") are likely handled as strings.
-    * The Improvement: Use C++ std::variant and std::visit to build a strict finite state machine (FSM). This guarantees at compile-time that you cannot apply a MemoryCapPerturbation to a container that is currently in an Exited state.
+    * Status: Splitting adds indirection with marginal safety gain since there is only one implementation (DockerClient). The current interface is well-understood and tested. Revisit when a second backend (e.g., Kubernetes) is added and the consumer separation becomes meaningful.
 
-* **Expanded Fault Library:** 
-    * Extending the `PerturbationFactory` to include more complex, infrastructure-level disruptions, such as Disk I/O throttling (`BlkioWeight`), packet corruption, and simulated network partitions. This will require implementing new classes that adhere to the `IPerturbation` interface and updating the manifest schema to support these new fault types.
+* **Expanded Fault Library (Disk I/O Throttling):**
+
+    * Extending the `PerturbationFactory` to include disk I/O disruptions, such as block I/O throttling (`BlkioWeight` via cgroups) and simulated disk failures (e.g., making `write()` return `ENOSPC` inside the container namespace). This will require implementing new classes that adhere to the `IPerturbation` interface and updating the manifest schema to support these new fault types.
 
 ## 3. Advanced SRE / Chaos Features
 
 To compete with tools like Chaos Mesh or Gremlin, CHAOS needs to expand its blast radius and fault library.
 
-* **Advanced Network Chaos (NetEm):**
-    * The Docker API can limit CPU and RAM, but it cannot inject network latency, packet corruption, or simulate dropped packets (at least not tested with real-world scenarios).
-    * The Improvement: Implement a mechanism to inject tc (Traffic Control) and netem rules directly into the target container's network namespace (nsenter). This is the holy grail of chaos engineering and will allow you to simulate degraded networks, not just dead ones.
+* **Advanced Network Chaos (NetEm):** ✅ **IMPLEMENTED**
+
+    * Three `tc netem`-based perturbations (`network_delay`, `traffic_corruption`) and one `iptables`-based perturbation (`network_cutoff`) inject latency, packet loss, corruption, duplication, and traffic blocking directly into the target container's network namespace via `nsenter`. A fifth perturbation (`packet_flood`) uses `AF_PACKET` raw sockets via `setns()` for packet flooding. All are instantiated through `PerturbationFactory`.
 
 * **Blast Radius Controls & Dry-Run Mode:**
     * In production, chaos tools need safety nets. Implement a --dry-run flag that parses the manifest, verifies the target exists, calculates the required memory/CPU, but doesn't actually execute the fault. Add a "max targets" limit to prevent a regex from accidentally taking down 100 containers instead of 1.
@@ -84,3 +87,17 @@ While the current architecture brilliantly uses the Docker API to apply constrai
 ## 7. Run History ✅ IMPLEMENTED
 
 Run history persistence is implemented. Every completed or aborted run is saved to disk as a JSON file with full time-series data, manifest, and validation results. The Web UI has a History button for browsing and replaying past runs. The CLI has `chaos history` and `chaos history <id>` commands with `--json` output support.
+
+## 8. Kubernetes Backend
+
+The only `IContainerEngine` implementation today is `DockerClient`. To expand the blast radius to production Kubernetes clusters, a second engine backend is needed.
+
+* **The Improvement:** Implement a `KubernetesEngine` (or `K8sEngine`) class that satisfies the `IContainerEngine` interface using the Kubernetes API. Target pods by label selector, inject faults into individual containers within a pod, and respect pod lifecycle (e.g., avoid killing the only replica of a Deployment without explicit opt-in).
+
+* **Scope:** Start with a read-only `/api/targets` equivalent (list pods in a namespace matching a label selector), then add the perturbation primitives (kill pod, inject network chaos via ephemeral debug containers, resource limits via `kubectl set resources`). The existing manifest schema and `PerturbationFactory` require no changes — only the transport layer needs a new backend.
+
+## 9. Web UI Authentication & API Key
+
+The Web UI currently has no authentication mechanism, making it unsuitable for multi-user or production deployments.
+
+* **The Improvement:** Add an optional API key (`CHAOS_API_KEY` env var or `--api-key` flag) that gatekeeps all `/api/*` endpoints via middleware. Unauthenticated requests receive 401. The frontend prompts for the key on first connection and stores it in session storage.

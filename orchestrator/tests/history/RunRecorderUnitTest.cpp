@@ -35,6 +35,9 @@ static TargetState makeState() {
     return s;
 }
 
+/**
+ * @test Verifies samples are accumulated with correct CPU and memory values, and timestamps increase.
+ */
 TEST(RunRecorderTest, SampleAccumulation) {
     RunRecorder recorder(makeManifest());
     auto s1 = makeState();
@@ -60,6 +63,9 @@ TEST(RunRecorderTest, SampleAccumulation) {
     EXPECT_GT(record.samples[1].t, record.samples[0].t);
 }
 
+/**
+ * @test Verifies phase changes are stamped on subsequent samples.
+ */
 TEST(RunRecorderTest, PhaseStamping) {
     RunRecorder recorder(makeManifest());
     recorder.onStateUpdate(makeState());
@@ -72,6 +78,9 @@ TEST(RunRecorderTest, PhaseStamping) {
     EXPECT_EQ(record.samples[1].phase, "chaos");
 }
 
+/**
+ * @test Verifies zone boundary timestamps are set with correct chronological ordering.
+ */
 TEST(RunRecorderTest, ZoneBoundaryTimestamps) {
     RunRecorder recorder(makeManifest());
     recorder.onPhaseChange("chaos");
@@ -82,6 +91,9 @@ TEST(RunRecorderTest, ZoneBoundaryTimestamps) {
     EXPECT_GT(record.summary.chaos_end_t, record.summary.normal_end_t);
 }
 
+/**
+ * @test Verifies network latency updates are stamped on samples.
+ */
 TEST(RunRecorderTest, LatencyStamping) {
     RunRecorder recorder(makeManifest());
     recorder.onNetworkLatencyUpdate(5.0);
@@ -93,6 +105,9 @@ TEST(RunRecorderTest, LatencyStamping) {
     EXPECT_DOUBLE_EQ(*record.samples[0].network_latency_ms, 5.0);
 }
 
+/**
+ * @test Verifies subsequent log updates replace previous logs (last-write-wins).
+ */
 TEST(RunRecorderTest, LogsReplaceSemantics) {
     RunRecorder recorder(makeManifest());
     recorder.onLogsUpdate({"a", "b"});
@@ -103,6 +118,9 @@ TEST(RunRecorderTest, LogsReplaceSemantics) {
     EXPECT_EQ(record.logs[0], "c");
 }
 
+/**
+ * @test Verifies finalize with "completed" status produces correct summary fields.
+ */
 TEST(RunRecorderTest, FinalizeCompleted) {
     RunRecorder recorder(makeManifest());
     RunRecord record = recorder.finalize(RunResult{}, "completed", "");
@@ -110,6 +128,9 @@ TEST(RunRecorderTest, FinalizeCompleted) {
     EXPECT_TRUE(record.summary.error.empty());
 }
 
+/**
+ * @test Verifies finalize with error status and message produces correct summary.
+ */
 TEST(RunRecorderTest, FinalizeError) {
     RunRecorder recorder(makeManifest());
     RunRecord record = recorder.finalize(RunResult{}, "error", "something broke");
@@ -117,6 +138,9 @@ TEST(RunRecorderTest, FinalizeError) {
     EXPECT_EQ(record.summary.error, "something broke");
 }
 
+/**
+ * @test Verifies finalize copies all fields from RunResult into the record summary.
+ */
 TEST(RunRecorderTest, FinalizeCopiesRunResult) {
     RunRecorder recorder(makeManifest());
     RunResult rr;
@@ -134,6 +158,9 @@ TEST(RunRecorderTest, FinalizeCopiesRunResult) {
     EXPECT_EQ(record.summary.run_result.started_at, "2024-01-01T00:00:00Z");
 }
 
+/**
+ * @test Verifies perturbation types are extracted from the manifest into the record summary.
+ */
 TEST(RunRecorderTest, PerturbationTypesExtracted) {
     ChaosManifest m;
     m.test_name = "test";
@@ -152,6 +179,9 @@ TEST(RunRecorderTest, PerturbationTypesExtracted) {
     EXPECT_EQ(record.summary.perturbation_types[1], "kill");
 }
 
+/**
+ * @test Verifies the generated run ID starts with "run-" followed by digits.
+ */
 TEST(RunRecorderTest, IdFormat) {
     RunRecorder recorder(makeManifest());
     RunRecord record = recorder.finalize(RunResult{}, "completed", "");

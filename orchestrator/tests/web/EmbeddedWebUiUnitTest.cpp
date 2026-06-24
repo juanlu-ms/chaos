@@ -78,6 +78,9 @@ protected:
 
 #ifdef CHAOS_HAVE_EMBEDDED_WEB_UI
 
+/**
+ * @test Verifies GET / returns 200 with the React root div.
+ */
 TEST_F(EmbeddedWebUiTest, RootReturnsIndexHtml) {
     startServer();
 
@@ -87,6 +90,9 @@ TEST_F(EmbeddedWebUiTest, RootReturnsIndexHtml) {
     EXPECT_NE(res->body.find("<div id=\"root\">"), std::string::npos);
 }
 
+/**
+ * @test Verifies GET /index.html returns 200 with valid HTML content.
+ */
 TEST_F(EmbeddedWebUiTest, IndexHtmlReturns200) {
     startServer();
 
@@ -96,6 +102,9 @@ TEST_F(EmbeddedWebUiTest, IndexHtmlReturns200) {
     EXPECT_NE(res->body.find("<html"), std::string::npos);
 }
 
+/**
+ * @test Verifies GET for an unknown asset path returns 404.
+ */
 TEST_F(EmbeddedWebUiTest, UnknownAssetReturns404) {
     startServer();
 
@@ -104,6 +113,9 @@ TEST_F(EmbeddedWebUiTest, UnknownAssetReturns404) {
     EXPECT_EQ(res->status, 404);
 }
 
+/**
+ * @test Verifies GET /api/status still returns 200 when the embedded UI is enabled.
+ */
 TEST_F(EmbeddedWebUiTest, ApiStatusStillWorks) {
     startServer();
 
@@ -114,6 +126,9 @@ TEST_F(EmbeddedWebUiTest, ApiStatusStillWorks) {
 
 #else
 
+/**
+ * @test Verifies the test suite skips gracefully when the embedded UI is not compiled in.
+ */
 TEST_F(EmbeddedWebUiTest, SkippedNoEmbeddedUi) {
     GTEST_SKIP() << "CHAOS_HAVE_EMBEDDED_WEB_UI not defined — skipping embedded UI tests";
 }

@@ -56,6 +56,7 @@ public:
     }
 };
 
+#ifdef CHAOS_HAVE_EMBEDDED_WEB_UI
 std::string_view mimeForExtension(std::string_view path) {
     auto const pos = path.rfind('.');
     if (pos == std::string_view::npos) return "application/octet-stream";
@@ -77,6 +78,7 @@ std::string_view mimeForExtension(std::string_view path) {
     if (ext == ".map") return "application/json; charset=utf-8";
     return "application/octet-stream";
 }
+#endif
 
 void finalizeSession(const std::shared_ptr<core::RunSession>& session, json result, std::string error) {
     std::lock_guard lock(session->mtx);

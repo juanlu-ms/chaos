@@ -39,9 +39,10 @@ export default function HistoryView({ onOpenRun, onBack }) {
     e.stopPropagation();
     try {
       await deleteHistoryRun(id);
-      fetchList();
     } catch (err) {
       setError(err.message);
+    } finally {
+      fetchList();
     }
   };
 
@@ -53,6 +54,11 @@ export default function HistoryView({ onOpenRun, onBack }) {
     } catch (err) {
       setError(err.message);
     }
+  };
+
+  const formatRunId = (id) => {
+    if (!id) return '\u2014';
+    return id.startsWith('run-') ? id.slice(4) : id;
   };
 
   const formatDate = (unixMs) => {
@@ -87,6 +93,7 @@ export default function HistoryView({ onOpenRun, onBack }) {
             <tr>
               <th>Date/Time</th>
               <th>Test</th>
+              <th>Run ID</th>
               <th>Target</th>
               <th>Duration</th>
               <th>Status</th>
@@ -98,13 +105,14 @@ export default function HistoryView({ onOpenRun, onBack }) {
             {runs.map((r) => (
               <tr key={r.id} className="history-row" onClick={() => handleRowClick(r.id)}>
                 <td>{formatDate(r.started_at_unix)}</td>
-                <td>{r.run_result?.manifest_name || r.runResult?.manifest_name || '\u2014'}</td>
-                <td title={r.run_result?.target_id || r.runResult?.target_id}>{shortId(r.run_result?.target_id || r.runResult?.target_id || '')}</td>
-                <td>{(r.run_result?.duration_s || r.runResult?.duration_s || 0).toFixed(1)}s</td>
+                <td>{r.manifest_name || '\u2014'}</td>
+                <td title={r.id}>{formatRunId(r.id)}</td>
+                <td title={r.target_id}>{shortId(r.target_id || '')}</td>
+                <td>{(r.duration_s || 0).toFixed(1)}s</td>
                 <td>{r.status}</td>
                 <td>
-                  <span className={`tag ${(r.run_result?.passed || r.runResult?.passed) ? 'pass' : 'fail'}`}>
-                    {(r.run_result?.passed || r.runResult?.passed) ? 'Pass' : 'Fail'}
+                  <span className={`tag ${r.passed ? 'pass' : 'fail'}`}>
+                    {r.passed ? 'Pass' : 'Fail'}
                   </span>
                 </td>
                 <td>

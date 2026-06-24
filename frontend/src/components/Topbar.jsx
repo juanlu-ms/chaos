@@ -31,9 +31,10 @@ export default function Topbar({
 
       <div className="steps" role="tablist" aria-label="Workflow steps">
         {tabs.map((t) => {
-          const isActive = currentStep === t.n;
+          const isActive = !historyActive && currentStep === t.n;
           // While a run is active, only the Monitor tab is reachable.
-          const disabled = runActive && t.n !== 2;
+          // When history is active, all step tabs are disabled.
+          const disabled = historyActive || (runActive && t.n !== 2);
           return (
             <button
               key={t.n}

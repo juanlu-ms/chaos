@@ -1,7 +1,13 @@
 export function historyRecordToResult(recordJson) {
   const summary = recordJson.summary || {};
   const runResult = summary.run_result || summary.runResult || summary;
-  const manifest = recordJson.manifest || {};
+  const rawManifest = recordJson.manifest || {};
+
+  if (rawManifest.target_id && !rawManifest.target) {
+    rawManifest.target = { id: rawManifest.target_id };
+  }
+
+  const manifest = rawManifest;
 
   const samples = recordJson.samples || [];
   const data = samples.map((s) => ({

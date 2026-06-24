@@ -7,7 +7,6 @@
 
 #include <nlohmann/json.hpp>
 #include <optional>
-#include <string>
 
 namespace chaos::orchestrator::history {
 

@@ -66,19 +66,11 @@ public:
     void clear() override;
 
 private:
-    /**
-     * @brief Re-scan the storage directory and rebuild the summary cache.
-     */
+    // Re-scan the storage directory and rebuild the summary cache
     void refreshCache();
-
-    /**
-     * @brief Delete oldest runs until the cache size respects max_runs_.
-     */
+    // Delete oldest runs until the cache size respects max_runs_
     void prune();
-
-    /**
-     * @brief Check whether a file path matches the run file naming convention.
-     */
+    // Check whether a file path matches the run file naming convention
     static bool isValidRunFile(const std::filesystem::path& path);
 
     std::filesystem::path dir_;

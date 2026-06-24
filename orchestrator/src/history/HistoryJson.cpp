@@ -33,7 +33,7 @@ nlohmann::json runRecordToJson(const RunRecord& record) {
     nlohmann::json j;
     j["summary"] = runSummaryToJson(record.summary);
     j["manifest"]["test_name"] = record.manifest.test_name;
-    j["manifest"]["target_id"] = record.manifest.target.id;
+    j["manifest"]["target"]["id"] = record.manifest.target.id;
     j["manifest"]["duration_s"] =
         record.manifest.duration_s.has_value() ? nlohmann::json(*record.manifest.duration_s) : nlohmann::json(nullptr);
     j["manifest"]["perturbations"] = nlohmann::json::array();
@@ -114,7 +114,13 @@ std::optional<RunRecord> runRecordFromJson(const nlohmann::json& j) {
         record.summary = std::move(*summary_opt);
         const auto& m = j.at("manifest");
         record.manifest.test_name = m.at("test_name").get<std::string>();
-        record.manifest.target.id = m.at("target_id").get<std::string>();
+        if (m.contains("target_id")) {
+            record.manifest.target.id = m.at("target_id").get<std::string>();
+        } else if (m.contains("target") && m.at("target").contains("id")) {
+            record.manifest.target.id = m.at("target").at("id").get<std::string>();
+        } else {
+            return std::nullopt;
+        }
         if (m.contains("duration_s") && !m.at("duration_s").is_null()) {
             record.manifest.duration_s = m.at("duration_s").get<uint32_t>();
         }

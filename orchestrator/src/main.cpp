@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <pwd.h>
 #include <span>
 #include <string>
 #include <string_view>
@@ -33,6 +34,16 @@ namespace {
 std::filesystem::path resolveHistoryDir() {
     if (const char* env = std::getenv("CHAOS_HISTORY_DIR")) {
         return std::filesystem::path(env);
+    }
+    if (const char* sudo_user = std::getenv("SUDO_USER")) {
+        const char* home = std::getenv("HOME");
+        if (!home || std::string_view(home) == "/root") {
+            if (struct passwd* pw = getpwnam(sudo_user)) {
+                if (pw->pw_dir && pw->pw_dir[0] != '\0') {
+                    return std::filesystem::path(pw->pw_dir) / ".chaos" / "history";
+                }
+            }
+        }
     }
     if (const char* home = std::getenv("HOME")) {
         return std::filesystem::path(home) / ".chaos" / "history";

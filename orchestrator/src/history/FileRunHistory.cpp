@@ -23,11 +23,21 @@ void FileRunHistory::save(const RunRecord& record) {
 
     auto j = runRecordToJson(record);
     auto filepath = dir_ / (record.summary.id + ".json");
+
     {
         std::ofstream file(filepath);
+        if (!file) {
+            SPDLOG_ERROR("History: failed to open {} for writing", filepath.string());
+            return;
+        }
         file << j.dump();
+        if (!file.good()) {
+            SPDLOG_ERROR("History: failed to write {}", filepath.string());
+            return;
+        }
     }
 
+    SPDLOG_INFO("History: saved {}", record.summary.id);
     refreshCache();
     prune();
 }
@@ -65,6 +75,8 @@ bool FileRunHistory::remove(const std::string& id) {
 
     std::filesystem::remove(filepath);
 
+    SPDLOG_INFO("History: removed {}", id);
+
     auto iter = std::ranges::find_if(cache_, [&id](const RunSummary& sum) { return sum.id == id; });
     if (iter != cache_.end()) {
         cache_.erase(iter);
@@ -78,6 +90,7 @@ void FileRunHistory::clear() {
     for (const auto& summary : cache_) {
         std::filesystem::remove(dir_ / (summary.id + ".json"));
     }
+    SPDLOG_INFO("History: cleared {} run(s)", cache_.size());
     cache_.clear();
 }
 

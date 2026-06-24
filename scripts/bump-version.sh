@@ -59,4 +59,15 @@ echo "Bumping frontend: $FRONTEND_CURRENT -> $FRONTEND_NEXT ($BUMP)"
 
 bump_in_file "$ROOT_DIR/frontend/package.json" "$FRONTEND_CURRENT" "$FRONTEND_NEXT"
 
-echo "Done."
+git -C "$ROOT_DIR" add \
+  CMakeLists.txt \
+  vcpkg.json \
+  frontend/package.json
+
+git -C "$ROOT_DIR" commit -m "Bump version to $NEXT"
+
+git -C "$ROOT_DIR" tag -a "v$NEXT" -m "v$NEXT"
+
+git -C "$ROOT_DIR" push --follow-tags
+
+echo "Done. Committed, tagged v$NEXT, and pushed."

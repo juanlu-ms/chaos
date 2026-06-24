@@ -4,6 +4,7 @@
  */
 
 #include <fmt/format.h>
+#include <pwd.h>
 #include <spdlog/spdlog.h>
 
 #include <charconv>
@@ -12,7 +13,6 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
-#include <pwd.h>
 #include <span>
 #include <string>
 #include <string_view>

@@ -5,17 +5,6 @@ The tool supports multiple user interfaces—a Command Line Interface (CLI) and 
 
 ---
 
-## Project Origins & Initial Goals (The PID 1 Wrapper)
-
-The inception of the CHAOS project was rooted in testing internal application recovery mechanisms, specifically focusing on process lifecycle management inside the container. 
-
-* **The PID 1 Wrapper:** Initially, a core goal was to evaluate how a system handles sudden, traumatic failures (like a SIGKILL or an Out-Of-Memory/OOM event). To achieve this, the project explored the use of a custom **PID 1 Wrapper** deployed inside the target containers. 
-* **Purpose of the Wrapper:** In Linux, PID 1 is the `init` process, responsible for handling signals and reaping orphan child processes. The wrapper was designed to intercept operating system signals, manage the main application process, and attempt to safely recover or restart the application after a crash.
-* **Data Resilience Testing:** The primary metric for success at this stage was assessing "in-flight" data resilience: verifying whether the wrapper and the system could prevent the loss of transactions or the corruption of files when the container's main process was abruptly killed or asphyxiated by memory limits. 
-* **Evolution:** As the project matured, it expanded from internal process monitoring (the wrapper) into a broader, infrastructure-level orchestrator capable of stressing external container boundaries (cgroups) and validating the results automatically.
-
----
-
 ## Core Architecture & Components
 
 The system is designed using SOLID principles, enforcing strict separation of concerns through various architectural patterns.

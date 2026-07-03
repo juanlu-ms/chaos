@@ -27,7 +27,6 @@ file(GLOB_RECURSE ALL_SOURCE_FILES
     ${CMAKE_SOURCE_DIR}/orchestrator/src/*.hpp
     ${CMAKE_SOURCE_DIR}/orchestrator/include/*.hpp
     ${CMAKE_SOURCE_DIR}/orchestrator/tests/*.cpp
-    ${CMAKE_SOURCE_DIR}/wrapper/src/*.cpp
     ${CMAKE_SOURCE_DIR}/tests/e2e/*.cpp
     ${CMAKE_SOURCE_DIR}/examples/*.cpp
 )
@@ -86,7 +85,6 @@ if(CHAOS_ENABLE_COVERAGE)
     target_link_options(chaos_quality_flags INTERFACE -fprofile-instr-generate -fcoverage-mapping)
 endif()
 
-add_subdirectory(wrapper)
 add_subdirectory(orchestrator)
 add_subdirectory(tests/e2e)
 

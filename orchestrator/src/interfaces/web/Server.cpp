@@ -97,7 +97,7 @@ Server::Server(std::shared_ptr<containers::IContainerEngine> engine, std::shared
                std::optional<std::string> otlp_endpoint)
     : engine_(std::move(engine)),
       history_(std::move(history)),
-      runner_(engine_),
+      service(engine_),
       otlp_endpoint_(std::move(otlp_endpoint)) {
     setupRoutes();
 }
@@ -279,8 +279,8 @@ void Server::executeRunAsync(manifests::ChaosManifest manifest, std::shared_ptr<
             core::ObservationLoop obs_loop(engine, manifest.target.id, session->state, composite, loop_config);
             obs_loop.start(token);
 
-            core::RunOrchestrator orchestrator(runner_);
-            auto perturbation_instances = runner_.buildPerturbations(manifest);
+            core::RunOrchestrator orchestrator(service);
+            auto perturbation_instances = service.buildPerturbations(manifest);
             auto run_result =
                 orchestrator.run(manifest, session->state, composite, std::move(perturbation_instances), token);
 

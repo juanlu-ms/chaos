@@ -8,7 +8,6 @@
 #include <string_view>
 #include <vector>
 
-#include "core/RunResult.hpp"
 #include "core/TargetState.hpp"
 
 namespace chaos::orchestrator::core {

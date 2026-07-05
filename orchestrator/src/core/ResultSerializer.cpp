@@ -5,7 +5,7 @@
 
 #include "core/ResultSerializer.hpp"
 
-#include "core/ChaosRunner.hpp"
+#include "core/ChaosService.hpp"
 #include "validation/ValidationResult.hpp"
 
 namespace chaos::orchestrator::core {

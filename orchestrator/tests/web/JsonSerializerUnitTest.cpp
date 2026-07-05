@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "core/ChaosRunner.hpp"
+#include "core/ChaosService.hpp"
 #include "core/ResultSerializer.hpp"
 #include "interfaces/web/JsonSerializer.hpp"
 #include "observability/ObservabilityEngine.hpp"

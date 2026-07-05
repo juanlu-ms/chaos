@@ -65,7 +65,7 @@ public:
 
     /**
      * @brief Build the final RunRecord and return it.
-     * @param run_result The run result from ChaosRunner.
+     * @param run_result The run result from ChaosService.
      * @param status "completed", "aborted", or "error".
      * @param error Error message if status is "error".
      * @return The complete RunRecord with all accumulated data.

@@ -1,5 +1,5 @@
 /**
- * @file ChaosRunner.hpp
+ * @file ChaosService.hpp
  * @brief Orchestrates chaos test lifecycle: manifest parsing, perturbation
  * construction, and expectation validation.
  */
@@ -14,7 +14,6 @@
 #include "core/TargetState.hpp"
 #include "manifests/Manifest.hpp"
 #include "perturbations/IPerturbation.hpp"
-#include "validation/ValidationResult.hpp"
 
 namespace chaos::orchestrator::containers {
 class IContainerEngine;
@@ -28,17 +27,17 @@ namespace chaos::orchestrator::core {
  * Used by both the CLI and Server adapters to avoid duplicating
  * manifest parsing, perturbation construction, and validation logic.
  */
-class ChaosRunner {
+class ChaosService {
 public:
     /**
-     * @brief Construct a ChaosRunner with a container engine backend.
+     * @brief Construct a ChaosService with a container engine backend.
      * @param engine Shared pointer to the container engine implementation.
      */
-    explicit ChaosRunner(std::shared_ptr<containers::IContainerEngine> engine);
-    ~ChaosRunner() = default;
+    explicit ChaosService(std::shared_ptr<containers::IContainerEngine> engine);
+    ~ChaosService() = default;
 
-    ChaosRunner(const ChaosRunner&) = delete;
-    ChaosRunner& operator=(const ChaosRunner&) = delete;
+    ChaosService(const ChaosService&) = delete;
+    ChaosService& operator=(const ChaosService&) = delete;
 
     /**
      * @brief Build perturbation instances from a manifest.

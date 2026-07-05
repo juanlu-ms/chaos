@@ -9,7 +9,7 @@
 #include <stop_token>
 #include <vector>
 
-#include "core/ChaosRunner.hpp"
+#include "core/ChaosService.hpp"
 #include "core/IRunObserver.hpp"
 #include "core/SharedState.hpp"
 #include "manifests/Manifest.hpp"
@@ -22,7 +22,7 @@ namespace chaos::orchestrator::core {
  *
  * Blocks the calling thread for the full duration. Reads the latest state from
  * SharedState at finalization. Creates a local PerturbationEngine for the chaos
- * phase. Calls IRunObserver for phase transitions and ChaosRunner::finalize()
+ * phase. Calls IRunObserver for phase transitions and ChaosService::finalize()
  * for validation.
  *
  * Does NOT observe — observation is handled by ObservationLoop running
@@ -32,9 +32,9 @@ class RunOrchestrator {
 public:
     /**
      * @brief Construct a RunOrchestrator.
-     * @param runner Reference to the ChaosRunner used for validation.
+     * @param service Reference to the ChaosService used for validation.
      */
-    explicit RunOrchestrator(const ChaosRunner& runner);
+    explicit RunOrchestrator(const ChaosService& service);
 
     /**
      * @brief Execute a complete run lifecycle.
@@ -50,7 +50,7 @@ public:
                                 std::stop_token external_stop = {});
 
 private:
-    const ChaosRunner& runner_;
+    const ChaosService& service_;
 };
 
 }  // namespace chaos::orchestrator::core

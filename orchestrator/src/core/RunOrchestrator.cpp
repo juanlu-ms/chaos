@@ -27,7 +27,7 @@ namespace {
 
 }  // namespace
 
-RunOrchestrator::RunOrchestrator(const ChaosRunner& runner) : runner_(runner) {}
+RunOrchestrator::RunOrchestrator(const ChaosService& service) : service_(service) {}
 
 RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedState& state, IRunObserver& observer,
                                std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations,
@@ -77,7 +77,7 @@ RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedS
     auto failures = state.continuousFailures();
     SPDLOG_INFO("Running final validation");
 
-    RunResult result = runner_.finalize(manifest, final_state, failures);
+    RunResult result = service_.finalize(manifest, final_state, failures);
     const auto steady_end = std::chrono::steady_clock::now();
     result.manifest_name = manifest.test_name;
     result.target_id = manifest.target.id;

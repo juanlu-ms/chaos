@@ -191,7 +191,7 @@ CliParser::CliParser(std::shared_ptr<containers::IContainerEngine> engine,
                      std::shared_ptr<history::IRunHistory> history, std::optional<std::string> otlp_endpoint)
     : engine_(std::move(engine)),
       history_(std::move(history)),
-      runner_(engine_),
+      service_(engine_),
       otlp_endpoint_(std::move(otlp_endpoint)) {}
 
 int CliParser::run(std::span<char*> argv) const {
@@ -354,10 +354,10 @@ int CliParser::handleRun(const std::string& manifest_path, const RunOptions& opt
     std::optional<history::RunRecorder> recorder;
     std::optional<observability::OtlpRunObserver> otlp_observer;
     try {
-        auto manifest = runner_.parseManifest(manifest_path);
+        auto manifest = service_.parseManifest(manifest_path);
         SPDLOG_INFO("Executing manifest '{}' against target '{}'", manifest.test_name, manifest.target.id);
 
-        auto perturbation_instances = runner_.buildPerturbations(manifest);
+        auto perturbation_instances = service_.buildPerturbations(manifest);
 
         core::SharedState state;
 
@@ -385,7 +385,7 @@ int CliParser::handleRun(const std::string& manifest_path, const RunOptions& opt
         core::ObservationLoop obs_loop(engine_, manifest.target.id, state, composite, loop_config);
         obs_loop.start(signal_guard.token());
 
-        core::RunOrchestrator orchestrator(runner_);
+        core::RunOrchestrator orchestrator(service_);
         auto run_result =
             orchestrator.run(manifest, state, composite, std::move(perturbation_instances), signal_guard.token());
         renderer.finish();

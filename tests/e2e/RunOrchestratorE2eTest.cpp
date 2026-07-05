@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "E2eTestBase.hpp"
-#include "core/ChaosRunner.hpp"
+#include "core/ChaosService.hpp"
 #include "core/IRunObserver.hpp"
 #include "core/ObservationLoop.hpp"
 #include "core/RunOrchestrator.hpp"
@@ -62,8 +62,8 @@ TEST_F(RunOrchestratorE2eTest, NoPerturbationsPassesRunningExpectation) {
     loop_config.logsInterval = std::chrono::milliseconds(2000);
     loop_config.continuous_expectations = manifest.expectations;
 
-    core::ChaosRunner runner(engine());
-    core::RunOrchestrator orchestrator(runner);
+    core::ChaosService service(engine());
+    core::RunOrchestrator orchestrator(service);
 
     {
         core::ObservationLoop obs_loop(engine(), manifest.target.id, state, observer, loop_config);

@@ -104,7 +104,7 @@ public:
      * Must be called exactly once, before the observer is destroyed.  Idempotency is
      * not guaranteed (the caller is expected to call it once).
      *
-     * @param result The finalized run result from ChaosRunner.
+     * @param result The finalized run result from ChaosService.
      * @return true if the OTLP backend acknowledged the export.
      */
     [[nodiscard]] bool finalize(const core::RunResult& result);

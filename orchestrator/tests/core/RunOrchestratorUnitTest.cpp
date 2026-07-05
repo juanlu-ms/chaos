@@ -39,8 +39,8 @@ public:
  */
 TEST(RunOrchestratorTest, RunWithNoDurationSkipsChaosPhase) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
-    ChaosRunner runner(engine);
-    RunOrchestrator orchestrator(runner);
+    ChaosService service(engine);
+    RunOrchestrator orchestrator(service);
 
     manifests::ChaosManifest manifest;
     manifest.test_name = "no-duration";
@@ -63,8 +63,8 @@ TEST(RunOrchestratorTest, RunWithNoDurationSkipsChaosPhase) {
  */
 TEST(RunOrchestratorTest, RunWithDurationEntersAllPhases) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
-    ChaosRunner runner(engine);
-    RunOrchestrator orchestrator(runner);
+    ChaosService service(engine);
+    RunOrchestrator orchestrator(service);
 
     manifests::ChaosManifest manifest;
     manifest.test_name = "quick-run";
@@ -89,8 +89,8 @@ TEST(RunOrchestratorTest, RunWithDurationEntersAllPhases) {
  */
 TEST(RunOrchestratorTest, ExternalStopCancelsEarly) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
-    ChaosRunner runner(engine);
-    RunOrchestrator orchestrator(runner);
+    ChaosService service(engine);
+    RunOrchestrator orchestrator(service);
 
     manifests::ChaosManifest manifest;
     manifest.test_name = "cancel-test";
@@ -128,8 +128,8 @@ TEST(RunOrchestratorTest, ExternalStopCancelsEarly) {
  */
 TEST(RunOrchestratorTest, ReadsContinuousFailuresFromSharedState) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
-    ChaosRunner runner(engine);
-    RunOrchestrator orchestrator(runner);
+    ChaosService service(engine);
+    RunOrchestrator orchestrator(service);
 
     manifests::ChaosManifest manifest;
     manifest.test_name = "continuous-fail";
@@ -154,8 +154,8 @@ TEST(RunOrchestratorTest, ReadsContinuousFailuresFromSharedState) {
  */
 TEST(RunOrchestratorTest, PopulatesRunMetadata) {
     auto engine = std::make_shared<tests::MockContainerEngine>();
-    ChaosRunner runner(engine);
-    RunOrchestrator orchestrator(runner);
+    ChaosService service(engine);
+    RunOrchestrator orchestrator(service);
 
     manifests::ChaosManifest manifest;
     manifest.test_name = "meta-test";

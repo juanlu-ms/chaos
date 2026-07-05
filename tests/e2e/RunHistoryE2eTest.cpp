@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "E2eTestBase.hpp"
-#include "core/ChaosRunner.hpp"
+#include "core/ChaosService.hpp"
 #include "core/CompositeRunObserver.hpp"
 #include "core/IRunObserver.hpp"
 #include "core/ObservationLoop.hpp"
@@ -83,8 +83,8 @@ TEST_F(RunHistoryE2eTest, FullRunSavesToHistory) {
     loop_config.logsInterval = std::chrono::milliseconds(2000);
     loop_config.continuous_expectations = manifest.expectations;
 
-    core::ChaosRunner runner(engine());
-    core::RunOrchestrator orchestrator(runner);
+    core::ChaosService service(engine());
+    core::RunOrchestrator orchestrator(service);
 
     {
         core::ObservationLoop obs_loop(engine(), manifest.target.id, state, composite, loop_config);

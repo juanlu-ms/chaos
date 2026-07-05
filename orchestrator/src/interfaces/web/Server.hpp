@@ -10,7 +10,7 @@
 #include <thread>
 
 #include "containers/IContainerEngine.hpp"
-#include "core/ChaosRunner.hpp"
+#include "core/ChaosService.hpp"
 #include "core/RunSession.hpp"
 #include "history/IRunHistory.hpp"
 
@@ -56,7 +56,7 @@ private:
     httplib::Server server_;
     std::shared_ptr<containers::IContainerEngine> engine_;
     std::shared_ptr<history::IRunHistory> history_;
-    core::ChaosRunner runner_;
+    core::ChaosService service;
     std::optional<std::string> otlp_endpoint_;
 
 #ifdef CHAOS_HAVE_EMBEDDED_WEB_UI

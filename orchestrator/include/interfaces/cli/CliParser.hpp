@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "containers/IContainerEngine.hpp"
-#include "core/ChaosRunner.hpp"
+#include "core/ChaosService.hpp"
 #include "history/IRunHistory.hpp"
 
 namespace chaos::orchestrator::interfaces::cli {
@@ -92,7 +92,7 @@ public:
 private:
     std::shared_ptr<containers::IContainerEngine> engine_;
     std::shared_ptr<history::IRunHistory> history_;
-    core::ChaosRunner runner_;
+    core::ChaosService service_;
     std::optional<std::string> otlp_endpoint_;
 
     void printUsage() const;

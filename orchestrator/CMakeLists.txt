@@ -139,7 +139,7 @@ set(ORCHESTRATOR_SOURCES
     src/validation/internal/LogValidation.cpp
     src/validation/internal/HttpValidation.cpp
     src/signals/SignalHandlerGuard.cpp
-    src/core/ChaosRunner.cpp
+    src/core/ChaosService.cpp
     src/core/CompositeRunObserver.cpp
     src/core/ObservationLoop.cpp
     src/core/ResultSerializer.cpp
@@ -190,7 +190,7 @@ add_executable(orchestrator_unit_tests
     tests/containers/internal/CgroupMetricsInternalUnitTest.cpp
     tests/containers/internal/DockerClientInternalUnitTest.cpp
     tests/containers/internal/DockerClientUnitTest.cpp
-    tests/core/ChaosRunnerUnitTest.cpp
+    tests/core/ChaosServiceUnitTest.cpp
     tests/core/CompositeRunObserverUnitTest.cpp
     tests/core/ObservationLoopInternalUnitTest.cpp
     tests/core/ObservationLoopUnitTest.cpp

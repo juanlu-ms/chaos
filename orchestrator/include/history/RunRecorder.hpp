@@ -29,6 +29,9 @@ public:
     /**
      * @brief Construct with the manifest to record.
      * @param manifest The chaos manifest (moved into the recorder).
+     *
+     * Stamps the run id ("run-<unix_ms>") and started_at_unix, and derives
+     * perturbation_types from the manifest's perturbation types.
      */
     explicit RunRecorder(manifests::ChaosManifest manifest);
 
@@ -70,8 +73,8 @@ public:
      * @param error Error message if status is "error".
      * @return The complete RunRecord with all accumulated data.
      *
-     * Stamps ended_at_unix, copies runResult into summary, derives
-     * perturbation_types from the manifest's perturbation types. Thread-safe.
+     * Stamps ended_at_unix, copies runResult, status and error into summary,
+     * and moves the accumulated samples and logs into the record. Thread-safe.
      */
     [[nodiscard]] RunRecord finalize(const core::RunResult& run_result, std::string status, std::string error);
 

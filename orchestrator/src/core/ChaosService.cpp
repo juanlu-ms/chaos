@@ -33,7 +33,7 @@ std::vector<std::unique_ptr<perturbations::IPerturbation>> ChaosService::buildPe
 }
 
 RunResult ChaosService::finalize(const manifests::ChaosManifest& manifest, const core::TargetState& final_state,
-                                const std::vector<std::string>& continuous_failures) const {
+                                 const std::vector<std::string>& continuous_failures) const {
     SPDLOG_DEBUG("Finalizing run with {} expectation(s)", manifest.expectations.size());
     if (manifest.expectations.empty()) {
         RunResult result;

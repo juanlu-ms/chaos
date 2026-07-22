@@ -8,7 +8,8 @@ Grab the latest `chaos` binary from [GitHub Releases](https://github.com/juanlu-
 
 ```bash
 chmod +x chaos
-sudo ./chaos help
+sudo mv chaos /usr/local/bin/   # put it on your PATH
+sudo chaos help
 ```
 
 ### Option B: Build from Source

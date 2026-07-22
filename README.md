@@ -4,12 +4,20 @@ CHAOS is a C++23 resilience validation tool for containerized systems. It inject
 
 ## Quick Start
 
-**Download a pre-built binary** from [GitHub Releases](https://github.com/juanlu-ms/chaos/releases), or build from source:
+**Recommended — download a pre-built binary** from [GitHub Releases](https://github.com/juanlu-ms/chaos/releases):
 
 ```bash
-# Build (see docs/DEVELOPMENT.md for prerequisites)
+chmod +x chaos
+sudo mv chaos /usr/local/bin/   # put it on your PATH
+sudo chaos help
+```
+
+**Alternative — build from source** (see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for prerequisites):
+
+```bash
 git submodule update --init --recursive
 cmake --preset dev-linux-clang && cmake --build --preset debug -- -j$(nproc)
+# Binary lands at build/dev-linux-clang/orchestrator/chaos
 ```
 
 ## Usage
@@ -24,7 +32,7 @@ Network perturbations require root. See the [User Guide](docs/USER_GUIDE.md) for
 
 ## Key Features
 
-- **6 perturbation types** — `cpu_cap`, `memory_cap`, `kill`, `network_delay`, `network_cutoff`, `packet_flood`, `traffic_corruption`
+- **7 perturbation types** — `cpu_cap`, `memory_cap`, `kill`, `network_delay`, `network_cutoff`, `packet_flood`, `traffic_corruption`
 - **6 expectation types** — container state, log contents, HTTP status, and latency assertions with continuous validation
 - **Concurrent execution** — perturbations run on `std::jthread` with `std::stop_token` for thread-safe cancellation and RAII join
 - **Web UI** — dark-themed 3-step SPA (Configure → Monitor → Results) with live Recharts charts via SSE

@@ -1,5 +1,5 @@
 {
-  "test_name": "MediWatch — Memory Cap (Fuga de Memoria)",
+  "test_name": "MediWatch - Memory Cap (Fuga de Memoria)",
   "target": {
     "id": "chaos-demo-api"
   },

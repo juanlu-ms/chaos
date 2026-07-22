@@ -1,5 +1,5 @@
 {
-  "test_name": "GameGrid — Ataque DDoS (packet_flood + traffic_corruption)",
+  "test_name": "GameGrid - Ataque DDoS (packet_flood + traffic_corruption)",
   "target": {
     "id": "chaos-demo-api"
   },

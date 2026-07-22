@@ -1,5 +1,5 @@
 {
-  "test_name": "PayFlow — Latencia en Cascada (network_delay + cpu_cap)",
+  "test_name": "PayFlow - Latencia en Cascada (network_delay + cpu_cap)",
   "target": {
     "id": "chaos-demo-api"
   },

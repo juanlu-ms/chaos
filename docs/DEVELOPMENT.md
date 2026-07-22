@@ -4,7 +4,7 @@
 
 - **Compiler:** Clang 18 (or GCC 14+ with `libstdc++-14`)
 - **Build:** CMake 3.24+, Ninja
-- **Package manager:** vcpkg (fetched automatically; initial setup requires `git submodule update --init --recursive`)
+- **Package manager:** vcpkg in manifest mode — set `VCPKG_ROOT` to your vcpkg checkout (dependencies are declared in `vcpkg.json`)
 - **Frontend (optional):** pnpm 9+, Node.js 24+
 
 On Ubuntu 24.04:
@@ -15,8 +15,11 @@ sudo apt-get install clang-18 lld-18 libstdc++-14-dev ninja-build
 
 ## First-time Setup
 
+Point `VCPKG_ROOT` at your vcpkg checkout; the CMake presets pick it up as the
+toolchain file and install the manifest dependencies on first configure:
+
 ```bash
-git submodule update --init --recursive   # fetch vcpkg
+export VCPKG_ROOT=/path/to/vcpkg
 ```
 
 ## Building from Source

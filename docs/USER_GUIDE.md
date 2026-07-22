@@ -113,7 +113,7 @@ The Web UI has a 3-step flow:
 2. **Monitor** — watch live line charts (CPU, Memory, Network I/O), container info, and logs update in real time via SSE. Click **Abort** to stop
 3. **Results** — summary stats, timeline charts with Normal/Chaos/Recovery color zones, expectation validation results, run logs. Click **Run Again** or **Modify Manifest**
 
-Switch themes (Amber / Dark / Cyber) from the topbar dropdown. Your preference is saved to localStorage.
+Switch between 11 built-in themes (Amber — the default — Dark, Cyber, Light, Matrix, Synthwave, Solarized, One Dark, Tokyo Night, Nord, Catppuccin) from the topbar dropdown. Your preference is saved to localStorage.
 
 ### API Endpoints
 

@@ -15,7 +15,7 @@ sudo chaos help
 **Alternative — build from source** (see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for prerequisites):
 
 ```bash
-git submodule update --init --recursive
+export VCPKG_ROOT=/path/to/vcpkg   # dependencies use vcpkg (manifest mode)
 cmake --preset dev-linux-clang && cmake --build --preset debug -- -j$(nproc)
 # Binary lands at build/dev-linux-clang/orchestrator/chaos
 ```
@@ -35,7 +35,7 @@ Network perturbations require root. See the [User Guide](docs/USER_GUIDE.md) for
 - **7 perturbation types** — `cpu_cap`, `memory_cap`, `kill`, `network_delay`, `network_cutoff`, `packet_flood`, `traffic_corruption`
 - **6 expectation types** — container state, log contents, HTTP status, and latency assertions with continuous validation
 - **Concurrent execution** — perturbations run on `std::jthread` with `std::stop_token` for thread-safe cancellation and RAII join
-- **Web UI** — dark-themed 3-step SPA (Configure → Monitor → Results) with live Recharts charts via SSE
+- **Web UI** — themable 3-step SPA (Configure → Monitor → Results) with 11 built-in themes and live Recharts charts via SSE
 - **Run history** — automatic persistence of runs with time-series data, browseable and replayable via Web UI or CLI
 - **OpenTelemetry export** — optional OTLP Log export to Grafana, Datadog, etc.
 - **Graceful interruption** — SIGINT reverts all applied faults before exit

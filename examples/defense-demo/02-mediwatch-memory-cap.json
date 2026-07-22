@@ -14,7 +14,8 @@
   ],
   "expectations": [
     {
-      "type": "container_not_running"
+      "type": "container_not_running",
+      "continuous": false
     },
     {
       "type": "http_status",

@@ -17,7 +17,7 @@ El servidor API expone `/call-downstream` que internamente realiza una peticion 
 
 **Narrativa:** Una empresa de telemedicina despliega monitores de pacientes en dispositivos edge (Raspberry Pi) en una UCI. En desarrollo, las pruebas pasan con 32GB de RAM. En produccion, los dispositivos tienen 512MB y el sistema se reinicia aleatoriamente tras 8 horas de funcionamiento.
 
-**Manifiesto:** `examples/defense-demo/01-mediwatch-memory-cap.json`
+**Manifiesto:** `examples/defense-demo/02-mediwatch-memory-cap.json`
 
 ```json
 {
@@ -68,7 +68,7 @@ Su aplicacion tiene una fuga de memoria invisible en entornos de desarrollo con 
 
 **Narrativa:** Una pasarela de pagos (PayFlow) llama a un servicio externo de deteccion de fraude via HTTP. En staging muestra 99.9% de disponibilidad. Durante el Black Friday las transacciones empiezan a caducar sin que ningun servicio aparezca como "caido". El contenedor esta `running` pero el sistema no funciona.
 
-**Manifiesto:** `examples/defense-demo/02-payflow-cascade.json`
+**Manifiesto:** `examples/defense-demo/03-payflow-cascade.json`
 
 ```json
 {
@@ -147,7 +147,7 @@ Su API no tiene timeout configurado en la llamada HTTP saliente al servicio de f
 
 **Narrativa:** Una empresa de videojuegos (GameGrid) opera servidores multijugador que mantienen un bucle de actualizacion constante (ticks). Cada fin de semana de lanzamiento, los servidores colapsan bajo la carga de jugadores. Pero sus pruebas de carga muestran que pueden manejar 10k conexiones simultaneas. ¿Que cambia en produccion?
 
-**Manifiesto:** `examples/defense-demo/03-gamegrid-flood.json`
+**Manifiesto:** `examples/defense-demo/01-gamegrid-flood.json`
 
 ```json
 {
@@ -197,16 +197,16 @@ Su API no tiene timeout configurado en la llamada HTTP saliente al servicio de f
 - La CPU se dispara por el procesamiento de interrupciones de red y la construccion de respuestas TCP
 - El 10% de perdida + 10% de corrupcion hacen que las conexiones TCP legitimas fallen o requieran retransmisiones
 - El 5% de duplicacion genera trafico adicional y confunde a la capa de aplicacion
-- `http_latency` se valida de forma continua (cada 500ms) durante la fase de caos — detecta la degradacion midiendo el tiempo real de respuesta
-- El contenedor sigue `running` pero el servicio HTTP se vuelve **degradado**: latencia muy por encima de 100ms, aunque el codigo de estado pueda ser 200
+- `http_status` y `http_latency` se validan de forma continua (cada 500ms) durante la fase de caos, por lo que un solo fallo de conexion durante el ataque marca la expectativa como fallida de forma definitiva
+- El contenedor sigue `running` pero el servicio HTTP se vuelve **inalcanzable de forma intermitente y con latencia disparada** durante el ataque
 
 ### Resultados esperados
 
 | Expectativa | Resultado | Razon |
 |-------------|-----------|-------|
 | `container_running` | PASS | El contenedor sobrevive al ataque volumetrico |
-| `http_status 200` en `/ping` | FAIL (intermitente) o PASS | El servicio responde erraticamente; puede devolver 200 ocasionalmente |
-| `http_latency < 100ms` en `/ping` | FAIL | Incluso si `http_status` da 200, la latencia real esta muy por encima de 100ms bajo el ataque |
+| `http_status 200` en `/ping` | FAIL | La saturacion de la cola SYN hace que las conexiones nuevas fallen de forma intermitente durante el ataque |
+| `http_latency < 100ms` en `/ping` | FAIL | La latencia real esta muy por encima de 100ms bajo el ataque |
 
 ### Fase de recuperacion
 

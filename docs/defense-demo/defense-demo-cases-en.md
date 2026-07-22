@@ -17,7 +17,7 @@ The API server exposes `/call-downstream`, which internally makes an outbound HT
 
 **Narrative:** A telemedicine company deploys patient monitors on edge devices (Raspberry Pi) in an ICU. In development, all tests pass with 32GB RAM. In production, the devices have 512MB and the system randomly reboots after 8 hours of operation.
 
-**Manifest:** `examples/defense-demo/01-mediwatch-memory-cap.json`
+**Manifest:** `examples/defense-demo/02-mediwatch-memory-cap.json`
 
 ```json
 {
@@ -68,7 +68,7 @@ Their application has a memory leak invisible in development environments with a
 
 **Narrative:** A payment gateway (PayFlow) calls an external fraud-detection service via HTTP. In staging, it shows 99.9% availability. During Black Friday, transactions start timing out without any service appearing as "down". The container is `running` but the system doesn't work.
 
-**Manifest:** `examples/defense-demo/02-payflow-cascade.json`
+**Manifest:** `examples/defense-demo/03-payflow-cascade.json`
 
 ```json
 {
@@ -147,7 +147,7 @@ Their API has no timeout configured on the outbound HTTP call to the fraud servi
 
 **Narrative:** A game company (GameGrid) operates multiplayer servers with a constant update loop (ticks), sensitive to CPU performance. Every launch weekend, their servers collapse under player load. Yet their load tests show they can handle 10k concurrent connections. What changes in production?
 
-**Manifest:** `examples/defense-demo/03-gamegrid-flood.json`
+**Manifest:** `examples/defense-demo/01-gamegrid-flood.json`
 
 ```json
 {
@@ -197,16 +197,16 @@ Their API has no timeout configured on the outbound HTTP call to the fraud servi
 - CPU spikes from network interrupt handling and TCP response construction
 - 10% packet loss + 10% corruption cause legitimate TCP connections to fail or require retransmissions
 - 5% duplication generates additional traffic and confuses the application layer
-- `http_latency` is validated continuously (every 500ms) during the chaos phase — detects degradation by measuring real response time
-- The container stays `running` but the HTTP service becomes **degraded**: latency far above 100ms, even if the status code may occasionally be 200
+- `http_status` and `http_latency` are validated continuously (every 500ms) during the chaos phase, so a single connection failure during the attack marks the expectation as failed for good
+- The container stays `running` but the HTTP service becomes **intermittently unreachable, with latency spiking** during the attack
 
 ### Expected Results
 
 | Expectation | Result | Reason |
 |-------------|--------|--------|
 | `container_running` | PASS | The container survives the volumetric attack |
-| `http_status 200` on `/ping` | FAIL (intermittent) or PASS | The service responds erratically; may return 200 occasionally |
-| `http_latency < 100ms` on `/ping` | FAIL | Even if `http_status` returns 200, real latency is far above 100ms under attack |
+| `http_status 200` on `/ping` | FAIL | The saturated SYN queue makes new connections fail intermittently during the attack |
+| `http_latency < 100ms` on `/ping` | FAIL | Real latency is far above 100ms under attack |
 
 ### Recovery Phase
 

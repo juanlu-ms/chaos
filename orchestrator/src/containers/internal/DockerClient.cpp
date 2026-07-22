@@ -132,7 +132,7 @@ namespace chaos::orchestrator::containers {
 DockerClient::DockerClient(RequestFn request_fn) : request_(std::move(request_fn)) {}
 
 std::shared_ptr<containers::IContainerEngine> DockerClient::create(const std::string& socket_path) {
-    SPDLOG_INFO("DockerClient: using socket {}", socket_path);
+    SPDLOG_DEBUG("DockerClient: using socket {}", socket_path);
     auto client = std::make_shared<httplib::Client>(socket_path);
     client->set_address_family(AF_UNIX);
     client->set_connection_timeout(5);

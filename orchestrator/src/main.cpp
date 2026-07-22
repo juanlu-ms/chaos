@@ -111,7 +111,7 @@ int main(int argc, char* argv[]) {
         std::make_shared<chaos::orchestrator::history::FileRunHistory>(resolveHistoryDir(), resolveHistoryMax());
     auto otlp_endpoint = chaos::orchestrator::observability::resolveOtlpEndpoint();
 
-    SPDLOG_INFO("chaos starting");
+    SPDLOG_DEBUG("chaos starting");
 
     // Route "serve" directly to the web server, bypassing CLI parser
     if (parsed.args.size() >= 2 && isServeCommand(parsed.args[1])) {

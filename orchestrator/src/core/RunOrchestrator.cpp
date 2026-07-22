@@ -7,8 +7,10 @@
 #include <ctime>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "perturbations/PerturbationEngine.hpp"
+#include "validation/ValidationResult.hpp"
 
 namespace chaos::orchestrator::core {
 
@@ -46,6 +48,7 @@ RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedS
     }
 
     // ── Chaos phase ───────────────────────────────────────────────
+    std::vector<std::string> apply_failures;
     if (duration.count() > 0 && !external_stop.stop_requested()) {
         perturbations::PerturbationEngine pert_engine;
         pert_engine.scheduleAllAsync(std::move(perturbations), duration, external_stop);
@@ -61,6 +64,7 @@ RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedS
 
         pert_engine.cancel();
         pert_engine.waitForTeardown();
+        apply_failures = pert_engine.applyFailures();
     }
 
     // ── Recovery phase ────────────────────────────────────────────
@@ -78,6 +82,18 @@ RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedS
     SPDLOG_INFO("Running final validation");
 
     RunResult result = service_.finalize(manifest, final_state, failures);
+
+    // A perturbation that failed to apply means the fault was never injected, so the run must
+    // not be reported as passing regardless of what the expectations observed on a healthy target.
+    if (!apply_failures.empty()) {
+        result.passed = false;
+        for (const auto& msg : apply_failures) {
+            SPDLOG_ERROR("Perturbation failed to apply: {}", msg);
+            result.results.push_back(validation::ValidationResult{
+                .passed = false, .expectation_type = "perturbation", .message = "Failed to inject fault: " + msg});
+        }
+    }
+
     const auto steady_end = std::chrono::steady_clock::now();
     result.manifest_name = manifest.test_name;
     result.target_id = manifest.target.id;

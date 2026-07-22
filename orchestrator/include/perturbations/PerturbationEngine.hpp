@@ -9,6 +9,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <stop_token>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -58,11 +59,23 @@ public:
      */
     void waitForTeardown();
 
+    /**
+     * @brief Get the messages of perturbations that failed to apply.
+     *
+     * A non-empty result means at least one fault was never injected, so the
+     * run must not be reported as passing. Reset on each scheduleAllAsync call.
+     *
+     * @return List of failure messages, one per perturbation whose apply() threw.
+     */
+    [[nodiscard]] std::vector<std::string> applyFailures() const;
+
 private:
     std::vector<std::jthread> active_threads_;
     std::mutex threads_mutex_;
     std::condition_variable cancel_cv_;
     std::stop_source stop_source_;
+    mutable std::mutex apply_failures_mutex_;
+    std::vector<std::string> apply_failures_;
 };
 
 }  // namespace chaos::orchestrator::perturbations

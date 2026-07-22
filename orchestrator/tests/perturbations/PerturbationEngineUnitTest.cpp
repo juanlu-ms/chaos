@@ -11,6 +11,7 @@
 #include <memory>
 #include <stdexcept>
 #include <stop_token>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -133,6 +134,43 @@ TEST(PerturbationEngineUnitTest, WaitForTeardownHandlesTaskExceptions) {
     engine.scheduleAllAsync(std::move(perturbations), std::chrono::seconds(0));
 
     EXPECT_NO_THROW(engine.waitForTeardown());
+}
+
+/**
+ * @test Verifies a failed apply() is recorded so the run can be marked failed.
+ */
+TEST(PerturbationEngineUnitTest, ApplyFailuresRecordsThrowingApply) {
+    perturbations::PerturbationEngine engine;
+
+    std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations;
+    perturbations.push_back(std::make_unique<ThrowingPerturbation>());
+
+    engine.scheduleAllAsync(std::move(perturbations), std::chrono::seconds(0));
+    engine.waitForTeardown();
+
+    auto failures = engine.applyFailures();
+    ASSERT_EQ(failures.size(), 1U);
+    EXPECT_NE(failures.front().find("apply failure"), std::string::npos);
+}
+
+/**
+ * @test Verifies applyFailures is empty when every perturbation applies cleanly.
+ */
+TEST(PerturbationEngineUnitTest, ApplyFailuresEmptyOnSuccess) {
+    perturbations::PerturbationEngine engine;
+
+    auto apply_count = std::make_shared<std::atomic<int>>(0);
+    auto revert_count = std::make_shared<std::atomic<int>>(0);
+    auto applied = std::make_shared<std::promise<void>>();
+    auto reverted = std::make_shared<std::promise<void>>();
+
+    std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations;
+    perturbations.push_back(std::make_unique<RecordingPerturbation>(apply_count, revert_count, applied, reverted));
+
+    engine.scheduleAllAsync(std::move(perturbations), std::chrono::seconds(0));
+    engine.waitForTeardown();
+
+    EXPECT_TRUE(engine.applyFailures().empty());
 }
 
 /**

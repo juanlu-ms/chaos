@@ -81,7 +81,7 @@ Perturbations are the fault injection mechanisms applied to a target container. 
 Expectations act as assertions that are validated during and after the perturbations run. They are defined in the `expectations` array of the JSON manifest. If any expectation fails, the orchestrator returns a non-zero exit code or an HTTP 422 error.
 
 ### Continuous Validation
-By default, `container_running`, `log_contains`, `log_not_contains`, and `http_latency` expectations are validated **continuously** during the run (every ~500ms). Failures are tracked but the run continues so all expectations are evaluated. At the end, any continuous failure causes the expectation to be marked as failed, even if the final state passes. 
+By default, **all** expectations are validated **continuously** during the run (every ~500ms). Failures are tracked but the run continues so all expectations are evaluated. At the end, any continuous failure causes the expectation to be marked as failed, even if the final state passes. 
 
 You can override this per expectation with the optional `"continuous"` field:
 ```json

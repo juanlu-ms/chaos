@@ -396,8 +396,7 @@ TEST_F(ManifestParserUnitTest, HttpLatencyContinuousTrueIsParsed) {
 }
 
 /**
- * @test Verifies http_latency without "continuous" defaults to true
- *        (is in kContinuousTypes).
+ * @test Verifies http_latency without "continuous" defaults to true.
  */
 TEST_F(ManifestParserUnitTest, HttpLatencyWithoutContinuousDefaultsToTrue) {
     const auto file = createTempManifest(R"json(
@@ -438,6 +437,31 @@ TEST_F(ManifestParserUnitTest, HttpLatencyExplicitContinuousFalseOverridesDefaul
     ASSERT_EQ(manifest.expectations.size(), 1u);
     EXPECT_EQ(manifest.expectations[0].type, "http_latency");
     EXPECT_FALSE(manifest.expectations[0].continuous);
+}
+
+/**
+ * @test Verifies that expectation types previously excluded from the
+ *        continuous default (container_not_running, http_status) now also
+ *        default to continuous validation.
+ */
+TEST_F(ManifestParserUnitTest, AllExpectationTypesDefaultToContinuousTrue) {
+    const auto file = createTempManifest(R"json(
+{
+  "test_name": "all-types-continuous-default",
+  "target": { "id": "test-container" },
+  "perturbations": [],
+  "expectations": [
+    { "type": "container_not_running", "parameters": {} },
+    { "type": "http_status",
+      "parameters": { "port": "8080", "path": "/health", "expected_status": "200" } }
+  ]
+}
+)json");
+
+    const auto manifest = ManifestParser::parseFromFile(file);
+    ASSERT_EQ(manifest.expectations.size(), 2u);
+    EXPECT_TRUE(manifest.expectations[0].continuous);
+    EXPECT_TRUE(manifest.expectations[1].continuous);
 }
 
 }  // namespace UnitTest

@@ -69,7 +69,7 @@ struct Expectation {
     /** @brief Parameters configuring the expectation. */
     Parameters parameters;
     /** @brief If true, validated continuously during the run (not just at end). */
-    bool continuous = false;
+    bool continuous = true;
 };
 
 /** @brief Root structure for a chaos test manifest. */

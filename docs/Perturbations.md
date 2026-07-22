@@ -32,8 +32,8 @@ Perturbations are the fault injection mechanisms applied to a target container. 
 ### 3. `cpu_cap`
 - **Description**: Throttles the CPU scheduling time available to the container.
 - **Parameters**:
-  - `cpu_cores` (integer): A raw quota value representing the CPU cap. Must be an integer (e.g., `50000`, `200000`).
-- **Under the hood**: Uses the Docker Update API to enforce a CPU limit using a fixed period of `100000` and the configured `cpu_cores` as the quota.
+  - `cpu_cores` (string): The number of CPU cores the container may use. Fractional values are allowed (e.g., `"0.5"` for half a core, `"2"` for two cores). Must be greater than `0`.
+- **Under the hood**: Uses the Docker Update API to enforce a CPU limit over a fixed period of `100000` microseconds, deriving the quota as `cpu_cores * 100000` (so `"0.5"` yields a quota of `50000`). Reverting restores the default quota of `-1` (unlimited).
 - **Effect**: Execution of the container is artificially paused or slowed down to enforce the configured CPU quota limit.
 
 > **Note:** Network perturbations (4–7) require the orchestrator to run as root, since they use `nsenter` or `setns()` to execute commands in the target container's network namespace.
@@ -42,7 +42,7 @@ Perturbations are the fault injection mechanisms applied to a target container. 
 - **Description**: Introduces artificial latency to all outgoing network traffic.
 - **Parameters**:
   - `delay_ms` (integer): Latency to add to each packet in milliseconds.
-- **Under the hood**: Executes `tc qdisc add dev eth0 root netem delay {delay_ms}ms` inside the target's network namespace.
+- **Under the hood**: Executes `tc qdisc replace dev eth0 root netem delay {delay_ms}ms` inside the target's network namespace.
 - **Effect**: Any network-bound operations performed by the container will experience delays, simulating a slow or congested network connection.
 
 ### 5. `network_cutoff`
@@ -71,7 +71,7 @@ Perturbations are the fault injection mechanisms applied to a target container. 
   - `loss_pct` (string): Packet loss percentage (e.g. `"10%"`).
   - `duplicate_pct` (string): Packet duplication percentage (e.g. `"3%"`).
   - `iface` (string): Network interface to apply qdisc on (default: `"eth0"`).
-- **Under the hood**: Executes `tc qdisc add dev <iface> root netem` with the configured parameters inside the target's network namespace via nsenter.
+- **Under the hood**: Executes `tc qdisc replace dev <iface> root netem` with the configured parameters inside the target's network namespace via nsenter.
 - **Effect**: Network traffic experiences data corruption, packet loss, and duplication, simulating a faulty network link.
 
 ---
@@ -81,7 +81,7 @@ Perturbations are the fault injection mechanisms applied to a target container. 
 Expectations act as assertions that are validated during and after the perturbations run. They are defined in the `expectations` array of the JSON manifest. If any expectation fails, the orchestrator returns a non-zero exit code or an HTTP 422 error.
 
 ### Continuous Validation
-By default, `container_running`, `log_contains`, and `log_not_contains` expectations are validated **continuously** during the run (every ~500ms). Failures are tracked but the run continues so all expectations are evaluated. At the end, any continuous failure causes the expectation to be marked as failed, even if the final state passes. 
+By default, `container_running`, `log_contains`, `log_not_contains`, and `http_latency` expectations are validated **continuously** during the run (every ~500ms). Failures are tracked but the run continues so all expectations are evaluated. At the end, any continuous failure causes the expectation to be marked as failed, even if the final state passes. 
 
 You can override this per expectation with the optional `"continuous"` field:
 ```json
@@ -112,12 +112,13 @@ Final validation runs on the container state captured **during** the chaos phase
 - **Description**: Makes an HTTP GET request to the target and verifies the response status code.
 - **Parameters**:
   - `port` (string): The port to connect to.
-  - `status` (string): The expected HTTP status code (e.g., `200`).
-  - `path` (string, optional): The path to request (defaults to `/`).
+  - `path` (string): The path to request.
+  - `expected_status` (string): The expected HTTP status code (e.g., `"200"`).
 
 ### 6. `http_latency`
 - **Description**: Makes an HTTP GET request to the target and verifies the response time is within bounds.
 - **Parameters**:
   - `port` (string): The port to connect to.
-  - `latency_ms` (string): The maximum acceptable latency in milliseconds.
-  - `path` (string, optional): The path to request (defaults to `/`).
+  - `path` (string): The path to request.
+  - `max_latency_ms` (string): The maximum acceptable latency in milliseconds.
+  - `min_latency_ms` (string, optional): The minimum acceptable latency in milliseconds (defaults to `0`). The check passes only when the measured latency falls within `[min_latency_ms, max_latency_ms]`.

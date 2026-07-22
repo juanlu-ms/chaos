@@ -4,7 +4,7 @@
 
 ### Option A: Download Pre-built Binary (Recommended)
 
-Grab the latest `chaos` binary from [GitHub Releases](https://github.com/anomalyco/chaos/releases). Each release tagged `v*` ships a statically-compiled binary built on Ubuntu 24.04 with Clang 18.
+Grab the latest `chaos` binary from [GitHub Releases](https://github.com/juanlu-ms/chaos/releases). Each release tagged `v*` ships a statically-compiled binary built on Ubuntu 24.04 with Clang 18.
 
 ```bash
 chmod +x chaos
@@ -22,7 +22,7 @@ sudo ./build/dev-linux-clang/orchestrator/chaos help
 
 ### Privilege Requirements
 
-Network perturbations (`network_delay`, `network_cutoff`, `packet_flood`, `traffic_corruption`) use `nsenter` to inject `tc`/`iptables` rules inside the target container's network namespace. This requires **root privileges** — run the orchestrator with `sudo` or as root. CPU and memory perturbations work without root.
+Network perturbations (`network_delay`, `network_cutoff`, `packet_flood`, `traffic_corruption`) enter the target container's network namespace (via `nsenter` or `setns()`) to inject faults — `tc`/`iptables` rules for most, raw `AF_PACKET` sockets for `packet_flood`. This requires **root privileges** — run the orchestrator with `sudo` or as root. CPU and memory perturbations work without root.
 
 ---
 
@@ -118,7 +118,8 @@ Switch themes (Amber / Dark / Cyber) from the topbar dropdown. Your preference i
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| GET | `/api/targets` | List available containers `[{id, name, state}]` |
+| GET | `/api/status` | Service status `{project, status}` |
+| GET | `/api/containers` | List available containers `[{id, name, state}]` |
 | GET | `/api/limits` | System limits `{cpu_cores, memory_total_mb, perturbation_limits}` |
 | POST | `/api/run` | Async run — returns 202, streams state via SSE |
 | POST | `/api/run/abort` | Abort the currently running test |
@@ -126,10 +127,10 @@ Switch themes (Amber / Dark / Cyber) from the topbar dropdown. Your preference i
 | GET | `/api/history/{id}` | Full run record (manifest, samples, logs, results) |
 | DELETE | `/api/history/{id}` | Delete a single run |
 | DELETE | `/api/history` | Clear all run history |
-| GET | `/events` | SSE stream (`event: state` / `event: complete` / `event: error`) |
-| POST | `/containers/{id}/stop` | Stop a container |
-| POST | `/containers/{id}/kill` | Kill a container |
-| GET | `/containers/{id}/logs` | Fetch container logs |
+| GET | `/api/events` | SSE stream (`event: state` / `event: complete` / `event: error`) |
+| POST | `/api/containers/{id}/stop` | Stop a container |
+| POST | `/api/containers/{id}/kill` | Kill a container |
+| GET | `/api/containers/{id}/logs` | Fetch container logs |
 
 ---
 

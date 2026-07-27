@@ -27,6 +27,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zip \
     && apt-get clean -y && rm -rf /var/lib/apt/lists/*
 
+# Enable bash tab-completion (git, etc.) in non-login interactive shells
+RUN echo '. /etc/profile.d/bash_completion.sh' >> /etc/bash.bashrc
+
 RUN update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 100 \
     && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100 \
     && update-alternatives --install /usr/bin/clangd clangd /usr/bin/clangd-18 100 \

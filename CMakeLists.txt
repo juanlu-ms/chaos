@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 
 project(chaos
-    VERSION 0.4.3 
+    VERSION 0.4.4 
     LANGUAGES C CXX
     DESCRIPTION "Resilience Tool for Docker Containers"
 )

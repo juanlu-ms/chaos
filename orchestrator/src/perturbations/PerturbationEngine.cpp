@@ -49,9 +49,8 @@ void PerturbationEngine::scheduleAllAsync(std::vector<std::unique_ptr<IPerturbat
 
             {
                 std::unique_lock lock(threads_mutex_);
-                cancel_cv_.wait_for(lock, duration, [&internal_token, &external_stop] {
-                    return internal_token.stop_requested() || external_stop.stop_requested();
-                });
+                cancel_cv_.wait_for(lock, external_stop, duration,
+                                    [&internal_token] { return internal_token.stop_requested(); });
             }
 
             // A failed revert leaves the target dirty, but the fault did reach it, so the run

@@ -80,7 +80,9 @@ private:
     // threads_mutex_ to wait, so the reverse order must never be introduced.
     std::vector<std::jthread> active_threads_;
     std::mutex threads_mutex_;
-    std::condition_variable cancel_cv_;
+    // condition_variable_any so tasks can wait on the caller's stop_token without a
+    // hand-rolled notify, which would be prone to lost wakeups.
+    std::condition_variable_any cancel_cv_;
     std::stop_source stop_source_;
 
     // mutable because the mutex guards apply_failures_ rather than being part of the

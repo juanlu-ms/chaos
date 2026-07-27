@@ -298,14 +298,19 @@ TEST(PerturbationEngineUnitTest, ExternalStopTokenTriggersRevert) {
     ASSERT_EQ(applied_future.wait_for(kAsyncTimeout), std::future_status::ready);
     ASSERT_EQ(apply_count->load(), 1);
 
+    const auto stop_requested_at = std::chrono::steady_clock::now();
     external_source.request_stop();
 
     engine.waitForTeardown();
+    const auto teardown_elapsed = std::chrono::steady_clock::now() - stop_requested_at;
 
     auto reverted_future = reverted->get_future();
     ASSERT_EQ(reverted_future.wait_for(kAsyncTimeout), std::future_status::ready);
 
     EXPECT_EQ(revert_count->load(), 1);
+
+    // The external stop must wake the task instead of letting it sleep out the 60s duration.
+    EXPECT_LT(teardown_elapsed, kAsyncTimeout);
 }
 
 /**

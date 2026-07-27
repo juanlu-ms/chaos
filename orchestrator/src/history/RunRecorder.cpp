@@ -1,7 +1,8 @@
 #include "history/RunRecorder.hpp"
 
+#include <fmt/format.h>
+
 #include <chrono>
-#include <format>
 #include <string>
 #include <vector>
 
@@ -12,7 +13,7 @@ using namespace std::chrono;
 RunRecorder::RunRecorder(manifests::ChaosManifest manifest)
     : manifest_(std::move(manifest)), start_steady_(steady_clock::now()), start_system_(system_clock::now()) {
     auto ms = duration_cast<milliseconds>(start_system_.time_since_epoch()).count();
-    summary_.id = std::format("run-{}", ms);
+    summary_.id = fmt::format("run-{}", ms);
     summary_.started_at_unix = ms;
     for (const auto& p : manifest_.perturbations) {
         summary_.perturbation_types.push_back(p.type);

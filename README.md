@@ -7,10 +7,13 @@ CHAOS is a C++23 resilience validation tool for containerized systems. It inject
 **Recommended — download a pre-built binary** from [GitHub Releases](https://github.com/juanlu-ms/chaos/releases):
 
 ```bash
-chmod +x chaos
-sudo mv chaos /usr/local/bin/   # put it on your PATH
+sha256sum -c chaos-0.4.3-linux-x86_64.sha256   # verify the download
+chmod +x chaos-0.4.3-linux-x86_64
+sudo mv chaos-0.4.3-linux-x86_64 /usr/local/bin/chaos   # put it on your PATH
 sudo chaos help
 ```
+
+Releases target **x86_64 Linux with glibc 2.38+** (Ubuntu 24.04+, Debian 13+, Fedora 39+, RHEL 10). On older distributions or on ARM, build from source — see [Supported Platforms](docs/USER_GUIDE.md#supported-platforms) for the full list and the runtime prerequisites (`docker`, `nsenter`, `tc`, `iptables`, `ping`).
 
 **Alternative — build from source** (see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for prerequisites):
 

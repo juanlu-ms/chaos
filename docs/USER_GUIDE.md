@@ -2,13 +2,38 @@
 
 ## Installation
 
-### Option A: Download Pre-built Binary (Recommended)
+### Supported Platforms
 
-Grab the latest `chaos` binary from [GitHub Releases](https://github.com/juanlu-ms/chaos/releases). Each release tagged `v*` ships a statically-compiled binary built on Ubuntu 24.04 with Clang 18.
+Releases ship a **dynamically linked x86_64 Linux binary**, built on Ubuntu 24.04 with Clang 18. It requires **glibc 2.38 or newer** and a **libstdc++ from GCC 13.2 or newer**. Check your system in one line:
 
 ```bash
-chmod +x chaos
-sudo mv chaos /usr/local/bin/   # put it on your PATH
+ldd --version | head -1     # needs 2.38 or newer
+```
+
+**Runs on:**
+
+- Ubuntu 24.04 LTS and newer — and derivatives such as Linux Mint 22+ and Pop!_OS 24.04+
+- Debian 13 "trixie" and newer
+- Fedora 39 and newer
+- RHEL / Rocky / AlmaLinux 10
+- Arch, Manjaro, openSUSE Tumbleweed and other rolling distributions
+
+**Does not run on** — build from source (Option B) instead, there is no compatibility shim:
+
+- Ubuntu 22.04 LTS and older (glibc 2.35)
+- Debian 12 "bookworm" (glibc 2.36)
+- RHEL / Rocky / AlmaLinux 9 and Amazon Linux 2023 (glibc 2.34)
+- Alpine and other musl-based distributions (no glibc at all)
+- Any non-x86_64 machine — ARM (AWS Graviton, Ampere, Raspberry Pi, Docker Desktop on Apple Silicon) fails with `Exec format error`
+
+### Option A: Download Pre-built Binary (Recommended)
+
+Grab the latest binary from [GitHub Releases](https://github.com/juanlu-ms/chaos/releases). Each release tagged `v*` publishes `chaos-<version>-linux-x86_64` alongside a `.sha256` checksum.
+
+```bash
+sha256sum -c chaos-0.4.3-linux-x86_64.sha256   # verify the download
+chmod +x chaos-0.4.3-linux-x86_64
+sudo mv chaos-0.4.3-linux-x86_64 /usr/local/bin/chaos   # put it on your PATH
 sudo chaos help
 ```
 
@@ -20,6 +45,20 @@ See the [Development Guide](DEVELOPMENT.md#building-from-source) for full build 
 cmake --preset dev-linux-clang && cmake --build --preset debug -- -j$(nproc)
 sudo ./build/dev-linux-clang/orchestrator/chaos help
 ```
+
+### Runtime Prerequisites
+
+However you install it, `chaos` drives the host's own networking and container tooling rather than bundling its own. The following must be present:
+
+| Requirement | Package | Used for |
+|-------------|---------|----------|
+| Docker daemon on **cgroup v2** | `docker` | Container control via `/var/run/docker.sock`; CPU and memory metrics read from `/sys/fs/cgroup` |
+| `nsenter` | `util-linux` | Entering the target container's network namespace |
+| `tc` | `iproute2` | `network_delay`, `traffic_corruption` |
+| `iptables` | `iptables` | `network_cutoff` |
+| `ping` | `iputils` | Reachability probing during observation |
+
+On Debian/Ubuntu: `sudo apt-get install util-linux iproute2 iptables iputils-ping`.
 
 ### Privilege Requirements
 

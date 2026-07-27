@@ -175,6 +175,46 @@ TEST(CliParserUnitTest, UnknownCommandReturnsError) {
 }
 
 /**
+ * @test Verifies completion for a supported shell returns success.
+ */
+TEST(CliParserUnitTest, CompletionBashSucceeds) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    interfaces::cli::CliParser cli(mockEngine);
+
+    EXPECT_EQ(runCli(cli, {"chaos", "completion", "bash"}), 0);
+}
+
+/**
+ * @test Verifies completion without a shell name returns a non-zero exit code.
+ */
+TEST(CliParserUnitTest, CompletionRequiresShellName) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    interfaces::cli::CliParser cli(mockEngine);
+
+    EXPECT_NE(runCli(cli, {"chaos", "completion"}), 0);
+}
+
+/**
+ * @test Verifies completion for an unsupported shell returns a non-zero exit code.
+ */
+TEST(CliParserUnitTest, CompletionRejectsUnknownShell) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    interfaces::cli::CliParser cli(mockEngine);
+
+    EXPECT_NE(runCli(cli, {"chaos", "completion", "fish"}), 0);
+}
+
+/**
+ * @test Verifies serve is not dispatched by the parser; main() intercepts it.
+ */
+TEST(CliParserUnitTest, ServeIsNotDispatchedByParser) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    interfaces::cli::CliParser cli(mockEngine);
+
+    EXPECT_NE(runCli(cli, {"chaos", "serve"}), 0);
+}
+
+/**
  * @test Verifies -v is stripped and sets log level to debug.
  */
 TEST(ParseGlobalFlagsTest, StripsVerboseFlag) {

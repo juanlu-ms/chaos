@@ -117,7 +117,9 @@ set(ORCHESTRATOR_SOURCES
     src/containers/ContainerEngineFactory.cpp
     src/containers/internal/DockerClient.cpp
     src/containers/internal/CgroupMetricsGatherer.cpp
+    src/interfaces/cli/BashCompletionGenerator.cpp
     src/interfaces/cli/CliParser.cpp
+    src/interfaces/cli/UsageRenderer.cpp
     src/interfaces/web/Server.cpp
     src/manifests/ManifestParser.cpp
     src/perturbations/PerturbationEngine.cpp
@@ -199,7 +201,9 @@ add_executable(orchestrator_unit_tests
     tests/history/HistoryJsonUnitTest.cpp
     tests/history/FileRunHistoryUnitTest.cpp
     tests/history/RunRecorderUnitTest.cpp
+    tests/interfaces/cli/BashCompletionGeneratorUnitTest.cpp
     tests/interfaces/cli/CliParserUnitTest.cpp
+    tests/interfaces/cli/CliSpecUnitTest.cpp
     tests/manifests/ManifestParserUnitTest.cpp
     tests/observability/ObservabilityEngineUnitTest.cpp
     tests/observability/OtlpExporterUnitTest.cpp
@@ -262,6 +266,34 @@ target_link_libraries(orchestrator_smoke_tests PRIVATE
 include(GoogleTest)
 gtest_discover_tests(orchestrator_unit_tests PROPERTIES LABELS "unit")
 gtest_discover_tests(orchestrator_smoke_tests PROPERTIES LABELS "smoke")
+
+# These two carry nearly all the coverage of the completion feature, so a
+# missing bash is a hard error rather than a silent skip: the alternative is a
+# suite that passes while testing none of it.
+find_program(BASH_EXECUTABLE bash)
+if(NOT BASH_EXECUTABLE)
+    message(FATAL_ERROR "bash was not found; it is required to test the generated completion script")
+endif()
+
+# Parse the generated completion script with the real shell. `set -o pipefail`
+# is required so a crashing chaos is not masked by `bash -n` accepting no input.
+add_test(NAME completion_script_is_valid_bash
+    COMMAND ${CMAKE_COMMAND} -E env
+            "CHAOS_HISTORY_DIR=${CMAKE_CURRENT_BINARY_DIR}/completion_test_history"
+            ${BASH_EXECUTABLE} -c
+            "set -o pipefail; $<TARGET_FILE:orchestrator_app> completion bash | ${BASH_EXECUTABLE} -n"
+)
+set_tests_properties(completion_script_is_valid_bash PROPERTIES LABELS "unit")
+
+# Load the script into a real shell and assert on COMPREPLY. This is where the
+# feature's behaviour is pinned; the C++ unit tests cover only the handful of
+# generator invariants that leave no trace in COMPREPLY.
+add_test(NAME completion_script_behaves_correctly
+    COMMAND ${BASH_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/interfaces/cli/completion_behavior_test.sh
+            $<TARGET_FILE:orchestrator_app>
+)
+set_tests_properties(completion_script_behaves_correctly PROPERTIES LABELS "unit")
 
 install(TARGETS orchestrator_app RUNTIME DESTINATION bin)
 

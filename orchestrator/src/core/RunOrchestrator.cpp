@@ -88,7 +88,6 @@ RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedS
     if (!apply_failures.empty()) {
         result.passed = false;
         for (const auto& msg : apply_failures) {
-            SPDLOG_ERROR("Perturbation failed to apply: {}", msg);
             result.results.push_back(validation::ValidationResult{
                 .passed = false, .expectation_type = "perturbation", .message = "Failed to inject fault: " + msg});
         }

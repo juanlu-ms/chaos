@@ -60,6 +60,11 @@ public:
      */
     void revert() override;
 
+    /**
+     * @brief Returns the manifest type name of this perturbation.
+     */
+    [[nodiscard]] std::string_view type() const override { return "packet_flood"; }
+
 private:
     void setupSocketInNetns();
     void floodLoop(const std::stop_token& stop) const;

@@ -6,14 +6,19 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <chrono>
 #include <memory>
+#include <stdexcept>
 #include <stop_token>
+#include <string_view>
 #include <thread>
+#include <vector>
 
 #include "MockContainerEngine.hpp"
 #include "core/RunOrchestrator.hpp"
 #include "core/SharedState.hpp"
+#include "perturbations/IPerturbation.hpp"
 
 using namespace chaos::orchestrator;
 using namespace chaos::orchestrator::core;
@@ -31,6 +36,22 @@ public:
     MOCK_METHOD(void, onLogsUpdate, (const std::vector<std::string>&), (override));
     MOCK_METHOD(void, onPhaseChange, (std::string_view), (override));
 };
+
+/**
+ * @brief Perturbation whose apply() always fails, i.e. the fault never reaches the target.
+ */
+class FailingPerturbation final : public perturbations::IPerturbation {
+public:
+    void apply() override { throw std::runtime_error("engine unreachable"); }
+    void revert() override {}
+    [[nodiscard]] std::string_view type() const override { return "kill"; }
+};
+
+[[nodiscard]] std::vector<std::unique_ptr<perturbations::IPerturbation>> makeFailingPerturbation() {
+    std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations;
+    perturbations.push_back(std::make_unique<FailingPerturbation>());
+    return perturbations;
+}
 
 }  // namespace
 
@@ -120,6 +141,59 @@ TEST(RunOrchestratorTest, ExternalStopCancelsEarly) {
 
     EXPECT_LT(elapsed, 5s);
     EXPECT_TRUE(result.passed);
+}
+
+/**
+ * @test A perturbation that fails to apply marks the run as failed and reports the
+ *       perturbation type, since the fault was never injected.
+ */
+TEST(RunOrchestratorTest, PerturbationApplyFailureFailsRun) {
+    auto engine = std::make_shared<tests::MockContainerEngine>();
+    ChaosService service(engine);
+    RunOrchestrator orchestrator(service);
+
+    manifests::ChaosManifest manifest;
+    manifest.test_name = "apply-failure";
+    manifest.target.id = "test-container";
+    manifest.duration_s = 1;
+    manifest.expectations.push_back({.type = "container_running", .parameters = {}});
+
+    SharedState state;
+    MockRunObserver observer;
+
+    auto result = orchestrator.run(manifest, state, observer, makeFailingPerturbation());
+
+    EXPECT_FALSE(result.passed);
+    const auto failure =
+        std::ranges::find_if(result.results, [](const auto& res) { return res.expectation_type == "perturbation"; });
+    ASSERT_NE(failure, result.results.end());
+    EXPECT_FALSE(failure->passed);
+    EXPECT_THAT(failure->message, HasSubstr("kill (#0)"));
+    EXPECT_THAT(failure->message, HasSubstr("engine unreachable"));
+}
+
+/**
+ * @test A failed apply() also fails a run with no expectations, where finalize()
+ *        would otherwise report a pass by default.
+ */
+TEST(RunOrchestratorTest, PerturbationApplyFailureFailsRunWithoutExpectations) {
+    auto engine = std::make_shared<tests::MockContainerEngine>();
+    ChaosService service(engine);
+    RunOrchestrator orchestrator(service);
+
+    manifests::ChaosManifest manifest;
+    manifest.test_name = "apply-failure-no-expectations";
+    manifest.target.id = "test-container";
+    manifest.duration_s = 1;
+
+    SharedState state;
+    MockRunObserver observer;
+
+    auto result = orchestrator.run(manifest, state, observer, makeFailingPerturbation());
+
+    EXPECT_FALSE(result.passed);
+    ASSERT_EQ(result.results.size(), 1U);
+    EXPECT_EQ(result.results.front().expectation_type, "perturbation");
 }
 
 /**

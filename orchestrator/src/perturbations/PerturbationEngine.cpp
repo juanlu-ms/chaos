@@ -32,32 +32,41 @@ void PerturbationEngine::scheduleAllAsync(std::vector<std::unique_ptr<IPerturbat
 
     for (std::size_t index = 0; index < perturbations.size(); ++index) {
         auto internal_token = stop_source_.get_token();
-        active_threads_.emplace_back(
-            [this, index, duration, perturbation = std::move(perturbations[index]), internal_token,
-             external_stop]() mutable {
-                SPDLOG_DEBUG("Perturbation task starting");
-                try {
-                    try {
-                        perturbation->apply();
-                    } catch (const std::exception& e) {
-                        // A failed apply() means the fault was never injected. Record it so the
-                        // run is not falsely reported as passing, then skip the wait/revert.
-                        std::lock_guard failures_lock(apply_failures_mutex_);
-                        apply_failures_.push_back(fmt::format("perturbation #{}: {}", index, e.what()));
-                        throw;
-                    }
+        active_threads_.emplace_back([this, index, duration, perturbation = std::move(perturbations[index]),
+                                      internal_token, external_stop]() mutable {
+            const auto label = fmt::format("{} (#{})", perturbation->type(), index);
+            SPDLOG_DEBUG("Perturbation task starting: {}", label);
 
-                    std::unique_lock lock(threads_mutex_);
-                    cancel_cv_.wait_for(lock, duration, [&internal_token, &external_stop] {
-                        return internal_token.stop_requested() || external_stop.stop_requested();
-                    });
-                    lock.unlock();
+            try {
+                perturbation->apply();
+            } catch (const std::exception& e) {
+                recordApplyFailure(label, e.what());
+                return;
+            } catch (...) {
+                recordApplyFailure(label, "unknown exception");
+                return;
+            }
 
-                    perturbation->revert();
-                } catch (const std::exception& e) {
-                    SPDLOG_ERROR("Perturbation task failed: {}", e.what());
-                }
-            });
+            {
+                std::unique_lock lock(threads_mutex_);
+                cancel_cv_.wait_for(lock, duration, [&internal_token, &external_stop] {
+                    return internal_token.stop_requested() || external_stop.stop_requested();
+                });
+            }
+
+            // A failed revert leaves the target dirty, but the fault did reach it, so the run
+            // verdict stands and this is reported as an operational problem only.
+            try {
+                perturbation->revert();
+            } catch (const std::exception& e) {
+                SPDLOG_ERROR("Perturbation {} failed to revert: {}. Target may be left in a perturbed state", label,
+                             e.what());
+            } catch (...) {
+                SPDLOG_ERROR(
+                    "Perturbation {} failed to revert: unknown exception. Target may be left in a perturbed state",
+                    label);
+            }
+        });
     }
 }
 
@@ -81,6 +90,12 @@ void PerturbationEngine::waitForTeardown() {
         }
     }
     SPDLOG_INFO("Perturbation tasks torn down successfully.");
+}
+
+void PerturbationEngine::recordApplyFailure(std::string_view label, std::string_view reason) {
+    SPDLOG_ERROR("Perturbation {} failed to apply: {}", label, reason);
+    std::lock_guard lock(apply_failures_mutex_);
+    apply_failures_.push_back(fmt::format("{}: {}", label, reason));
 }
 
 std::vector<std::string> PerturbationEngine::applyFailures() const {

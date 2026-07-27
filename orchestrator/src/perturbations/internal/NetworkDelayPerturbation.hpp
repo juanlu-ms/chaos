@@ -41,6 +41,11 @@ public:
      */
     void revert() override;
 
+    /**
+     * @brief Returns the manifest type name of this perturbation.
+     */
+    [[nodiscard]] std::string_view type() const override { return "network_delay"; }
+
 private:
     /** @brief The container engine used to interact with the target. */
     std::shared_ptr<containers::IContainerEngine> engine_;

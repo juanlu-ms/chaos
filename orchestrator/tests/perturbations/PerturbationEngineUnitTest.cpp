@@ -47,6 +47,8 @@ public:
         }
     }
 
+    [[nodiscard]] std::string_view type() const override { return "recording"; }
+
 private:
     std::shared_ptr<std::atomic<int>> apply_count_;
     std::shared_ptr<std::atomic<int>> revert_count_;
@@ -58,6 +60,43 @@ class ThrowingPerturbation final : public perturbations::IPerturbation {
 public:
     void apply() override { throw std::runtime_error("apply failure"); }
     void revert() override { throw std::runtime_error("revert failure"); }
+    [[nodiscard]] std::string_view type() const override { return "throwing"; }
+};
+
+/**
+ * @brief Perturbation that fails to apply but counts any revert attempt.
+ */
+class ApplyThrowingPerturbation final : public perturbations::IPerturbation {
+public:
+    explicit ApplyThrowingPerturbation(std::shared_ptr<std::atomic<int>> revert_count)
+        : revert_count_(std::move(revert_count)) {}
+
+    void apply() override { throw std::runtime_error("apply failure"); }
+    void revert() override { revert_count_->fetch_add(1); }
+    [[nodiscard]] std::string_view type() const override { return "apply_throwing"; }
+
+private:
+    std::shared_ptr<std::atomic<int>> revert_count_;
+};
+
+/**
+ * @brief Perturbation that applies cleanly but fails to revert.
+ */
+class RevertThrowingPerturbation final : public perturbations::IPerturbation {
+public:
+    explicit RevertThrowingPerturbation(std::shared_ptr<std::promise<void>> applied) : applied_(std::move(applied)) {}
+
+    void apply() override {
+        if (applied_) {
+            applied_->set_value();
+        }
+    }
+
+    void revert() override { throw std::runtime_error("revert failure"); }
+    [[nodiscard]] std::string_view type() const override { return "revert_throwing"; }
+
+private:
+    std::shared_ptr<std::promise<void>> applied_;
 };
 
 }  // namespace
@@ -150,7 +189,46 @@ TEST(PerturbationEngineUnitTest, ApplyFailuresRecordsThrowingApply) {
 
     auto failures = engine.applyFailures();
     ASSERT_EQ(failures.size(), 1U);
+    EXPECT_NE(failures.front().find("throwing (#0)"), std::string::npos);
     EXPECT_NE(failures.front().find("apply failure"), std::string::npos);
+}
+
+/**
+ * @test Verifies a perturbation that never applied is not reverted either.
+ */
+TEST(PerturbationEngineUnitTest, ApplyFailureSkipsRevert) {
+    perturbations::PerturbationEngine engine;
+
+    auto revert_count = std::make_shared<std::atomic<int>>(0);
+
+    std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations;
+    perturbations.push_back(std::make_unique<ApplyThrowingPerturbation>(revert_count));
+
+    engine.scheduleAllAsync(std::move(perturbations), std::chrono::seconds(60));
+    engine.waitForTeardown();
+
+    EXPECT_EQ(revert_count->load(), 0);
+    EXPECT_EQ(engine.applyFailures().size(), 1U);
+}
+
+/**
+ * @test Verifies a failed revert() is not recorded as an apply failure: the fault did
+ *       reach the target, so it must not flip the run verdict.
+ */
+TEST(PerturbationEngineUnitTest, RevertFailureIsNotAnApplyFailure) {
+    perturbations::PerturbationEngine engine;
+
+    auto applied = std::make_shared<std::promise<void>>();
+    auto applied_future = applied->get_future();
+
+    std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations;
+    perturbations.push_back(std::make_unique<RevertThrowingPerturbation>(applied));
+
+    engine.scheduleAllAsync(std::move(perturbations), std::chrono::seconds(0));
+    ASSERT_EQ(applied_future.wait_for(kAsyncTimeout), std::future_status::ready);
+
+    EXPECT_NO_THROW(engine.waitForTeardown());
+    EXPECT_TRUE(engine.applyFailures().empty());
 }
 
 /**

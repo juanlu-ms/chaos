@@ -51,6 +51,11 @@ public:
      */
     void revert() override;
 
+    /**
+     * @brief Returns the manifest type name of this perturbation.
+     */
+    [[nodiscard]] std::string_view type() const override { return "network_cutoff"; }
+
 private:
     std::shared_ptr<containers::IContainerEngine> engine_;
 

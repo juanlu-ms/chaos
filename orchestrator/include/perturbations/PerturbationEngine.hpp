@@ -10,6 +10,7 @@
 #include <mutex>
 #include <stop_token>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -65,15 +66,25 @@ public:
      * A non-empty result means at least one fault was never injected, so the
      * run must not be reported as passing. Reset on each scheduleAllAsync call.
      *
-     * @return List of failure messages, one per perturbation whose apply() threw.
+     * @return List of failure messages, one per perturbation whose apply() threw,
+     *         each prefixed with the perturbation type and its scheduling index.
      */
     [[nodiscard]] std::vector<std::string> applyFailures() const;
 
 private:
+    // Log a failed apply() once and record it for applyFailures(). Called from task threads.
+    void recordApplyFailure(std::string_view label, std::string_view reason);
+
+    // Lock order, when both are needed: threads_mutex_ before apply_failures_mutex_.
+    // Tasks record a failure and release apply_failures_mutex_ before taking
+    // threads_mutex_ to wait, so the reverse order must never be introduced.
     std::vector<std::jthread> active_threads_;
     std::mutex threads_mutex_;
     std::condition_variable cancel_cv_;
     std::stop_source stop_source_;
+
+    // mutable because the mutex guards apply_failures_ rather than being part of the
+    // engine's observable state, and applyFailures() is const.
     mutable std::mutex apply_failures_mutex_;
     std::vector<std::string> apply_failures_;
 };

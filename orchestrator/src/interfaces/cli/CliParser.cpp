@@ -1,6 +1,7 @@
 #include "interfaces/cli/CliParser.hpp"
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <spdlog/spdlog.h>
 #include <unistd.h>
 
@@ -28,7 +29,10 @@
 #include "core/SharedState.hpp"
 #include "history/HistoryJson.hpp"
 #include "history/RunRecorder.hpp"
+#include "interfaces/cli/BashCompletionGenerator.hpp"
+#include "interfaces/cli/CliSpec.hpp"
 #include "interfaces/cli/ProgressCoordinator.hpp"
+#include "interfaces/cli/UsageRenderer.hpp"
 #include "manifests/ManifestParser.hpp"
 #include "observability/OtlpRunObserver.hpp"
 #include "signals/SignalHandlerGuard.hpp"
@@ -44,10 +48,6 @@ namespace {
 [[nodiscard]] bool isLogLevelFlag(const std::string_view arg) { return arg == "--log-level"; }
 
 [[nodiscard]] bool isNoColorFlag(const std::string_view arg) { return arg == "--no-color"; }
-
-[[nodiscard]] bool isHelpCommand(const std::string_view command) {
-    return command == "help" || command == "--help" || command == "-h";
-}
 
 class ProgressRenderer {
 public:
@@ -207,91 +207,91 @@ int CliParser::run(std::span<char*> argv) const {
 int CliParser::dispatchCommand(const std::vector<std::string>& args) const {
     const std::string& command = args[1];
 
-    if (isHelpCommand(command)) {
+    const CommandSpec* spec = findCommand(command);
+    if (spec == nullptr) {
+        fmt::print(stderr, "Unknown command: '{}'\n", command);
         printUsage();
-        return 0;
+        return 1;
     }
 
-    if (command == "list") {
-        return handleList();
-    }
+    switch (spec->commandId) {
+        case CommandId::Help:
+            printUsage();
+            return 0;
 
-    if (command == "stop") {
-        if (args.size() < 3) {
-            fmt::print(stderr, "'stop' requires a container ID\n");
-            return 1;
-        }
-        return handleStop(args[2]);
-    }
+        case CommandId::List:
+            return handleList();
 
-    if (command == "kill") {
-        if (args.size() < 3) {
-            fmt::print(stderr, "'kill' requires a container ID\n");
-            return 1;
-        }
-        return handleKill(args[2]);
-    }
-
-    if (command == "run") {
-        RunOptions options;
-        std::optional<std::string> manifest_path;
-        for (std::size_t i = 2; i < args.size(); ++i) {
-            const std::string& arg = args[i];
-            if (arg == "--json") {
-                options.jsonOutput = true;
-            } else if (arg == "--output") {
-                if (i + 1 >= args.size()) {
-                    fmt::print(stderr, "'--output' requires a value\n");
-                    return 1;
-                }
-                options.outputPath = args[++i];
-            } else if (manifest_path.has_value()) {
-                fmt::print(stderr, "Unexpected argument: {}\n", arg);
+        case CommandId::Stop:
+            if (args.size() < 3) {
+                fmt::print(stderr, "'stop' requires a container ID\n");
                 return 1;
-            } else {
-                manifest_path = arg;
             }
+            return handleStop(args[2]);
+
+        case CommandId::Kill:
+            if (args.size() < 3) {
+                fmt::print(stderr, "'kill' requires a container ID\n");
+                return 1;
+            }
+            return handleKill(args[2]);
+
+        case CommandId::Run: {
+            RunOptions options;
+            std::optional<std::string> manifest_path;
+            for (std::size_t i = 2; i < args.size(); ++i) {
+                const std::string& arg = args[i];
+                if (arg == "--json") {
+                    options.jsonOutput = true;
+                } else if (arg == "--output") {
+                    if (i + 1 >= args.size()) {
+                        fmt::print(stderr, "'--output' requires a value\n");
+                        return 1;
+                    }
+                    options.outputPath = args[++i];
+                } else if (manifest_path.has_value()) {
+                    fmt::print(stderr, "Unexpected argument: {}\n", arg);
+                    return 1;
+                } else {
+                    manifest_path = arg;
+                }
+            }
+            if (!manifest_path.has_value()) {
+                fmt::print(stderr, "'run' requires a path to a manifest JSON\n");
+                return 1;
+            }
+            return handleRun(manifest_path.value(), options);
         }
-        if (!manifest_path.has_value()) {
-            fmt::print(stderr, "'run' requires a path to a manifest JSON\n");
+
+        case CommandId::History:
+            return handleHistory(args);
+
+        case CommandId::Completion:
+            return handleCompletion(args);
+
+        case CommandId::Serve:
+            fmt::print(stderr, "'serve' is handled by the chaos entry point and cannot run through the parser\n");
             return 1;
-        }
-        return handleRun(manifest_path.value(), options);
     }
 
-    if (command == "history") {
-        return handleHistory(args);
-    }
-
-    fmt::print(stderr, "Unknown command: '{}'\n", command);
-    printUsage();
     return 1;
 }
 
-void CliParser::printUsage() const {
-    fmt::print(stdout,
-               "Usage: chaos [global-options] <command> [command-options]\n"
-               "\n"
-               "Chaos - Resilience Tool for Docker Containers\n"
-               "\n"
-               "Global Options:\n"
-               "  -v, --verbose         Enable debug logging\n"
-               "  -q, --quiet           Suppress non-warning logs\n"
-               "      --log-level LEVEL Set log level (trace|debug|info|warn|error|critical|off)\n"
-               "      --no-color        Disable colored output\n"
-               "\n"
-               "Commands:\n"
-               "  list                  List all containers\n"
-               "  stop  <container_id>  Stop a running container\n"
-               "  kill  <container_id>  Kill a running container\n"
-               "  run   <manifest.json> [options] Execute a chaos manifest\n"
-               "  history [id] [--json] View run history or details of a specific run\n"
-               "  history clear         Clear all run history\n"
-               "  help                  Show this help message\n"
-               "\n"
-               "Run Options:\n"
-               "      --json            Emit machine-readable JSON to stdout instead of the human report\n"
-               "      --output PATH     Write the JSON report to PATH (use '-' for stdout)\n");
+void CliParser::printUsage() const { fmt::print(stdout, "{}", renderUsage()); }
+
+int CliParser::handleCompletion(const std::vector<std::string>& args) const {
+    if (args.size() < 3) {
+        fmt::print(stderr, "'completion' requires a shell name ({})\n", fmt::join(kCompletionShells, ", "));
+        return 1;
+    }
+
+    if (std::ranges::find(kCompletionShells, args[2]) == kCompletionShells.end()) {
+        fmt::print(stderr, "Unsupported shell: '{}' (supported: {})\n", args[2], fmt::join(kCompletionShells, ", "));
+        return 1;
+    }
+
+    fmt::print(stdout, "{}", generateBashCompletion());
+    return 0;
 }
 
 int CliParser::handleList() const {

@@ -22,6 +22,7 @@
 #include "history/FileRunHistory.hpp"
 #include "history/IRunHistory.hpp"
 #include "interfaces/cli/CliParser.hpp"
+#include "interfaces/cli/CliSpec.hpp"
 #include "interfaces/cli/ProgressCoordinator.hpp"
 #include "interfaces/web/Server.hpp"
 #include "observability/LoggerSetup.hpp"
@@ -59,7 +60,11 @@ size_t resolveHistoryMax() {
     return 50;
 }
 
-[[nodiscard]] bool isServeCommand(std::string_view arg) { return arg == "serve"; }
+/** True when the command is executed by main() rather than by the CLI parser. */
+[[nodiscard]] bool isEntryPointCommand(std::string_view arg) {
+    const auto* spec = chaos::orchestrator::interfaces::cli::findCommand(arg);
+    return spec != nullptr && spec->owner == chaos::orchestrator::interfaces::cli::CommandOwner::EntryPoint;
+}
 
 int parsePort(std::span<char*> args) {
     int port = 8080;
@@ -113,8 +118,8 @@ int main(int argc, char* argv[]) {
 
     SPDLOG_DEBUG("chaos starting");
 
-    // Route "serve" directly to the web server, bypassing CLI parser
-    if (parsed.args.size() >= 2 && isServeCommand(parsed.args[1])) {
+    // Route entry-point commands ("serve") directly to the web server, bypassing CLI parser
+    if (parsed.args.size() >= 2 && isEntryPointCommand(parsed.args[1])) {
         return runServer(engine, history, std::span<char*>{parsed.args.data() + 2, parsed.args.size() - 2},
                          otlp_endpoint);
     }

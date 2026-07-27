@@ -103,6 +103,7 @@ private:
     void printRunResults(const core::RunResult& results, const manifests::ChaosManifest& manifest,
                          std::chrono::duration<double> elapsed) const;
     int handleHistory(const std::vector<std::string>& args) const;
+    int handleCompletion(const std::vector<std::string>& args) const;
     int dispatchCommand(const std::vector<std::string>& args) const;
 };
 

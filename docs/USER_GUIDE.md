@@ -79,6 +79,8 @@ sudo chaos run <manifest.json>
 sudo chaos history [--json]
 sudo chaos history <run-id> [--json]
 sudo chaos history clear
+sudo chaos serve [--port PORT]
+chaos completion bash
 ```
 
 ### Log Level Flags

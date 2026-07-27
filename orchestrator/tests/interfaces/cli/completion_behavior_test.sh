@@ -4,12 +4,7 @@
 #
 # The C++ unit tests assert on the text the generator emits; this one loads that
 # text into a real bash, drives _chaos_completion the way the shell does, and
-# checks what actually lands in COMPREPLY. The two are complementary: the
-# word-splitting defect that turned "two words.json" into two candidates left
-# every text assertion green.
-#
-# bash-completion is deliberately not sourced, so this exercises the fallback
-# branch that derives cur/prev/words/cword from COMP_WORDS by hand.
+# checks what actually lands in COMPREPLY.
 #
 # Usage: completion_behavior_test.sh <path-to-chaos-binary>
 

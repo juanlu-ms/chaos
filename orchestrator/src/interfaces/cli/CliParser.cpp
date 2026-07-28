@@ -388,6 +388,10 @@ int CliParser::handleRun(const std::string& manifest_path, const RunOptions& opt
         core::RunOrchestrator orchestrator(service_);
         auto run_result =
             orchestrator.run(manifest, state, composite, std::move(perturbation_instances), signal_guard.token());
+
+        // Observation must end before anything is rendered: the verdict was already snapshotted
+        // inside run(), so later ticks could only emit warnings the report cannot account for.
+        obs_loop.stop();
         renderer.finish();
         if (history_) {
             history_->save(recorder->finalize(run_result, "completed", ""));

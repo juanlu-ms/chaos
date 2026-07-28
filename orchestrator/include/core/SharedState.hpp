@@ -12,6 +12,7 @@
 #include <string_view>
 #include <vector>
 
+#include "core/RunPhase.hpp"
 #include "core/TargetState.hpp"
 
 namespace chaos::orchestrator::core {
@@ -67,15 +68,21 @@ public:
 
     /**
      * @brief Set the current execution phase.
-     * @param phase The phase name (e.g. "normal", "chaos", "recovery").
+     * @param phase The new phase.
      */
-    void setPhase(std::string_view phase);
+    void setPhase(RunPhase phase);
 
     /**
      * @brief Get the current execution phase.
-     * @return The current phase string.
+     * @return The current phase. Defaults to RunPhase::Normal before a run starts.
      */
-    [[nodiscard]] std::string phase() const;
+    [[nodiscard]] RunPhase phase() const;
+
+    /**
+     * @brief Get the current execution phase as its wire name.
+     * @return "normal", "chaos" or "recovery", for serialisation boundaries.
+     */
+    [[nodiscard]] std::string phaseName() const;
 
     /**
      * @brief Record a continuous expectation failure (deduplicated).
@@ -98,7 +105,7 @@ public:
 private:
     mutable std::mutex mtx_;
     core::TargetState latest_;
-    std::string phase_;
+    RunPhase phase_{RunPhase::Normal};
     std::vector<std::string> continuous_failures_;
     uint64_t sequence_{0};
 };
@@ -143,15 +150,20 @@ inline std::vector<std::string> SharedState::latestLogs() const {
     return latest_.recent_logs;
 }
 
-inline void SharedState::setPhase(std::string_view phase) {
+inline void SharedState::setPhase(RunPhase phase) {
     std::lock_guard lock(mtx_);
-    phase_ = std::string(phase);
+    phase_ = phase;
     ++sequence_;
 }
 
-inline std::string SharedState::phase() const {
+inline RunPhase SharedState::phase() const {
     std::lock_guard lock(mtx_);
     return phase_;
+}
+
+inline std::string SharedState::phaseName() const {
+    std::lock_guard lock(mtx_);
+    return std::string(toString(phase_));
 }
 
 inline uint64_t SharedState::sequence() const {

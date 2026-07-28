@@ -3,6 +3,7 @@
  * @brief Unit tests for ChaosService shared business logic.
  */
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <memory>
@@ -134,6 +135,30 @@ TEST(ChaosServiceUnitTest, FinalizeMarksContinuousFailures) {
     ASSERT_EQ(result.results.size(), 1u);
     EXPECT_FALSE(result.results[0].passed);
     EXPECT_EQ(result.results[0].message, "Passed final validation but failed mid-run continuous check");
+}
+
+/**
+ * @test Verifies finalize keeps the final validation's own diagnosis when that check
+ *       also failed, rather than claiming the expectation passed at the end.
+ */
+TEST(ChaosServiceUnitTest, FinalizeKeepsFinalFailureMessage) {
+    auto mockEngine = std::make_shared<tests::MockContainerEngine>();
+    core::ChaosService service(mockEngine);
+
+    manifests::ChaosManifest manifest;
+    manifest.expectations.push_back({.type = "container_running", .parameters = {}});
+    core::TargetState state;
+    state.status = containers::ContainerStatus::Exited;
+
+    // The container is dead, so the final check fails on its own. Its message is the useful
+    // one and must survive; the continuous failure is appended, not substituted.
+    auto result = service.finalize(manifest, state, {"container_running"});
+    EXPECT_FALSE(result.passed);
+    ASSERT_EQ(result.results.size(), 1u);
+    EXPECT_FALSE(result.results[0].passed);
+    EXPECT_THAT(result.results[0].message, testing::HasSubstr("Container is NOT running"));
+    EXPECT_THAT(result.results[0].message, testing::HasSubstr("also failed mid-run continuous check"));
+    EXPECT_THAT(result.results[0].message, testing::Not(testing::HasSubstr("Passed final validation")));
 }
 
 /**

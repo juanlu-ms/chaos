@@ -40,8 +40,9 @@ public:
         session_->cv.notify_all();
     }
 
-    void onPhaseChange(std::string_view phase) override {
-        session_->state.setPhase(phase);
+    void onPhaseChange(std::string_view /*phase*/) override {
+        // RunOrchestrator already wrote the phase to this same SharedState before notifying;
+        // this observer only has to wake the SSE stream so the change is pushed immediately.
         session_->cv.notify_all();
     }
 
@@ -284,6 +285,11 @@ void Server::executeRunAsync(manifests::ChaosManifest manifest, std::shared_ptr<
             auto run_result =
                 orchestrator.run(manifest, session->state, composite, std::move(perturbation_instances), token);
 
+            // The verdict was already snapshotted inside run(), so stop observing before
+            // serialising: any further tick could only mutate the session state or push SSE
+            // updates that contradict the result about to be sent.
+            obs_loop.stop();
+
             auto result = core::runResultToJson(run_result);
 
             std::string status = session->abort_requested.load() ? "aborted" : "completed";
@@ -395,7 +401,7 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& response) 
 
             if (uint64_t new_seq = session->state.sequence(); new_seq != last_seq && !session->complete) {
                 auto state = session->state.latestState();
-                auto state_json = stateToJson(state, session->state.phase(), session->state.continuousFailures());
+                auto state_json = stateToJson(state, session->state.phaseName(), session->state.continuousFailures());
                 writeSSEEvent(sink, state_json);
                 last_seq = new_seq;
             }

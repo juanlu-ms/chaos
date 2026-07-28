@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <stop_token>
 #include <string_view>
@@ -17,6 +18,7 @@
 
 #include "MockContainerEngine.hpp"
 #include "core/RunOrchestrator.hpp"
+#include "core/RunPhase.hpp"
 #include "core/SharedState.hpp"
 #include "perturbations/IPerturbation.hpp"
 
@@ -52,6 +54,29 @@ public:
     perturbations.push_back(std::make_unique<FailingPerturbation>());
     return perturbations;
 }
+
+/**
+ * @brief Perturbation that records which phase was current while it was being reverted.
+ */
+class PhaseRecordingPerturbation final : public perturbations::IPerturbation {
+    SharedState& state_;
+    std::optional<RunPhase>& phase_at_revert_;
+
+public:
+    PhaseRecordingPerturbation(SharedState& state, std::optional<RunPhase>& phase_at_revert)
+        : state_(state), phase_at_revert_(phase_at_revert) {}
+
+    void apply() override {}
+
+    void revert() override {
+        phase_at_revert_ = state_.phase();
+        // Reverting a real fault takes time — a killed container has to come back up. Hold
+        // long enough that a phase set after teardown would be visibly too late.
+        std::this_thread::sleep_for(200ms);
+    }
+
+    [[nodiscard]] std::string_view type() const override { return "kill"; }
+};
 
 }  // namespace
 
@@ -101,6 +126,36 @@ TEST(RunOrchestratorTest, RunWithDurationEntersAllPhases) {
 
     auto result = orchestrator.run(manifest, state, observer, {});
     EXPECT_TRUE(result.passed);
+}
+
+/**
+ * @test The recovery phase is entered before perturbations are reverted, not after.
+ *
+ * Undoing a fault is not instantaneous and continuous failures latch permanently, so
+ * leaving the teardown window labelled "chaos" would fail the run for disruption the
+ * fault itself never caused.
+ */
+TEST(RunOrchestratorTest, RecoveryPhaseStartsBeforePerturbationRevert) {
+    auto engine = std::make_shared<tests::MockContainerEngine>();
+    ChaosService service(engine);
+    RunOrchestrator orchestrator(service);
+
+    manifests::ChaosManifest manifest;
+    manifest.test_name = "revert-phase";
+    manifest.target.id = "test-container";
+    manifest.duration_s = 1;
+
+    SharedState state;
+    MockRunObserver observer;
+
+    std::optional<RunPhase> phase_at_revert;
+    std::vector<std::unique_ptr<perturbations::IPerturbation>> perturbations;
+    perturbations.push_back(std::make_unique<PhaseRecordingPerturbation>(state, phase_at_revert));
+
+    (void)orchestrator.run(manifest, state, observer, std::move(perturbations));
+
+    ASSERT_TRUE(phase_at_revert.has_value());
+    EXPECT_EQ(*phase_at_revert, RunPhase::Recovery);
 }
 
 /**

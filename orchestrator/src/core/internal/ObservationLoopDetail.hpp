@@ -29,7 +29,15 @@ NetworkMetrics parseProcNetDev(int pid, uint64_t& prev_rx, uint64_t& prev_tx,
 // Returns RTT in milliseconds, or nullopt on failure.
 [[nodiscard]] std::optional<double> executePing(std::string_view target_ip);
 
-// Sleep in 1-second increments, checking for stop request each tick.
-void interruptibleSleep(std::chrono::seconds duration, const std::stop_token& stop);
+// Sleep for the given duration in short slices, returning early once stop is
+// requested. Takes milliseconds so sub-second waits are honoured; seconds
+// convert implicitly.
+void interruptibleSleep(std::chrono::milliseconds duration, const std::stop_token& stop);
+
+// As above, but wakes on whichever token is requested first, so a caller
+// watching both an internal and an external stop is not held by the sleep
+// after either one fires.
+void interruptibleSleep(std::chrono::milliseconds duration, const std::stop_token& first,
+                        const std::stop_token& second);
 
 }  // namespace chaos::orchestrator::core::detail

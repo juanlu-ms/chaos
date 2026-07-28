@@ -45,10 +45,17 @@ RunResult ChaosService::finalize(const manifests::ChaosManifest& manifest, const
 
     bool passed = true;
     for (auto& result : results) {
+        // A continuous failure always fails the expectation, but it only *explains* it when the
+        // final check passed. When the final check failed too, its diagnosis is the useful one —
+        // overwriting it would tell the user the expectation passed at the end when it did not.
         if (bool continuous_failed =
                 std::ranges::find(continuous_failures, result.expectation_type) != continuous_failures.end()) {
-            result.passed = false;
-            result.message = "Passed final validation but failed mid-run continuous check";
+            if (result.passed) {
+                result.passed = false;
+                result.message = "Passed final validation but failed mid-run continuous check";
+            } else {
+                result.message += " (also failed mid-run continuous check)";
+            }
         }
         if (!result.passed) {
             passed = false;

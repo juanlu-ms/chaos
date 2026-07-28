@@ -9,6 +9,7 @@
 #include <thread>
 #include <vector>
 
+#include "core/RunPhase.hpp"
 #include "perturbations/PerturbationEngine.hpp"
 #include "validation/ValidationResult.hpp"
 
@@ -27,6 +28,20 @@ namespace {
     return std::string(buf.data());
 }
 
+void enterRecoveryPhase(SharedState& state, IRunObserver& observer) {
+    state.setPhase(RunPhase::Recovery);
+    SPDLOG_INFO("Entering recovery phase");
+    observer.onPhaseChange(toString(RunPhase::Recovery));
+}
+
+// Slack added to the hold time handed to the perturbation engine. Each perturbation runs its
+// own timer, started when its apply() returned, and reverts on its own once that timer expires.
+// Handing it the exact duration makes that timer race the orchestrator's chaos window — and the
+// perturbation usually wins, reverting the fault while the run is still labelled "chaos". The
+// grace keeps the engine's timer strictly behind the orchestrator, so cancel() is what ends the
+// fault and the engine's timer is only a backstop for an orchestrator that never gets there.
+constexpr auto kPerturbationHoldGrace = std::chrono::seconds(2);
+
 }  // namespace
 
 RunOrchestrator::RunOrchestrator(const ChaosService& service) : service_(service) {}
@@ -39,9 +54,10 @@ RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedS
     const auto duration = std::chrono::seconds(manifest.duration_s.value_or(0));
 
     // ── Normal phase ──────────────────────────────────────────────
-    observer.onPhaseChange("normal");
+    // State first, then observers: an observer woken by the notification must see the new phase.
+    state.setPhase(RunPhase::Normal);
     SPDLOG_INFO("Entering normal phase");
-    state.setPhase("normal");
+    observer.onPhaseChange(toString(RunPhase::Normal));
 
     if (duration.count() > 0) {
         std::this_thread::sleep_for(2s);
@@ -51,26 +67,31 @@ RunResult RunOrchestrator::run(const manifests::ChaosManifest& manifest, SharedS
     std::vector<std::string> apply_failures;
     if (duration.count() > 0 && !external_stop.stop_requested()) {
         perturbations::PerturbationEngine pert_engine;
-        pert_engine.scheduleAllAsync(std::move(perturbations), duration, external_stop);
+        pert_engine.scheduleAllAsync(std::move(perturbations), duration + kPerturbationHoldGrace, external_stop);
 
         SPDLOG_INFO("Entering chaos phase: injecting faults for {}s.", duration.count());
-        observer.onPhaseChange("chaos");
-        state.setPhase("chaos");
+        state.setPhase(RunPhase::Chaos);
+        observer.onPhaseChange(toString(RunPhase::Chaos));
 
         auto chaos_end = std::chrono::steady_clock::now() + duration;
         while (std::chrono::steady_clock::now() < chaos_end && !external_stop.stop_requested()) {
             std::this_thread::sleep_for(100ms);
         }
 
+        // ── Recovery phase ────────────────────────────────────────
+        // Entered before the revert, not after: undoing a fault (restarting a killed container,
+        // dropping tc rules) is not instantaneous, and continuous failures latch permanently.
+        // Leaving the teardown window labelled "chaos" would fail the run for disruption the
+        // fault itself never caused.
+        enterRecoveryPhase(state, observer);
+
         pert_engine.cancel();
         pert_engine.waitForTeardown();
         apply_failures = pert_engine.applyFailures();
+    } else {
+        // ── Recovery phase ────────────────────────────────────────
+        enterRecoveryPhase(state, observer);
     }
-
-    // ── Recovery phase ────────────────────────────────────────────
-    observer.onPhaseChange("recovery");
-    SPDLOG_INFO("Entering recovery phase");
-    state.setPhase("recovery");
 
     if (duration.count() > 0) {
         std::this_thread::sleep_for(2s);

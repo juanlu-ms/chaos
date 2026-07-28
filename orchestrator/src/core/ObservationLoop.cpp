@@ -14,6 +14,7 @@
 #include <thread>
 
 #include "containers/internal/CgroupMetricsGatherer.hpp"
+#include "core/RunPhase.hpp"
 #include "core/internal/ObservationLoopDetail.hpp"
 #include "observability/ObservabilityEngine.hpp"
 #include "validation/ValidationEngine.hpp"
@@ -109,10 +110,20 @@ std::optional<double> executePing(std::string_view target_ip) {
     }
 }
 
-void interruptibleSleep(std::chrono::seconds duration, const std::stop_token& stop) {
-    for (int i = 0; i < static_cast<int>(duration.count() * 10) && !stop.stop_requested(); ++i) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+void interruptibleSleep(std::chrono::milliseconds duration, const std::stop_token& first,
+                        const std::stop_token& second) {
+    constexpr auto slice = std::chrono::milliseconds(100);
+    // Slicing on the remaining time rather than a fixed tick count keeps sub-second
+    // durations from rounding away to no sleep at all.
+    for (auto slept = std::chrono::milliseconds::zero();
+         slept < duration && !first.stop_requested() && !second.stop_requested(); slept += slice) {
+        std::this_thread::sleep_for(std::min(slice, duration - slept));
     }
+}
+
+void interruptibleSleep(std::chrono::milliseconds duration, const std::stop_token& stop) {
+    // A default-constructed token never reports a stop, so it drops out of the check.
+    interruptibleSleep(duration, stop, std::stop_token{});
 }
 
 }  // namespace chaos::orchestrator::core::detail
@@ -129,7 +140,22 @@ ObservationLoop::ObservationLoop(std::shared_ptr<containers::IContainerEngine> e
       observer_(observer),
       config_(std::move(config)) {}
 
-ObservationLoop::~ObservationLoop() { internalStopSource_.request_stop(); }
+void ObservationLoop::stop() {
+    // request_stop() alone only sets a flag; joining is what guarantees a thread is not
+    // still mid-tick, about to log a warning or push a state update to the observer.
+    internalStopSource_.request_stop();
+    if (metricsThread_.joinable()) {
+        metricsThread_.join();
+    }
+    if (logsThread_.joinable()) {
+        logsThread_.join();
+    }
+    if (latencyThread_.joinable()) {
+        latencyThread_.join();
+    }
+}
+
+ObservationLoop::~ObservationLoop() { stop(); }
 
 void ObservationLoop::start(std::stop_token external_stop) {
     cgroup_ = std::make_unique<containers::CgroupMetricsGatherer>();
@@ -223,9 +249,13 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
             state_.updateMetrics(state);
             observer_.onStateUpdate(state);
 
+            // Gated on the chaos phase: a failure seen before the fault is injected, or while the
+            // target is recovering from it, is not evidence about the fault. Failures latch
+            // permanently, so counting those phases would let one unrelated blip fail the run.
+            // The end state is still judged by the final validation after the recovery phase.
             if (auto time_since_last_check = tick - last_continuous_check;
                 time_since_last_check >= config_.continuousValidationInterval &&
-                !config_.continuous_expectations.empty()) {
+                !config_.continuous_expectations.empty() && state_.phase() == RunPhase::Chaos) {
                 last_continuous_check = tick;
 
                 std::vector<manifests::Expectation> continuous;
@@ -249,7 +279,8 @@ void ObservationLoop::metricsThreadFn(std::stop_token internal_stop, std::stop_t
         auto elapsed = std::chrono::steady_clock::now() - tick;
         auto remaining = config_.metricsInterval - elapsed;
         if (remaining > 0ms) {
-            std::this_thread::sleep_for(remaining);
+            detail::interruptibleSleep(std::chrono::duration_cast<std::chrono::milliseconds>(remaining), internal_stop,
+                                       external_stop);
         }
     }
 }
@@ -273,7 +304,8 @@ void ObservationLoop::logsThreadFn(std::stop_token internal_stop, std::stop_toke
         auto elapsed = std::chrono::steady_clock::now() - tick;
         auto remaining = config_.logsInterval - elapsed;
         if (remaining > 0ms) {
-            std::this_thread::sleep_for(remaining);
+            detail::interruptibleSleep(std::chrono::duration_cast<std::chrono::milliseconds>(remaining), internal_stop,
+                                       external_stop);
         }
     }
 }
@@ -293,7 +325,7 @@ void ObservationLoop::latencyThreadFn(std::stop_token internal_stop, std::stop_t
         state_.updateNetworkLatency(latency);
         observer_.onNetworkLatencyUpdate(latency);
 
-        detail::interruptibleSleep(1s, internal_stop);
+        detail::interruptibleSleep(1s, internal_stop, external_stop);
     }
 }
 

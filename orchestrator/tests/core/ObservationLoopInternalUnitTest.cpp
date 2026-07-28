@@ -91,3 +91,65 @@ TEST(ObservationLoopInternalTest, InterruptibleSleepStopsEarlyOnCancellation) {
 
     EXPECT_LT(elapsed, 1s);
 }
+
+/**
+ * @test interruptibleSleep honours sub-second durations rather than rounding
+ *       them away to no sleep at all.
+ */
+TEST(ObservationLoopInternalTest, InterruptibleSleepHonoursSubSecondDurations) {
+    std::stop_source src;
+    auto start = std::chrono::steady_clock::now();
+
+    interruptibleSleep(200ms, src.get_token());
+
+    auto elapsed = std::chrono::steady_clock::now() - start;
+    EXPECT_GE(elapsed, 190ms);
+    EXPECT_LT(elapsed, 1s);
+}
+
+/**
+ * @test interruptibleSleep returns immediately when stop was already requested.
+ */
+TEST(ObservationLoopInternalTest, InterruptibleSleepReturnsImmediatelyIfAlreadyStopped) {
+    std::stop_source src;
+    src.request_stop();
+
+    auto start = std::chrono::steady_clock::now();
+    interruptibleSleep(5s, src.get_token());
+    auto elapsed = std::chrono::steady_clock::now() - start;
+
+    EXPECT_LT(elapsed, 100ms);
+}
+
+/**
+ * @test The two-token overload wakes on either token, so a caller watching both an
+ *       internal and an external stop is not held by the sleep after either fires.
+ */
+TEST(ObservationLoopInternalTest, InterruptibleSleepWakesOnEitherToken) {
+    for (bool stop_first : {true, false}) {
+        std::stop_source first;
+        std::stop_source second;
+        (stop_first ? first : second).request_stop();
+
+        auto start = std::chrono::steady_clock::now();
+        interruptibleSleep(5s, first.get_token(), second.get_token());
+        auto elapsed = std::chrono::steady_clock::now() - start;
+
+        EXPECT_LT(elapsed, 100ms) << "stopped via " << (stop_first ? "first" : "second") << " token";
+    }
+}
+
+/**
+ * @test The two-token overload still sleeps the full duration while neither token fires.
+ */
+TEST(ObservationLoopInternalTest, InterruptibleSleepWithTwoTokensSleepsWhenNeitherStops) {
+    std::stop_source first;
+    std::stop_source second;
+
+    auto start = std::chrono::steady_clock::now();
+    interruptibleSleep(200ms, first.get_token(), second.get_token());
+    auto elapsed = std::chrono::steady_clock::now() - start;
+
+    EXPECT_GE(elapsed, 190ms);
+    EXPECT_LT(elapsed, 1s);
+}

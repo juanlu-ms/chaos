@@ -101,6 +101,15 @@ public:
      */
     void start(std::stop_token external_stop = {});
 
+    /**
+     * @brief Request stop and join all background threads.
+     *
+     * Returns only once observation has actually ceased, so callers can rely on
+     * no further state updates, log warnings or continuous-validation failures
+     * arriving afterwards. Idempotent, and safe to call if start() never was.
+     */
+    void stop();
+
 private:
     // Background loop for metrics collection and continuous validation.
     void metricsThreadFn(std::stop_token internal_stop, std::stop_token external_stop);

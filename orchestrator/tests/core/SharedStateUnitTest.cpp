@@ -22,7 +22,8 @@ TEST(SharedStateTest, DefaultStateIsEmpty) {
     SharedState s;
     EXPECT_EQ(s.latestState().container_id, "");
     EXPECT_EQ(s.latestLogs().size(), 0u);
-    EXPECT_EQ(s.phase(), "");
+    EXPECT_EQ(s.phase(), RunPhase::Normal);
+    EXPECT_EQ(s.phaseName(), "normal");
     EXPECT_EQ(s.continuousFailures().size(), 0u);
 }
 
@@ -73,10 +74,23 @@ TEST(SharedStateTest, UpdateLogsOverwritesPrevious) {
  */
 TEST(SharedStateTest, SetAndReadPhase) {
     SharedState s;
-    s.setPhase("chaos");
-    EXPECT_EQ(s.phase(), "chaos");
-    s.setPhase("recovery");
-    EXPECT_EQ(s.phase(), "recovery");
+    s.setPhase(RunPhase::Chaos);
+    EXPECT_EQ(s.phase(), RunPhase::Chaos);
+    s.setPhase(RunPhase::Recovery);
+    EXPECT_EQ(s.phase(), RunPhase::Recovery);
+}
+
+/**
+ * @test Verifies phaseName() renders the wire names the serialisers depend on.
+ */
+TEST(SharedStateTest, PhaseNameMatchesWireNames) {
+    SharedState s;
+    s.setPhase(RunPhase::Normal);
+    EXPECT_EQ(s.phaseName(), "normal");
+    s.setPhase(RunPhase::Chaos);
+    EXPECT_EQ(s.phaseName(), "chaos");
+    s.setPhase(RunPhase::Recovery);
+    EXPECT_EQ(s.phaseName(), "recovery");
 }
 
 /**
@@ -258,11 +272,11 @@ TEST(SharedStateTest, UpdateLogsPopulatesLatestState) {
  */
 TEST(SharedStateTest, UpdateMetricsPreservesPhase) {
     SharedState s;
-    s.setPhase("chaos");
+    s.setPhase(RunPhase::Chaos);
 
     TargetState ts;
     ts.container_id = "new";
     s.updateMetrics(ts);
 
-    EXPECT_EQ(s.phase(), "chaos");
+    EXPECT_EQ(s.phase(), RunPhase::Chaos);
 }

@@ -31,7 +31,7 @@ The API server exposes `/call-downstream`, which internally makes an outbound HT
     }
   ],
   "expectations": [
-    { "type": "container_not_running" },
+    { "type": "container_running" },
     {
       "type": "http_status",
       "parameters": { "port": "8000", "path": "/ping", "expected_status": "200" }
@@ -46,13 +46,23 @@ The API server exposes `/call-downstream`, which internally makes an outbound HT
 2. CHAOS applies the 32MB limit via the Docker API — sets `memory.limit_in_bytes` in the container's cgroups
 3. The container already consumes ~18MB baseline + 30MB leaked = 48MB > 32MB limit
 4. The Linux kernel's OOM killer terminates the process immediately when the limit is applied
+5. The container runs with no restart policy, so it never comes back: it stays `exited` for the rest of the run
 
 ### Expected Results
 
+Both expectations describe the service MediWatch *believes* it has: a live container that answers. The run shows it is not.
+
 | Expectation | Result | Reason |
 |-------------|--------|--------|
-| `container_not_running` | PASS | CHAOS detects the container transitioned to `exited` state |
+| `container_running` | FAIL | The OOM killer takes the process down and the container transitions to `exited` |
 | `http_status 200` on `/ping` | FAIL | The container is dead, cannot respond |
+
+> **A note on injection.** Applying a limit below current usage can make the Docker API return HTTP
+> 500 even though the limit did take effect: with cgroup v2 and the `systemd` driver, the OOM killer
+> destroys the container's cgroup before runc finishes reading it back. CHAOS detects this — it
+> checks whether the kernel killed the container for memory — and counts the perturbation as applied,
+> so the verdict comes from the expectations rather than from an injection failure. It is
+> intermittent: it depends on whether systemd has already removed the scope when runc opens it.
 
 ### Key Concept
 
@@ -89,7 +99,7 @@ Their application has a memory leak invisible in development environments with a
     { "type": "container_running" },
     {
       "type": "http_latency",
-      "parameters": { "port": "8000", "path": "/call-downstream", "max_latency_ms": "500" }
+      "parameters": { "port": "8000", "path": "/call-downstream", "max_latency_ms": "2400" }
     }
   ]
 }
@@ -117,7 +127,14 @@ CHAOS ──[ingress, 0ms]──> API ──[egress, +1200ms]──> Downstream 
 - The downstream call (`/data`) takes ~50ms
 - Total latency: 0 + 1200 + 50 + 1200 ≈ **2450ms**
 - With CPU at 50%, processing overhead adds more latency
-- `max_latency_ms: 500` → 2450ms >> 500ms → **FAIL**
+- `max_latency_ms: 2400` → 2450ms > 2400ms → **FAIL**
+
+**Where the 2400ms threshold comes from.** It is not an arbitrary number: it is the *floor* imposed by
+the perturbation itself, 1200ms of egress on the downstream call plus another 1200ms of egress on the
+response to CHAOS. No request can go below it while the fault is injected, and everything else — the
+downstream's processing, the `cpu_cap` — can only add. The threshold is therefore set at the **best
+case theoretically reachable under the fault**, and the system does not meet even that: the FAIL does
+not depend on machine load, it is guaranteed by construction.
 
 ### Continuous Validation Mechanism
 
@@ -236,7 +253,7 @@ Their game server has no protection against malicious traffic at the network lev
 
 | Case | Perturbations | Expectations | Linux Concept |
 |------|--------------|-------------|----------------|
-| MediWatch | `memory_cap` (32MB) | `container_not_running` PASS, `http_status` FAIL | Cgroups v1/v2, OOM killer |
+| MediWatch | `memory_cap` (32MB) | `container_running` FAIL, `http_status` FAIL | Cgroups v1/v2, OOM killer |
 | PayFlow | `network_delay` (1200ms) + `cpu_cap` (0.5 cores) | `container_running` PASS, `http_latency` FAIL | Network namespaces, tc netem, CPU cgroups |
 | GameGrid | `packet_flood` (5000 pps, 512B) + `traffic_corruption` (10% / 10% / 5%) | `container_running` PASS, `http_status` FAIL, `http_latency` FAIL | Raw sockets (AF_PACKET), setns(), tc netem |
 

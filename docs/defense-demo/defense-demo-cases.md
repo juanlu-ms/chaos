@@ -31,7 +31,7 @@ El servidor API expone `/call-downstream` que internamente realiza una peticion 
     }
   ],
   "expectations": [
-    { "type": "container_not_running" },
+    { "type": "container_running" },
     {
       "type": "http_status",
       "parameters": { "port": "8000", "path": "/ping", "expected_status": "200" }
@@ -46,13 +46,23 @@ El servidor API expone `/call-downstream` que internamente realiza una peticion 
 2. CHAOS aplica el limite de 32MB via Docker API — establece `memory.limit_in_bytes` en los cgroups del contenedor
 3. El contenedor ya consume ~18MB base + 30MB fugados = 48MB > 32MB de limite
 4. El OOM killer del kernel Linux termina el proceso inmediatamente al aplicar el limite
+5. El contenedor se lanza sin politica de reinicio, asi que no vuelve: queda `exited` para el resto del run
 
 ### Resultados esperados
 
+Las dos expectativas describen el servicio que MediWatch *cree* tener: un contenedor vivo que responde. El run demuestra que no lo es.
+
 | Expectativa | Resultado | Razon |
 |-------------|-----------|-------|
-| `container_not_running` | PASS | CHAOS detecta que el contenedor paso a estado `exited` |
+| `container_running` | FAIL | El OOM killer se lleva al proceso y el contenedor pasa a `exited` |
 | `http_status 200` en `/ping` | FAIL | El contenedor esta muerto, no puede responder |
+
+> **Nota sobre la inyeccion.** Al aplicar un limite por debajo del uso actual, la API de Docker puede
+> devolver HTTP 500 aunque el limite si se haya aplicado: con cgroup v2 y el driver `systemd`, el OOM
+> killer destruye el cgroup del contenedor antes de que runc termine de leerlo. CHAOS lo detecta
+> —comprueba si el kernel mato al contenedor por memoria— y cuenta la perturbacion como aplicada, de
+> modo que el veredicto lo deciden las expectativas y no un fallo de inyeccion. Es intermitente:
+> depende de si systemd ha borrado ya el scope cuando runc lo abre.
 
 ### Concepto enseñado
 
@@ -89,7 +99,7 @@ Su aplicacion tiene una fuga de memoria invisible en entornos de desarrollo con 
     { "type": "container_running" },
     {
       "type": "http_latency",
-      "parameters": { "port": "8000", "path": "/call-downstream", "max_latency_ms": "500" }
+      "parameters": { "port": "8000", "path": "/call-downstream", "max_latency_ms": "2400" }
     }
   ]
 }
@@ -117,7 +127,14 @@ CHAOS ──[ingress, 0ms]──> API ──[egress, +1200ms]──> Downstream 
 - La llamada al downstream (`/data`) tarda ~50ms
 - Latencia total: 0 + 1200 + 50 + 1200 ≈ **2450ms**
 - Con CPU al 50%, el overhead de procesamiento anade mas latencia
-- `max_latency_ms: 500` → 2450ms >> 500ms → **FAIL**
+- `max_latency_ms: 2400` → 2450ms > 2400ms → **FAIL**
+
+**De donde sale el umbral de 2400ms.** No es un numero arbitrario: es el *suelo* que impone la propia
+perturbacion, 1200ms de egress en la llamada al downstream mas otros 1200ms de egress en la respuesta
+a CHAOS. Ninguna peticion puede bajar de ahi mientras el fallo este inyectado, y todo lo demas
+—el procesamiento del downstream, el `cpu_cap`— solo puede sumar. El umbral se fija por tanto en el
+**mejor caso teorico alcanzable bajo el fallo**, y el sistema tampoco lo cumple: el FAIL no depende
+de la carga de la maquina, esta garantizado por construccion.
 
 ### Mecanismo de validacion continua
 
@@ -236,7 +253,7 @@ Su servidor de juego no tiene proteccion contra trafico malicioso a nivel de red
 
 | Caso | Perturbaciones | Expectativas | Concepto Linux |
 |------|---------------|-------------|----------------|
-| MediWatch | `memory_cap` (32MB) | `container_not_running` PASS, `http_status` FAIL | Cgroups v1/v2, OOM killer |
+| MediWatch | `memory_cap` (32MB) | `container_running` FAIL, `http_status` FAIL | Cgroups v1/v2, OOM killer |
 | PayFlow | `network_delay` (1200ms) + `cpu_cap` (0.5 cores) | `container_running` PASS, `http_latency` FAIL | Network namespaces, tc netem, cgroups CPU |
 | GameGrid | `packet_flood` (5000 pps, 512B) + `traffic_corruption` (10% / 10% / 5%) | `container_running` PASS, `http_status` FAIL, `http_latency` FAIL | Raw sockets (AF_PACKET), setns, tc netem |
 

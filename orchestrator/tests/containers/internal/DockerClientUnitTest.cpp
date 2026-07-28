@@ -735,3 +735,85 @@ TEST(DockerClientUnitTest, GetStatsPropagatesTransportErrors) {
     auto adapter = makeAdapterWithError("Docker daemon unreachable");
     EXPECT_THROW((void)adapter.getStats("test-container"), std::runtime_error);
 }
+
+/**
+ * @test The memory limit error carries the daemon's response body, which is where the real cause
+ *       lives; without it a 500 is indistinguishable from any other.
+ */
+TEST(DockerClientUnitTest, IncludesResponseBodyInMemoryLimitError) {
+    auto adapter = DockerClient([](HttpMethod, std::string_view, std::string_view) {
+        return HttpResponse{.status = 500, .body = R"({"message":"runc did not terminate successfully"})"};
+    });
+
+    try {
+        adapter.updateMemoryLimit("test-container", 1048576);
+        FAIL() << "updateMemoryLimit was expected to throw";
+    } catch (const ContainerEngineApiError& e) {
+        const std::string message = e.what();
+        EXPECT_NE(message.find("500"), std::string::npos);
+        EXPECT_NE(message.find("runc did not terminate successfully"), std::string::npos);
+    }
+}
+
+/**
+ * @test The CPU quota error carries the daemon's response body too.
+ */
+TEST(DockerClientUnitTest, IncludesResponseBodyInCpuQuotaError) {
+    auto adapter = DockerClient([](HttpMethod, std::string_view, std::string_view) {
+        return HttpResponse{.status = 500, .body = R"({"message":"cannot update cpu quota"})"};
+    });
+
+    try {
+        adapter.updateCpuQuota("test-container", 50000, 100000);
+        FAIL() << "updateCpuQuota was expected to throw";
+    } catch (const ContainerEngineApiError& e) {
+        const std::string message = e.what();
+        EXPECT_NE(message.find("500"), std::string::npos);
+        EXPECT_NE(message.find("cannot update cpu quota"), std::string::npos);
+    }
+}
+
+/**
+ * @test wasOomKilled reports the kernel's verdict from State.OOMKilled.
+ */
+TEST(DockerClientUnitTest, ReportsOomKilledFromInspect) {
+    auto adapter = DockerClient([](HttpMethod method, std::string_view endpoint, std::string_view) {
+        EXPECT_EQ(method, HttpMethod::GET);
+        EXPECT_EQ(endpoint, "/containers/test-container/json");
+        return HttpResponse{.status = 200, .body = R"({"State":{"Status":"exited","OOMKilled":true}})"};
+    });
+
+    EXPECT_TRUE(adapter.wasOomKilled("test-container"));
+}
+
+/**
+ * @test A missing OOMKilled field means "no evidence of an OOM kill", not a parse failure: the
+ *       caller uses this as a hint and must not be handed an exception for it.
+ */
+TEST(DockerClientUnitTest, ReportsNotOomKilledWhenFieldMissing) {
+    auto adapter = DockerClient([](HttpMethod, std::string_view, std::string_view) {
+        return HttpResponse{.status = 200, .body = R"({"State":{"Status":"running"}})"};
+    });
+
+    EXPECT_NO_THROW({ EXPECT_FALSE(adapter.wasOomKilled("test-container")); });
+}
+
+/**
+ * @test wasOomKilled surfaces API errors, so an unreachable target is not silently reported as
+ *       "not OOM-killed".
+ */
+TEST(DockerClientUnitTest, WasOomKilledThrowsOnApiError) {
+    auto adapter = DockerClient([](HttpMethod, std::string_view, std::string_view) {
+        return HttpResponse{.status = 404, .body = R"({"message":"No such container"})"};
+    });
+
+    EXPECT_THROW((void)adapter.wasOomKilled("test-container"), ContainerEngineApiError);
+}
+
+/**
+ * @test wasOomKilled rejects an empty container ID like the rest of the API.
+ */
+TEST(DockerClientUnitTest, WasOomKilledWithEmptyIdThrows) {
+    auto adapter = makeAdapterForListContainers(nlohmann::json::array());
+    EXPECT_THROW((void)adapter.wasOomKilled(""), std::invalid_argument);
+}

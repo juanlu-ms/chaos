@@ -545,7 +545,8 @@ void DockerClient::updateMemoryLimit(const std::string_view container_id, int64_
 
     if (const auto response = request_(HttpMethod::POST, endpoint, update_config.dump()); response.status != 200) {
         throw containers::ContainerEngineApiError(
-            fmt::format("Failed to update memory limit for container '{}': HTTP {}", container_id, response.status));
+            fmt::format("Failed to update memory limit for container '{}': HTTP {}: {}", container_id, response.status,
+                        response.body));
     }
 
     SPDLOG_INFO("Updated memory limit for container '{}'", container_id);
@@ -572,7 +573,8 @@ void DockerClient::updateCpuQuota(const std::string_view container_id, int64_t c
 
     if (const auto response = request_(HttpMethod::POST, endpoint, update_config.dump()); response.status != 200) {
         throw containers::ContainerEngineApiError(
-            fmt::format("Failed to update CPU quota for container '{}': HTTP {}", container_id, response.status));
+            fmt::format("Failed to update CPU quota for container '{}': HTTP {}: {}", container_id, response.status,
+                        response.body));
     }
 
     SPDLOG_INFO("Updated CPU quota for container '{}'", container_id);
@@ -602,6 +604,34 @@ containers::ContainerStatus DockerClient::getStatus(const std::string_view conta
 
     throw containers::ContainerEngineParseError(
         fmt::format("Docker inspect response missing State.Status for container '{}'", container_id));
+}
+
+bool DockerClient::wasOomKilled(const std::string_view container_id) const {
+    if (container_id.empty()) {
+        throw std::invalid_argument("Container ID cannot be empty");
+    }
+
+    SPDLOG_DEBUG("DockerClient: checking OOM state for container {}", container_id);
+
+    const std::string endpoint = fmt::format("/containers/{}/json", container_id);
+    const auto response = request_(HttpMethod::GET, endpoint, "");
+    if (response.status != 200) {
+        throw containers::ContainerEngineApiError(fmt::format("Failed to get OOM state for container '{}': HTTP {}: {}",
+                                                              container_id, response.status, response.body));
+    }
+
+    // Callers treat this as evidence, not as a required field: an engine that omits it simply means
+    // "no evidence of an OOM kill", so a missing field is false rather than a parse error.
+    const auto json_response = parseResponse(response);
+    if (!json_response.contains("State") || !json_response["State"].is_object() ||
+        !json_response["State"].contains("OOMKilled") || !json_response["State"]["OOMKilled"].is_boolean()) {
+        SPDLOG_DEBUG("DockerClient: container {} inspect response has no State.OOMKilled", container_id);
+        return false;
+    }
+
+    const auto oom_killed = json_response["State"]["OOMKilled"].get<bool>();
+    SPDLOG_DEBUG("DockerClient: container {} OOMKilled={}", container_id, oom_killed);
+    return oom_killed;
 }
 
 std::string DockerClient::getLogs(const std::string_view container_id) const {

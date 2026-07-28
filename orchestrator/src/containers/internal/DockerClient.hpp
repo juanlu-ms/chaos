@@ -202,6 +202,15 @@ public:
     [[nodiscard]] containers::ContainerStatus getStatus(const std::string_view container_id) const override;
 
     /**
+     * @brief Report whether the kernel OOM-killed a container, from State.OOMKilled.
+     * @param container_id Docker container ID.
+     * @return True if the container was OOM-killed, false otherwise or when Docker omits the field.
+     * @throws std::invalid_argument On empty container_id.
+     * @throws ContainerEngineApiError On non-200 HTTP response.
+     */
+    [[nodiscard]] bool wasOomKilled(const std::string_view container_id) const override;
+
+    /**
      * @brief Fetch stdout/stderr logs from a container via Docker Engine API.
      * @param container_id Docker container ID.
      * @return Raw log text (may contain Docker multiplexed stream headers).

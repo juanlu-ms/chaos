@@ -27,7 +27,7 @@ Perturbations are the fault injection mechanisms applied to a target container. 
 - **Parameters**:
   - `limit_bytes` (integer): The maximum amount of RAM the container is allowed to use.
 - **Under the hood**: Uses the Docker Update API to natively limit container memory allocation.
-- **Effect**: If the container attempts to allocate memory beyond this limit, the kernel's OOM (Out-Of-Memory) killer will terminate the offending process.
+- **Effect**: If the container attempts to allocate memory beyond this limit, the kernel's OOM (Out-Of-Memory) killer will terminate the offending process. A limit set *below* the container's current usage kills it immediately, on application. CHAOS treats that as a successful application even when the Docker API reports the update as failed: with cgroup v2 and the `systemd` driver, the OOM killer can destroy the container's cgroup before the runtime finishes reading it back, which surfaces as an HTTP 500 for an update that did take effect. The verdict of the run is then left to the manifest's expectations, as usual.
 
 ### 3. `cpu_cap`
 - **Description**: Throttles the CPU scheduling time available to the container.

@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 #include <system_error>
+#include <thread>
 #include <utility>
 
 namespace chaos::orchestrator::perturbations {
@@ -35,13 +36,66 @@ void MemoryCapPerturbation::apply() {
     try {
         auto sys_info = engine_->getSystemInfo();
         original_memory_limit_ = sys_info.mem_total;
-        engine_->updateMemoryLimit(target_id_, std::stoll(limit));
-        SPDLOG_INFO("Memory Cap Perturbation applied: limit_bytes={} on target {}", limit, target_id_);
     } catch (const containers::ContainerEngineError& e) {
         hasBeenApplied_ = false;
         throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
                                 std::string("Failed to apply Memory cap: ") + e.what());
     }
+
+    try {
+        engine_->updateMemoryLimit(target_id_, std::stoll(limit));
+        SPDLOG_INFO("Memory Cap Perturbation applied: limit_bytes={} on target {}", limit, target_id_);
+    } catch (const containers::ContainerEngineError& e) {
+        // A cap below the target's current usage kills it on the spot, and the engine may report
+        // that as a failed update: with cgroup v2 and the systemd driver, the OOM killer destroys
+        // the container's scope before the runtime has finished reading it back. The fault did land,
+        // so the target's own state decides, not the status code.
+        if (targetDiedApplyingCap()) {
+            return;
+        }
+        hasBeenApplied_ = false;
+        throw std::system_error(std::make_error_code(std::errc::operation_not_supported),
+                                std::string("Failed to apply Memory cap: ") + e.what());
+    }
+}
+
+bool MemoryCapPerturbation::targetDiedApplyingCap() const {
+    for (int attempt = 0; attempt < kStatusCheckAttempts; ++attempt) {
+        if (attempt > 0) {
+            std::this_thread::sleep_for(kStatusCheckDelay);
+        }
+
+        containers::ContainerStatus status = containers::ContainerStatus::Unknown;
+        try {
+            if (engine_->wasOomKilled(target_id_)) {
+                SPDLOG_WARN(
+                    "Memory Cap Perturbation: the OOM killer terminated target {} while applying the cap; "
+                    "treating the cap as applied",
+                    target_id_);
+                return true;
+            }
+            status = engine_->getStatus(target_id_);
+        } catch (const containers::ContainerEngineError& e) {
+            SPDLOG_DEBUG("Memory Cap Perturbation: could not read state of target {}: {}", target_id_, e.what());
+            return false;
+        }
+
+        if (status == containers::ContainerStatus::Exited || status == containers::ContainerStatus::Dead) {
+            SPDLOG_WARN(
+                "Memory Cap Perturbation: target {} died while applying the cap, with no evidence of an OOM "
+                "kill; treating the cap as applied",
+                target_id_);
+            return true;
+        }
+
+        // Anything other than a target still running is inconclusive, and retrying would not make it
+        // any clearer.
+        if (status != containers::ContainerStatus::Running) {
+            return false;
+        }
+    }
+
+    return false;
 }
 
 void MemoryCapPerturbation::revert() {

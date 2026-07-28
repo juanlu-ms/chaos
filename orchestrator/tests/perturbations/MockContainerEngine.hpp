@@ -50,6 +50,9 @@ public:
     /** @brief Queries the current status of a container. @param container_id The container identifier. @return The
      * container's status. */
     MOCK_METHOD(containers::ContainerStatus, getStatus, (const std::string_view container_id), (const, override));
+    /** @brief Reports whether the kernel OOM-killed a container. @param container_id The container identifier.
+     * @return True if the container was OOM-killed. */
+    MOCK_METHOD(bool, wasOomKilled, (const std::string_view container_id), (const, override));
     /** @brief Retrieves the logs of a container. @param container_id The container identifier. @return The container's
      * log output. */
     MOCK_METHOD(std::string, getLogs, (const std::string_view container_id), (const, override));

@@ -159,6 +159,16 @@ public:
     [[nodiscard]] virtual containers::ContainerStatus getStatus(const std::string_view containerId) const = 0;
 
     /**
+     * @brief Report whether the kernel terminated a container for exceeding its memory limit.
+     * @param containerId Docker container ID.
+     * @return True if the container was OOM-killed, false otherwise or when the engine does not
+     *         report the information.
+     * @throws ContainerEngineApiError On non-OK HTTP responses.
+     * @throws ContainerEngineParseError On JSON parsing failures.
+     */
+    [[nodiscard]] virtual bool wasOomKilled(const std::string_view containerId) const = 0;
+
+    /**
      * @brief Fetch stdout/stderr logs for a container.
      * @param containerId Docker container ID.
      * @return Raw log text (stdout/stderr combined).

@@ -342,3 +342,15 @@ TEST_F(ServerHistoryTest, HistoryClearReturns200) {
     auto body = json::parse(res->body);
     EXPECT_EQ(body["status"], "cleared");
 }
+
+/**
+ * @test Verifies GET /api/events with no run sends the exact error event, with no trailing NUL byte.
+ */
+TEST_F(ServerTest, EventsWithoutRunSendsExactErrorPayload) {
+    startServer();
+
+    auto res = client().Get("/api/events");
+    ASSERT_NE(res, nullptr);
+    EXPECT_EQ(res->status, 200);
+    EXPECT_EQ(res->body, "event: error\ndata: {\"error\":\"No active run\"}\n\n");
+}

@@ -29,6 +29,8 @@ namespace chaos::orchestrator::interfaces::web {
 
 namespace {
 
+constexpr std::string_view kNoActiveRunEvent = "event: error\ndata: {\"error\":\"No active run\"}\n\n";
+
 class WebRunObserver final : public core::IRunObserver {
     std::shared_ptr<core::RunSession> session_;
 
@@ -387,7 +389,7 @@ void Server::handleEvents(const httplib::Request&, httplib::Response& response) 
             SPDLOG_DEBUG("SSE event stream connected");
             if (!session || was_complete_at_connect) {
                 SPDLOG_DEBUG("SSE event stream: no active session, closing");
-                if (!sink.write("event: error\ndata: {\"error\":\"No active run\"}\n\n", 47)) {
+                if (!sink.write(kNoActiveRunEvent.data(), kNoActiveRunEvent.size())) {
                     return false;
                 }
                 sink.done();

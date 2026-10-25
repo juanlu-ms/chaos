@@ -28,12 +28,18 @@ ldd --version | head -1     # needs 2.38 or newer
 
 ### Option A: Download Pre-built Binary (Recommended)
 
-Grab the latest binary from [GitHub Releases](https://github.com/juanlu-ms/chaos/releases). Each release tagged `v*` publishes `chaos-<version>-linux-x86_64` alongside a `.sha256` checksum.
+The snippet below fetches the latest binary from [GitHub Releases](https://github.com/juanlu-ms/chaos/releases). Each release tagged `v*` publishes `chaos-<version>-linux-x86_64` alongside a `.sha256` checksum.
 
 ```bash
-sha256sum -c chaos-0.4.3-linux-x86_64.sha256   # verify the download
-chmod +x chaos-0.4.3-linux-x86_64
-sudo mv chaos-0.4.3-linux-x86_64 /usr/local/bin/chaos   # put it on your PATH
+# Resolve the latest release tag (or set VERSION=x.y.z to pin one)
+VERSION=$(curl -fsSLI -o /dev/null -w '%{url_effective}' \
+  https://github.com/juanlu-ms/chaos/releases/latest | sed 's|.*/v||')
+BASE=https://github.com/juanlu-ms/chaos/releases/download/v$VERSION
+curl -fLO "$BASE/chaos-$VERSION-linux-x86_64"
+curl -fLO "$BASE/chaos-$VERSION-linux-x86_64.sha256"
+sha256sum -c "chaos-$VERSION-linux-x86_64.sha256"   # verify the download
+chmod +x "chaos-$VERSION-linux-x86_64"
+sudo mv "chaos-$VERSION-linux-x86_64" /usr/local/bin/chaos   # put it on your PATH
 sudo chaos help
 ```
 

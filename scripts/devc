@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Run project commands inside the running devcontainer (same toolchain as CI:
+# clang 18, clang-format 18, vcpkg), from the host.
+#
+# Safe, fixed verbs (no root-only tests, no host networking changes):
+#   devc build            configure if needed + build the debug preset
+#   devc test-unit [-R x] unit tests only (ctest -L unit)
+#   devc format           apply clang-format to the tree
+#   devc check-format     dry-run format check (the CI gate)
+#   devc frontend-test    vitest
+#   devc clang-format ... clang-format 18 (stdin/stdout friendly)
+# Anything else:
+#   devc exec <cmd...>    arbitrary command as root in the container. It is
+#                         privileged with --pid=host, so treat it like sudo on the host.
+#
+# Host paths under the repo are rewritten to the container path in arguments.
+set -euo pipefail
+
+HOST_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CTR_ROOT="/workspaces/$(basename "$HOST_ROOT")"
+BUILD_DIR="build/dev-linux-clang"
+
+find_container() {
+  docker ps -a --filter "label=devcontainer.local_folder=${HOST_ROOT}" --format '{{.ID}} {{.State}}' | head -n1
+}
+
+read -r CID STATE <<< "$(find_container)" || true
+if [[ -z "${CID:-}" ]]; then
+  echo "devc: no devcontainer found for ${HOST_ROOT}. Open the folder in VS Code and 'Reopen in Container' once to create it." >&2
+  exit 3
+fi
+if [[ "$STATE" != "running" ]]; then
+  echo "devc: starting devcontainer ${CID}..." >&2
+  docker start "$CID" >/dev/null
+fi
+
+map_args() {
+  local a
+  for a in "$@"; do printf '%s\0' "${a//${HOST_ROOT}/${CTR_ROOT}}"; done
+}
+
+run() {
+  local tty=()
+  [[ -t 0 && -t 1 ]] && tty=(-t)
+  local mapped=()
+  while IFS= read -r -d '' a; do mapped+=("$a"); done < <(map_args "$@")
+  docker exec -i "${tty[@]}" -u root -w "$CTR_ROOT" "$CID" "${mapped[@]}"
+}
+
+sh_run() { run bash -lc "$1"; }
+
+verb="${1:-}"
+shift || true
+case "$verb" in
+  build)
+    sh_run "[[ -f ${BUILD_DIR}/CMakeCache.txt ]] || cmake --preset dev-linux-clang; cmake --build --preset debug -- -j\$(nproc)"
+    ;;
+  test-unit)
+    extra=""
+    for a in "$@"; do extra+=" $(printf '%q' "$a")"; done
+    sh_run "ctest --test-dir ${BUILD_DIR} -L unit --output-on-failure${extra}"
+    ;;
+  format)        sh_run "cmake --workflow --preset format" ;;
+  check-format)  sh_run "cmake --workflow --preset check-format" ;;
+  frontend-test) sh_run "cd frontend && pnpm test" ;;
+  clang-format)  run clang-format "$@" ;;
+  exec)          run "$@" ;;
+  *)
+    sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    exit 2
+    ;;
+esac

@@ -222,3 +222,7 @@ yarn-error.log
 
 # local editor settings
 .vscode/
+
+# Claude Code (personal / local-only)
+.claude/settings.local.json
+.claude/agent-memory-local/

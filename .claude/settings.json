@@ -1,0 +1,45 @@
+{
+  "enabledPlugins": {
+    "dev-core@claude-kit": true,
+    "cpp@claude-kit": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-kit": {
+      "source": {
+        "source": "directory",
+        "path": "/home/juanlu/Proyectos/claude-kit"
+      }
+    }
+  },
+  "outputStyle": "dev-core:mentor",
+  "env": {
+    "CLANG_FORMAT": "scripts/devc clang-format",
+    "CLANG_FORMAT_MAJOR": "18"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(scripts/devc build)",
+      "Bash(scripts/devc test-unit)",
+      "Bash(scripts/devc test-unit *)",
+      "Bash(scripts/devc format)",
+      "Bash(scripts/devc check-format)",
+      "Bash(scripts/devc frontend-test)",
+      "Bash(scripts/devc clang-format *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)"
+    ],
+    "ask": [
+      "Bash(scripts/devc exec *)",
+      "Bash(sudo *)",
+      "Bash(docker rm *)",
+      "Bash(docker kill *)",
+      "Bash(docker stop *)",
+      "Bash(git push *)",
+      "Bash(scripts/bump-version.sh *)",
+      "Bash(*chaos run *)",
+      "Bash(*ctest --preset test-release*)"
+    ]
+  }
+}

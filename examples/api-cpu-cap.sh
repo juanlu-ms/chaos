@@ -4,7 +4,7 @@ set -euo pipefail
 BASE_URL="${BASE_URL:-http://127.0.0.1:8000}"
 ACTION="${1:-run}"
 COUNT="${2:-1}"
-SECONDS="${SECONDS:-8}"
+DURATION_S="${DURATION_S:-8}"
 WORKERS="${WORKERS:-2}"
 
 if ! [[ "$COUNT" =~ ^[0-9]+$ ]] || [[ "$COUNT" -lt 1 ]]; then

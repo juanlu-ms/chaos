@@ -293,7 +293,7 @@ void DockerClient::startContainer(const std::string_view container_id) const {
     SPDLOG_DEBUG("DockerClient: starting container {}", container_id);
 
     if (const auto response = request_(HttpMethod::POST, fmt::format("/containers/{}/start", container_id), "");
-        response.status != 204) {
+        response.status != 204 && response.status != 304) {
         SPDLOG_ERROR("Docker API returned status {}: {}", response.status, response.body);
         throw containers::ContainerEngineApiError(fmt::format("Docker API returned status {}", response.status));
     }

@@ -141,6 +141,70 @@ TEST(DockerClientUnitTest, ListPropagatesTransportErrors) {
 }
 
 /**
+ * @test Verifies startContainer calls the expected endpoint and HTTP method.
+ */
+TEST(DockerClientUnitTest, StartContainerCallsCorrectEndpoint) {
+    bool was_called = false;
+    const std::string container_id = "test-container-789";
+
+    auto adapter =
+        DockerClient([&was_called, &container_id](HttpMethod method, std::string_view endpoint, std::string_view body) {
+            was_called = true;
+            EXPECT_EQ(method, HttpMethod::POST);
+            EXPECT_EQ(endpoint, fmt::format("/containers/{}/start", container_id));
+            EXPECT_TRUE(body.empty());
+            return HttpResponse{204, ""};
+        });
+
+    adapter.startContainer(container_id);
+    EXPECT_TRUE(was_called);
+}
+
+/**
+ * @test Verifies startContainer treats 304 as success: a container with a restart policy may already be running
+ * when a kill is reverted (issue #24).
+ */
+TEST(DockerClientUnitTest, StartContainerTreats304AsAlreadyStarted) {
+    auto adapter = DockerClient([](HttpMethod, std::string_view, std::string_view) { return HttpResponse{304, ""}; });
+
+    EXPECT_NO_THROW(adapter.startContainer("already-running"));
+}
+
+/**
+ * @test Verifies startContainer throws on any status other than 204 and 304, including other 2xx codes.
+ */
+TEST(DockerClientUnitTest, StartContainerThrowsOnUnexpectedStatus) {
+    for (const int status : {200, 404, 409, 500}) {
+        auto adapter = DockerClient([status](HttpMethod, std::string_view, std::string_view) {
+            return HttpResponse{status, R"({"message":"error"})"};
+        });
+
+        EXPECT_THROW(adapter.startContainer("any-id"), ContainerEngineApiError) << "status " << status;
+    }
+}
+
+/**
+ * @test Verifies startContainer propagates transport errors.
+ */
+TEST(DockerClientUnitTest, StartContainerPropagatesTransportError) {
+    auto adapter = makeAdapterWithError("Docker daemon unreachable");
+
+    EXPECT_THROW(adapter.startContainer("any-id"), std::runtime_error);
+}
+
+/**
+ * @test Verifies startContainer rejects empty container IDs before sending any request.
+ */
+TEST(DockerClientUnitTest, StartContainerWithEmptyIdThrows) {
+    auto adapter = DockerClient([](HttpMethod, std::string_view, std::string_view) -> HttpResponse {
+        ADD_FAILURE() << "no request expected for an empty container ID";
+        return HttpResponse{204, ""};
+    });
+
+    EXPECT_THROW(adapter.startContainer(""), std::invalid_argument);
+}
+
+/**
  * @test Verifies stopContainer calls the expected endpoint and HTTP method.
  */
 TEST(DockerClientUnitTest, StopContainerCallsCorrectEndpoint) {

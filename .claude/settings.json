@@ -1,17 +1,4 @@
 {
-  "enabledPlugins": {
-    "dev-core@claude-kit": true,
-    "cpp@claude-kit": true
-  },
-  "extraKnownMarketplaces": {
-    "claude-kit": {
-      "source": {
-        "source": "directory",
-        "path": "/home/juanlu/Proyectos/claude-kit"
-      }
-    }
-  },
-  "outputStyle": "dev-core:mentor",
   "env": {
     "CLANG_FORMAT": "scripts/devc clang-format",
     "CLANG_FORMAT_MAJOR": "18"
@@ -41,5 +28,18 @@
       "Bash(*chaos run *)",
       "Bash(*ctest --preset test-release*)"
     ]
-  }
+  },
+  "enabledPlugins": {
+    "dev-core@claude-kit": true,
+    "cpp@claude-kit": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-kit": {
+      "source": {
+        "source": "github",
+        "repo": "juanlu-ms/claude-plugins"
+      }
+    }
+  },
+  "outputStyle": "dev-core:mentor"
 }

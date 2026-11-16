@@ -6,6 +6,21 @@ on:
       - "**"
     tags:
       - "v*"
+  # Not pull_request_target: that one runs with the base repo's secrets and a
+  # write token, which must never be handed to code coming from a fork.
+  pull_request:
+
+# Least privilege by default. A job that needs more (publish_release) asks for
+# it itself, and fork PRs are capped to read-only by GitHub regardless.
+permissions:
+  contents: read
+
+# A new push to a branch or PR supersedes the run in progress for the previous
+# one. Tag runs are never cancelled: they publish the release, and stopping one
+# halfway could leave it without its binary.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   formatting:

@@ -1,8 +1,9 @@
 {
-    "test_name": "Fatal Kill Demo",
+    "test_name": "Kill and Recover Demo",
     "target": {
         "id": "chaos-demo-1"
     },
+    "duration_s": 10,
     "perturbations": [
         {
             "type": "kill"
@@ -10,7 +11,8 @@
     ],
     "expectations": [
         {
-            "type": "container_not_running"
+            "type": "container_running",
+            "continuous": false
         }
     ]
 }

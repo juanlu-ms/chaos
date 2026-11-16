@@ -36,7 +36,7 @@ Manifest HTTP expectations must use the target's port, `8000`.
 | `demo/01-resource-exhaustion.json` | Applies a CPU cap and a 256 MiB memory cap while checking that the container remains running and responds to `/ping`. |
 | `demo/02-network-cutoff.json` | Cuts the target's network. The container should remain running, but the HTTP check is intentionally expected to fail while the cutoff is active. |
 | `demo/03-garbage-flood.json` | Sends a packet flood while checking the target's liveness and `/ping` endpoint. |
-| `demo/04-kill.json` | Kills the target and expects it not to be running. Run this last or restart the target afterwards. |
+| `demo/04-kill.json` | Kill and recover: kills the target, keeps it down for 10 s, then restarts it and expects it to be running again. The check is final-only (`"continuous": false`) because the container is down on purpose during the chaos phase. |
 | `demo/05-traffic-corruption.json` | Applies packet corruption, loss and duplication while checking `/ping`. |
 
 ### API helper scripts

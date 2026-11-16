@@ -48,6 +48,7 @@ protected:
 
     void SetUp() override {
         E2eTestBase::SetUp();
+        if (IsSkipped() || HasFatalFailure()) return;
         temp_dir_ = std::filesystem::temp_directory_path() / ("chaos_e2e_history_" + std::to_string(std::rand()));
         std::filesystem::create_directories(temp_dir_);
     }

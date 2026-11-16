@@ -12,6 +12,7 @@
 
 #include "containers/ContainerEngineFactory.hpp"
 #include "containers/IContainerEngine.hpp"
+#include "support/TestPreconditions.hpp"
 
 namespace chaos::orchestrator::tests::smoke {
 
@@ -20,10 +21,16 @@ inline std::shared_ptr<containers::IContainerEngine> createTestEngine() { return
 
 /**
  * @brief Base test fixture that provisions a demo-target container for each test case.
+ *
+ * The tests are skipped when Docker is not available. A fixture that overrides SetUp() must
+ * return right after calling this one if IsSkipped() or HasFatalFailure() is true: GTEST_SKIP()
+ * only leaves the function it is written in, so the derived SetUp() would carry on with no engine.
  */
 class ContainerSmokeTestBase : public ::testing::Test {
 protected:
     void SetUp() override {
+        // Everything here goes through the Docker API, which the docker group can use without root.
+        CHAOS_REQUIRE_TEST_ENVIRONMENT(support::Requirement::Docker);
         engine_ = createTestEngine();
         engine_->buildImage("chaos-demo-target:latest", CHAOS_EXAMPLES_DIR "/demo-target/Dockerfile");
     }

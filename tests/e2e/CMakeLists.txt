@@ -20,6 +20,7 @@ target_compile_definitions(chaos_e2e_tests PRIVATE
 
 target_include_directories(chaos_e2e_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/orchestrator/src
+    ${CMAKE_SOURCE_DIR}/orchestrator/tests
 )
 
 include(GoogleTest)

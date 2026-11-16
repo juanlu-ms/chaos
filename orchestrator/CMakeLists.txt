@@ -219,6 +219,7 @@ add_executable(orchestrator_unit_tests
     tests/perturbations/TrafficCorruptionPerturbationUnitTest.cpp
     tests/perturbations/internal/PacketFloodInternalUnitTest.cpp
     tests/signals/SignalHandlerGuardUnitTest.cpp
+    tests/support/TestPreconditionsUnitTest.cpp
     tests/validation/ValidationEngineUnitTest.cpp
     tests/validation/ValidationFactoryUnitTest.cpp
     tests/validation/internal/ContainerStateValidationUnitTest.cpp
@@ -254,6 +255,7 @@ add_executable(orchestrator_smoke_tests
 
 target_include_directories(orchestrator_smoke_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/smoke
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
 target_compile_definitions(orchestrator_smoke_tests PRIVATE
     CHAOS_EXAMPLES_DIR="${CMAKE_SOURCE_DIR}/examples"

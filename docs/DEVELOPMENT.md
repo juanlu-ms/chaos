@@ -67,6 +67,15 @@ During development, use `pnpm run dev` in `frontend/` for hot module reload at `
 | Frontend (Vitest) | `cd frontend && pnpm test` |
 | E2E integration | `tests/e2e/` |
 
+The plain `ctest` command also runs the smoke and e2e tests, most of which use real containers. Each of those checks its preconditions when it starts and reports itself as **Skipped**, with the reason, if they are not met. The few that need neither Docker nor root (input validation, file history, manifest parsing) always run:
+
+| Tests | Label | Need |
+|-------|-------|------|
+| Smoke (`orchestrator/tests/smoke`) | `smoke` | A reachable Docker daemon (`/var/run/docker.sock`) |
+| E2E (`tests/e2e`) | `e2e` | A reachable Docker daemon **and** root |
+
+So without Docker or root you get skips instead of failures; add `-L unit` to leave those tests out completely. To be sure nothing was skipped, set `CHAOS_REQUIRE_PRIVILEGED_TESTS=1`: a missing precondition then fails the test. The `test-release` preset sets it, so CI cannot go green by skipping every privileged test.
+
 Alternate toolchain presets:
 
 | Preset | Test command |
@@ -74,7 +83,7 @@ Alternate toolchain presets:
 | ASan/UBSan | `ctest --preset test-asan -L unit` |
 | TSan | `ctest --preset test-tsan -L unit` |
 | Coverage | `cmake --build build/ci-coverage --target coverage_report` |
-| Release | `sudo ctest --preset test-release` |
+| Release (strict: missing Docker or root fails) | `sudo ctest --preset test-release` |
 
 ## Code Formatting
 

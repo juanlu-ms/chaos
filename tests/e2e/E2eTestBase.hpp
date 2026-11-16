@@ -13,6 +13,7 @@
 #include "containers/ContainerEngineFactory.hpp"
 #include "containers/ContainerStatus.hpp"
 #include "containers/IContainerEngine.hpp"
+#include "support/TestPreconditions.hpp"
 
 using chaos::orchestrator::containers::ContainerStatus;
 using chaos::orchestrator::containers::createContainerEngine;
@@ -20,10 +21,17 @@ using chaos::orchestrator::containers::IContainerEngine;
 
 /**
  * @brief Base test fixture that provisions a running demo-target container for each E2E test case.
+ *
+ * The tests are skipped when Docker or root is not available. A fixture that overrides SetUp()
+ * must return right after calling this one if IsSkipped() or HasFatalFailure() is true:
+ * GTEST_SKIP() only leaves the function it is written in, so the derived SetUp() would carry on
+ * with no container.
  */
 class E2eTestBase : public ::testing::Test {
 protected:
     void SetUp() override {
+        // Root as well as Docker: the network perturbations use nsenter, tc, iptables and raw sockets.
+        CHAOS_REQUIRE_TEST_ENVIRONMENT(chaos::orchestrator::tests::support::Requirement::DockerAndRoot);
         engine_ = createContainerEngine();
         engine_->buildImage("chaos-demo-target:latest", CHAOS_EXAMPLES_DIR "/demo-target/Dockerfile");
         containerId_ = engine_->createContainer("chaos-demo-target:latest", {});

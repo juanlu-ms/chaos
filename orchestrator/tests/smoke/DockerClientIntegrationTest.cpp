@@ -31,6 +31,7 @@ TEST_F(DockerClientIntegrationTest, ListsContainersWhenDockerAvailable) {
  * @test Verifies getSystemInfo returns a positive mem_total value.
  */
 TEST(DockerClientSystemInfoTest, GetSystemInfoReturnsTotalMemory) {
+    CHAOS_REQUIRE_TEST_ENVIRONMENT(chaos::orchestrator::tests::support::Requirement::Docker);
     auto adapter = createTestEngine();
     const auto info = adapter->getSystemInfo();
     EXPECT_GT(info.mem_total, 0);

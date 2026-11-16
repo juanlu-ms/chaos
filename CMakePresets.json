@@ -143,6 +143,9 @@
       "name": "test-release",
       "configurePreset": "release-linux-clang",
       "configuration": "Release",
+      "environment": {
+        "CHAOS_REQUIRE_PRIVILEGED_TESTS": "1"
+      },
       "output": {
         "outputOnFailure": true
       },

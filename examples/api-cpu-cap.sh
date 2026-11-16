@@ -16,7 +16,7 @@ case "$ACTION" in
   run)
     for ((i = 1; i <= COUNT; i++)); do
       printf "[%d/%d] " "$i" "$COUNT"
-      curl -fsS "$BASE_URL/cpu?seconds=$SECONDS&workers=$WORKERS"
+      curl -fsS "$BASE_URL/cpu?seconds=$DURATION_S&workers=$WORKERS"
       echo
     done
     ;;

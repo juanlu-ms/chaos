@@ -13,6 +13,7 @@ class ContainerResourceTest : public ContainerSmokeTestBase {
 protected:
     void SetUp() override {
         ContainerSmokeTestBase::SetUp();
+        if (IsSkipped() || HasFatalFailure()) return;
         createAndStartContainer();
     }
 };

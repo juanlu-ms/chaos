@@ -47,7 +47,7 @@ target is not available at `http://127.0.0.1:8000`.
 | Script | Usage | Purpose |
 | --- | --- | --- |
 | `api-network-delay.sh` | `./api-network-delay.sh` | Calls `/ping` once. |
-| `api-cpu-cap.sh` | `./api-cpu-cap.sh [run\|start\|stop] [count]` | Runs timed CPU work, starts continuous CPU workers, or stops them. `SECONDS` and `WORKERS` customize the workload. |
+| `api-cpu-cap.sh` | `./api-cpu-cap.sh [run\|start\|stop] [count]` | Runs timed CPU work, starts continuous CPU workers, or stops them. `DURATION_S` and `WORKERS` customize the workload. |
 | `api-memory-cap.sh` | `./api-memory-cap.sh [count]` | Calls `/allocate` repeatedly to allocate memory. |
 | `api-showcase.sh` | `./api-showcase.sh` | Runs a live sequence of API calls, prints responses and latency statistics, and shows container logs when available. `PORT`, `BASE_URL`, `CONTAINER_NAME`, `LOG_LINES`, `CPU_COUNT`, `ALLOC_COUNT`, `TIMEOUT` and `SLEEP_BETWEEN` customize it. |
 

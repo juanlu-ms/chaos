@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Change to the examples directory regardless of where script is called from
 cd "$(dirname "$0")"
@@ -16,7 +16,8 @@ docker rm -f chaos-demo-1 > /dev/null 2>&1 || true
 
 echo "3. Starting target container (chaos-demo-1)..."
 # NET_ADMIN is required for tc and iptables network perturbations
-docker run -d --name chaos-demo-1 --cap-add=NET_ADMIN -p 8000:8000 chaos-demo-target > /dev/null
+# Bare `-e CHAOS_THREADED` forwards the host value only if it is set
+docker run -d --name chaos-demo-1 --cap-add=NET_ADMIN -e CHAOS_THREADED -p 8000:8000 chaos-demo-target > /dev/null
 
 echo ""
 echo "✅ Target application is running in the background."
@@ -35,7 +36,7 @@ echo "2. Compile the orchestrator if you haven't already:"
 echo "   bash scripts/cmake-local.sh all"
 echo ""
 echo "3. Start the CHAOS Web Dashboard (from the repository root):"
-echo "   ./build/debug/orchestrator/chaos serve --port 8080"
+echo "   sudo ./build/dev-linux-clang/orchestrator/chaos serve --port 8080"
 echo ""
 echo "4. Open your browser to http://127.0.0.1:8080"
 echo "   - View live logs for 'chaos-demo-1' by clicking the Logs button."

@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 cd "$(dirname "$0")"
 
@@ -13,7 +13,7 @@ cleanup() {
   docker network rm "$NETWORK" 2>/dev/null || true
   echo "Hecho."
 }
-trap cleanup ERR
+trap cleanup EXIT
 
 echo "=================================================="
 echo " CHAOS - Demo de Defensa del TFG"
@@ -25,7 +25,9 @@ docker build -t chaos-defense-target ./demo-target
 
 echo ""
 echo "[2/7] Creando red Docker personalizada..."
-docker network rm -f "$NETWORK" 2>/dev/null || true
+# A network with attached containers can't be removed (e.g. rerun after Case 2)
+docker rm -f chaos-demo-api chaos-demo-downstream 2>/dev/null || true
+docker network rm "$NETWORK" 2>/dev/null || true
 docker network create "$NETWORK"
 
 echo ""
@@ -115,3 +117,5 @@ echo " Para limpiar manualmente tras la demo:"
 echo "   docker rm -f chaos-demo-api chaos-demo-downstream"
 echo "   docker network rm $NETWORK"
 echo "=================================================="
+
+trap - EXIT

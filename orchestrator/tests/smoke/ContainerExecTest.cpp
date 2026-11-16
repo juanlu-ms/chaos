@@ -29,12 +29,12 @@ TEST_F(ContainerExecTest, ExecSimpleCommandReturnsOutput) {
 }
 
 /**
- * @test Verifies exec returns non-empty output for the whoami command.
+ * @test Verifies exec runs as the demo image's non-root user.
  */
 TEST_F(ContainerExecTest, ExecWithComplexCommand) {
     const auto output = engine_->exec(containerId_, "whoami");
-    EXPECT_FALSE(output.empty());
-    EXPECT_NE(output.find("root"), std::string::npos);
+    EXPECT_NE(output.find("app"), std::string::npos);
+    EXPECT_EQ(output.find("root"), std::string::npos);
 }
 
 /**

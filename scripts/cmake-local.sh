@@ -4,7 +4,7 @@ set -euo pipefail
 MODE="${1:-all}"
 CONFIGURE_PRESET="${CONFIGURE_PRESET:-dev-linux-clang}"
 BUILD_PRESET="${BUILD_PRESET:-debug}"
-TEST_PRESET="${TEST_PRESET:-test}"
+TEST_PRESET="${TEST_PRESET:-test-debug}"
 
 resolve_vcpkg_root() {
   if [[ -n "${VCPKG_ROOT:-}" && -f "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" ]]; then

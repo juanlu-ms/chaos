@@ -204,3 +204,38 @@ jobs:
             chaos-*-linux-x86_64.sha256
           fail_on_unmatched_files: true
           generate_release_notes: true
+
+  # Separate from build_and_test on purpose: the Release Build only compiles the
+  # UI (CMake runs `pnpm install` + `vite build` at configure time) and never runs
+  # Vitest, and a UI regression should not have to wait for a C++ build to show up.
+  frontend:
+    name: Frontend Tests & Build
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+
+      # Same pnpm and Node.js versions as the Release Build job, so both jobs
+      # resolve frontend/pnpm-lock.yaml the same way and share one store cache.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests (Vitest)
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build

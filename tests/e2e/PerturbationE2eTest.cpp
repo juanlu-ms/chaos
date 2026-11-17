@@ -6,7 +6,11 @@
 #include <fmt/format.h>
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <optional>
+#include <sstream>
 #include <string>
+#include <string_view>
 #include <thread>
 
 #include "E2eTestBase.hpp"
@@ -22,6 +26,39 @@ using chaos::orchestrator::perturbations::PerturbationFactory;
 
 /** @brief Test fixture for end-to-end perturbation type integration tests. */
 class PerturbationE2eTest : public E2eTestBase {};
+
+namespace {
+
+/**
+ * @brief Extracts the TX packet count of @p iface from /proc/net/dev output.
+ * @return The count, or std::nullopt if the interface line is missing or malformed.
+ */
+std::optional<uint64_t> parseTxPackets(const std::string& procNetDev, std::string_view iface) {
+    std::istringstream lines(procNetDev);
+    for (std::string line; std::getline(lines, line);) {
+        const auto colon = line.find(':');
+        if (colon == std::string::npos) {
+            continue;
+        }
+        const auto nameStart = line.find_first_not_of(' ');
+        if (std::string_view(line).substr(nameStart, colon - nameStart) != iface) {
+            continue;
+        }
+        // After "iface:" come 8 RX columns, then tx_bytes tx_packets ...; large counters can touch the colon.
+        std::istringstream fields(line.substr(colon + 1));
+        constexpr int kTxPacketsColumn = 9;
+        uint64_t value = 0;
+        for (int column = 0; column <= kTxPacketsColumn; ++column) {
+            if (!(fields >> value)) {
+                return std::nullopt;
+            }
+        }
+        return value;
+    }
+    return std::nullopt;
+}
+
+}  // namespace
 
 /**
  * @test Applies kill perturbation and verifies container stops, then reverts and verifies restart.
@@ -166,15 +203,17 @@ TEST_F(PerturbationE2eTest, TrafficCorruptionPerturbationApplyAndRevert) {
 
 /**
  * @test Verifies PacketFloodPerturbation is a flood (packets injected), not a cutoff:
- *       container stays running, interface RX counters increase, and traffic flows after revert.
+ *       container stays running, interface TX counters increase, and traffic flows after revert.
  */
 TEST_F(PerturbationE2eTest, PacketFloodPerturbationApplyAndRevert) {
     Target target{containerId()};
     Perturbation spec{"packet_flood", Parameters{{"rate", "100000"}, {"packet_size", "64"}}};
     auto perturbation = PerturbationFactory().create(engine(), target, spec);
 
-    // Read baseline interface RX packet count
-    const auto rxBefore = engine()->execInNetNs(containerId(), "cat /sys/class/net/eth0/statistics/rx_packets");
+    // nsenter -n switches only the network namespace, so /sys is still the host's sysfs and its
+    // eth0 is the runner's. /proc/net is a link to /proc/self/net, which follows the netns of the
+    // reading process, so it shows the container's interfaces.
+    const auto devBefore = engine()->execInNetNs(containerId(), "cat /proc/net/dev");
 
     perturbation->apply();
     EXPECT_EQ(engine()->getStatus(containerId()), ContainerStatus::Running);
@@ -182,17 +221,17 @@ TEST_F(PerturbationE2eTest, PacketFloodPerturbationApplyAndRevert) {
     // Let the flood run and inject packets
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    // During flood: RX packets should increase (flood injects TCP SYNs that loop back)
-    const auto rxDuring = engine()->execInNetNs(containerId(), "cat /sys/class/net/eth0/statistics/rx_packets");
-    uint64_t rx_before_val = 0;
-    uint64_t rx_during_val = 0;
-    try {
-        rx_before_val = std::stoull(rxBefore);
-        rx_during_val = std::stoull(rxDuring);
-    } catch (const std::exception&) {
-        FAIL() << "Non-numeric RX count: before='" << rxBefore << "' during='" << rxDuring << "'";
-    }
-    EXPECT_GT(rx_during_val, rx_before_val);
+    // The flood writes frames to eth0 through an AF_PACKET socket, so they count as TX. RX stays flat:
+    // the bridge won't send a frame back out the port it came in on, so nothing loops back.
+    // The floor keeps background traffic (ARP, IPv6 ND) from passing the check on its own.
+    const auto devDuring = engine()->execInNetNs(containerId(), "cat /proc/net/dev");
+    const auto tx_before_val = parseTxPackets(devBefore, "eth0");
+    const auto tx_during_val = parseTxPackets(devDuring, "eth0");
+    ASSERT_TRUE(tx_before_val && tx_during_val) << "No eth0 TX count in container /proc/net/dev:\nbefore:\n"
+                                                << devBefore << "\nduring:\n"
+                                                << devDuring;
+    constexpr uint64_t kMinFloodPackets = 1000;
+    EXPECT_GE(*tx_during_val - *tx_before_val, kMinFloodPackets);
 
     perturbation->revert();
     EXPECT_EQ(engine()->getStatus(containerId()), ContainerStatus::Running);

@@ -36,6 +36,7 @@ Use read-only commands only (`git diff/log/show`, reading files). Never run `cha
 - cgroup v2: path discovery (not a hardcoded `system.slice` or substring match), units (`cpu.max` is "quota period"), and the `memory.max` vs `memory.high` semantics.
 - PIDs: TOCTOU between reading a container's PID and using it (the container restarts and the PID is reused), and `kill` with restart policies.
 - Raw sockets / packet floods: does the rate limit actually apply (no busy loop), and is the traffic confined to the target?
+- Commands through `execInNetNs` that read `/sys/class/net/...` (or any sysfs/mount-dependent path) see the **host**, not the container: `nsenter -n` does not change the mount namespace. Use `/proc/net/*` or netlink (`ip`).
 
 **4. Process and signal safety**
 - Signal handlers must be async-signal-safe. Anything beyond setting an atomic flag or `write()` to a pipe is a finding.

@@ -28,6 +28,8 @@ A perturbation or expectation type, or one of its parameters, lives in: the C++ 
 
 Manifest params go through `IContainerEngine::execInNetNs` → `popen` (a shell). Validate the type and range of every param before it can reach a command string.
 
+`execInNetNs` only enters the network namespace: `/sys/class/net` is still the host's. Read container interfaces with `/proc/net/dev` or `ip` (they follow the reader's netns).
+
 ## Conventions
 
 - Commit subjects: an imperative sentence in English ("Add X", "Fix Y when Z"). **No** conventional-commit prefixes, even if a commit skill suggests them.
